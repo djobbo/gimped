@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { deflateSync, inflateSync } from "node:zlib";
 import { Effect } from "effect";
 import { ByteReader, ByteWriter, rotr } from "./binary.ts";
@@ -5,7 +6,6 @@ import { ChecksumMismatch, InvalidSwz } from "./errors.ts";
 import { Well512 } from "./Well512.ts";
 
 const HEADER_CHECKSUM = 771006925;
-const DEFAULT_SEED = 731341442;
 
 export type SwzEntry = {
   readonly content: string;
@@ -29,12 +29,13 @@ const byteMask = (random: number, index: number): number => {
 export const compile = (
   entries: readonly SwzEntry[],
   key: number,
-  seed: number = DEFAULT_SEED,
+  seed?: number,
 ): Effect.Effect<Uint8Array, never> =>
   Effect.sync(() => {
     const prng = new Well512();
     const writer = new ByteWriter();
-    const normalizedSeed = seed >>> 0;
+    const normalizedSeed =
+      seed !== undefined ? seed >>> 0 : (randomInt(0, 0x1_0000_0000) >>> 0);
 
     prng.initState(normalizedSeed);
     writer.writeU32BE(computeHeaderChecksum(prng, key));
