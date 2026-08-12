@@ -23,6 +23,15 @@ describe("Bitstream", () => {
     expect(r.readString()).toBe("hi");
   });
 
+  it("throws EOF on unaligned readU32 when next byte is missing", () => {
+    const w = new Bitstream();
+    w.writeBits(4, 1);
+    expect(w.toUint8Array().length).toBe(1);
+    const r = new Bitstream(w.toUint8Array());
+    expect(r.readBits(4)).toBe(1);
+    expect(() => r.readU32()).toThrow(RangeError);
+  });
+
   it("round-trips u32 after a 4-bit write (unaligned)", () => {
     const w = new Bitstream();
     w.writeBits(4, 4);
