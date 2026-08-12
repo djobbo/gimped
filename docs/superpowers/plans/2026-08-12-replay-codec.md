@@ -21,33 +21,34 @@
 
 ## File structure
 
-| File | Role |
-| ---- | ---- |
-| `packages/common/package.json` | `@gimped/common` |
-| `packages/common/src/binary.ts` | `ByteReader` / `ByteWriter` (+ U16BE) |
-| `packages/common/src/errors.ts` | `IoError`, `MalformedJson`, `toIoError`, `toMalformedJson` |
-| `packages/common/src/test-utils.ts` | `runWith` |
-| `packages/common/src/index.ts` | Re-exports |
-| `packages/swz/src/errors.ts` | Re-export common errors; keep SWZ-only errors |
-| `packages/swz/src/binary.ts` | Re-export common readers; keep `rotr` |
-| `packages/swz/src/test-utils.ts` | Re-export `runWith` from common |
-| `packages/replay/src/xor.ts` | 64-byte XOR |
-| `packages/replay/src/bitstream.ts` | `class_30` bit reader/writer |
-| `packages/replay/src/checksum.ts` | `method_3796` |
-| `packages/replay/src/ReplayJson.ts` | Effect Schema for the JSON document |
-| `packages/replay/src/errors.ts` | `InvalidReplay`, `ChecksumMismatch`, `GameDataError` |
-| `packages/replay/src/Envelope.ts` | zlib + XOR + raw fallback |
-| `packages/replay/src/ReplayCodec.ts` | bitstream ↔ `ReplayJson` type |
-| `packages/replay/src/GameData.ts` | optional ID→name |
-| `packages/replay/src/pipeline.ts` | `decompileFile` / `compileFile` |
-| `packages/replay/src/layers.ts` | `TestLive` |
-| `packages/replay-cli/src/*` | `replay` CLI |
+| File                                 | Role                                                       |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `packages/common/package.json`       | `@gimped/common`                                           |
+| `packages/common/src/binary.ts`      | `ByteReader` / `ByteWriter` (+ U16BE)                      |
+| `packages/common/src/errors.ts`      | `IoError`, `MalformedJson`, `toIoError`, `toMalformedJson` |
+| `packages/common/src/test-utils.ts`  | `runWith`                                                  |
+| `packages/common/src/index.ts`       | Re-exports                                                 |
+| `packages/swz/src/errors.ts`         | Re-export common errors; keep SWZ-only errors              |
+| `packages/swz/src/binary.ts`         | Re-export common readers; keep `rotr`                      |
+| `packages/swz/src/test-utils.ts`     | Re-export `runWith` from common                            |
+| `packages/replay/src/xor.ts`         | 64-byte XOR                                                |
+| `packages/replay/src/bitstream.ts`   | `class_30` bit reader/writer                               |
+| `packages/replay/src/checksum.ts`    | `method_3796`                                              |
+| `packages/replay/src/ReplayJson.ts`  | Effect Schema for the JSON document                        |
+| `packages/replay/src/errors.ts`      | `InvalidReplay`, `ChecksumMismatch`, `GameDataError`       |
+| `packages/replay/src/Envelope.ts`    | zlib + XOR + raw fallback                                  |
+| `packages/replay/src/ReplayCodec.ts` | bitstream ↔ `ReplayJson` type                              |
+| `packages/replay/src/GameData.ts`    | optional ID→name                                           |
+| `packages/replay/src/pipeline.ts`    | `decompileFile` / `compileFile`                            |
+| `packages/replay/src/layers.ts`      | `TestLive`                                                 |
+| `packages/replay-cli/src/*`          | `replay` CLI                                               |
 
 ---
 
 ### Task 1: Scaffold `@gimped/common` with ByteReader/Writer
 
 **Files:**
+
 - Create: `packages/common/package.json`
 - Create: `packages/common/tsconfig.json`
 - Create: `packages/common/vite.config.ts`
@@ -58,6 +59,7 @@
 - Modify: `packages/swz/package.json` (add `"@gimped/common": "workspace:*"`)
 
 **Interfaces:**
+
 - Produces:
   - `class ByteReader { constructor(buf: Uint8Array, offset?: number); remaining: number; readU8(): number; readU16BE(): number; readU32BE(): number }`
   - `class ByteWriter { writeU8(v: number): void; writeU16BE(v: number): void; writeU32BE(v: number): void; toUint8Array(): Uint8Array }`
@@ -229,6 +231,7 @@ git commit -m "feat(common): add ByteReader/ByteWriter with U16BE"
 ### Task 2: Move IoError, MalformedJson, helpers, and runWith
 
 **Files:**
+
 - Create: `packages/common/src/errors.ts`
 - Create: `packages/common/src/errors.test.ts`
 - Create: `packages/common/src/test-utils.ts`
@@ -241,6 +244,7 @@ git commit -m "feat(common): add ByteReader/ByteWriter with U16BE"
 - Modify: `packages/swz/src/pipeline.ts` (import `toIoError` from common)
 
 **Interfaces:**
+
 - Consumes: `ByteReader` / `ByteWriter` from Task 1
 - Produces:
   - `new IoError({ path: string, message: string })`
@@ -366,6 +370,7 @@ git commit -m "refactor(swz): move shared errors and helpers into @gimped/common
 ### Task 3: Scaffold `@gimped/replay`
 
 **Files:**
+
 - Create: `packages/replay/package.json`
 - Create: `packages/replay/tsconfig.json`
 - Create: `packages/replay/vite.config.ts`
@@ -375,6 +380,7 @@ git commit -m "refactor(swz): move shared errors and helpers into @gimped/common
 - Modify: `tsconfig.json` (add replay reference)
 
 **Interfaces:**
+
 - Produces:
   - `new InvalidReplay({ reason: string })`
   - `new ChecksumMismatch({ expected: number, actual: number })`
@@ -477,11 +483,13 @@ git commit -m "feat(replay): scaffold package and tagged errors"
 ### Task 4: XOR
 
 **Files:**
+
 - Create: `packages/replay/src/xor.ts`
 - Create: `packages/replay/src/xor.test.ts`
 - Modify: `packages/replay/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `xorBytes(bytes: Uint8Array): Uint8Array` — in-place-safe copy; `out[i] = in[i] ^ KEY[i % 64]`
 - Key (64 bytes): `107,16,222,60,68,75,209,70,160,16,82,193,178,49,211,106,251,172,17,222,6,104,8,120,140,213,179,249,106,64,214,19,12,174,157,197,212,107,84,114,252,87,93,26,6,115,194,81,75,176,201,140,120,4,17,122,239,116,62,70,57,160,199,166`
 
@@ -546,10 +554,12 @@ git commit -m "feat(replay): add 64-byte XOR key transform"
 ### Task 5: Bitstream
 
 **Files:**
+
 - Create: `packages/replay/src/bitstream.ts`
 - Create: `packages/replay/src/bitstream.test.ts`
 
 **Interfaces:**
+
 - Produces: `class Bitstream`
   - `constructor(bytes?: Uint8Array)`
   - `writeBits(n: number, value: number): void`
@@ -771,10 +781,12 @@ git commit -m "feat(replay): add class_30 MSB-first bitstream"
 ### Task 6: Player checksum
 
 **Files:**
+
 - Create: `packages/replay/src/checksum.ts`
 - Create: `packages/replay/src/checksum.test.ts`
 
 **Interfaces:**
+
 - Consumes: player/cosmetics/heroes field names from spec JSON
 - Produces: `playerChecksum(players: readonly PlayerChecksumInput[], levelId: number, heroSlotCount: number): number`
 - Formula (`class_314.method_3796`), then `% 173`
@@ -913,10 +925,12 @@ git commit -m "feat(replay): add player setup checksum"
 ### Task 7: `ReplayJson` Schema
 
 **Files:**
+
 - Create: `packages/replay/src/ReplayJson.ts`
 - Create: `packages/replay/src/ReplayJson.test.ts`
 
 **Interfaces:**
+
 - Produces: `ReplayJson` Schema; `type Replay = typeof ReplayJson.Type`
 - Optional name keys via `Schema.optionalKey(Schema.String)`: `game.nameKey`, `rules.scoringTypeName`, `level.name`, `player.colorSchemeName`, `hero.heroName`, `hero.costumeName`
 - `input` on input rows: `Schema.optionalKey(Schema.Number)`
@@ -995,7 +1009,9 @@ describe("ReplayJson", () => {
 
   it("rejects missing replayVersion", async () => {
     const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), replayVersion: undefined })),
+      Effect.result(
+        Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), replayVersion: undefined }),
+      ),
     );
     expect(result._tag).toBe("Failure");
   });
@@ -1036,11 +1052,13 @@ git commit -m "feat(replay): add ReplayJson Schema"
 ### Task 8: ReplayCodec (chunks)
 
 **Files:**
+
 - Create: `packages/replay/src/ReplayCodec.ts`
 - Create: `packages/replay/src/ReplayCodec.test.ts`
 - Create: `packages/replay/src/layers.ts` (codec layer only for now)
 
 **Interfaces:**
+
 - Consumes: `Bitstream`, `playerChecksum`, `Replay`, `InvalidReplay`, `ChecksumMismatch`
 - Produces: `ReplayCodec` service `"@gimped/replay/ReplayCodec"`
   - `decode(bytes: Uint8Array): Effect<Replay, InvalidReplay | ChecksumMismatch>`
@@ -1103,10 +1121,12 @@ git commit -m "feat(replay): encode and decode replay chunks"
 ### Task 9: Envelope
 
 **Files:**
+
 - Create: `packages/replay/src/Envelope.ts`
 - Create: `packages/replay/src/Envelope.test.ts`
 
 **Interfaces:**
+
 - Consumes: `xorBytes`, Node `inflateSync` / `deflateSync`
 - Produces: `Envelope` service `"@gimped/replay/Envelope"`
   - `open(bytes: Uint8Array): Effect<Uint8Array, InvalidReplay>` — try inflate; on success XOR; on inflate throw, return original bytes (no XOR)
@@ -1128,33 +1148,41 @@ const run = runWith(EnvelopeLive);
 describe("Envelope", () => {
   it("open reverses seal", async () => {
     const plain = Uint8Array.from([1, 2, 3, 4, 5]);
-    const sealed = await run(Effect.gen(function* () {
-      const env = yield* Envelope;
-      return yield* env.seal(plain);
-    }));
-    const opened = await run(Effect.gen(function* () {
-      const env = yield* Envelope;
-      return yield* env.open(sealed);
-    }));
+    const sealed = await run(
+      Effect.gen(function* () {
+        const env = yield* Envelope;
+        return yield* env.seal(plain);
+      }),
+    );
+    const opened = await run(
+      Effect.gen(function* () {
+        const env = yield* Envelope;
+        return yield* env.open(sealed);
+      }),
+    );
     expect([...opened]).toEqual([...plain]);
   });
 
   it("open uses raw bytes when inflate fails", async () => {
     const raw = Uint8Array.from([9, 8, 7]);
-    const opened = await run(Effect.gen(function* () {
-      const env = yield* Envelope;
-      return yield* env.open(raw);
-    }));
+    const opened = await run(
+      Effect.gen(function* () {
+        const env = yield* Envelope;
+        return yield* env.open(raw);
+      }),
+    );
     expect([...opened]).toEqual([9, 8, 7]);
   });
 
   it("open inflates then XORs", async () => {
     const plain = Uint8Array.from([1, 2, 3]);
     const sealed = deflateSync(xorBytes(plain));
-    const opened = await run(Effect.gen(function* () {
-      const env = yield* Envelope;
-      return yield* env.open(sealed);
-    }));
+    const opened = await run(
+      Effect.gen(function* () {
+        const env = yield* Envelope;
+        return yield* env.open(sealed);
+      }),
+    );
     expect([...opened]).toEqual([1, 2, 3]);
   });
 });
@@ -1220,10 +1248,12 @@ git commit -m "feat(replay): add zlib+XOR envelope with raw fallback"
 ### Task 10: GameData
 
 **Files:**
+
 - Create: `packages/replay/src/GameData.ts`
 - Create: `packages/replay/src/GameData.test.ts`
 
 **Interfaces:**
+
 - Produces: `GameData` service `"@gimped/replay/GameData"`
   - `annotate(replay: Replay, dataPath?: string): Effect<Replay, GameDataError>`
 - Layers:
@@ -1288,12 +1318,14 @@ git commit -m "feat(replay): add optional GameData name annotations"
 ### Task 11: Pipeline
 
 **Files:**
+
 - Create: `packages/replay/src/pipeline.ts`
 - Create: `packages/replay/src/pipeline.test.ts`
 - Modify: `packages/replay/src/layers.ts`
 - Modify: `packages/replay/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `Pipeline` service `"@gimped/replay/Pipeline"`
   - `decompileFile({ inPath, outPath, dataPath?: string }): Effect<void, IoError | InvalidReplay | ChecksumMismatch | GameDataError>`
   - `compileFile({ inPath, outPath }): Effect<void, IoError | MalformedJson | InvalidReplay>`
@@ -1335,6 +1367,7 @@ git commit -m "feat(replay): add decompile/compile file pipeline"
 ### Task 12: `@gimped/replay-cli`
 
 **Files:**
+
 - Create: `packages/replay-cli/package.json`
 - Create: `packages/replay-cli/tsconfig.json`
 - Create: `packages/replay-cli/vite.config.ts`
@@ -1346,6 +1379,7 @@ git commit -m "feat(replay): add decompile/compile file pipeline"
 - Modify: `tsconfig.json` (add replay-cli reference)
 
 **Interfaces:**
+
 - Consumes: `decompileFile`, `compileFile`, `layer` from `@gimped/replay`
 - Produces: `Command.make("replay")` with subcommands `decompile` / `compile`
 - Flags: `--in`, `--out`; decompile also `Flag.string("data").pipe(Flag.optional, Flag.withDescription("SWZ dir or .swz for ID names"))`
@@ -1416,9 +1450,11 @@ git commit -m "feat(replay-cli): add decompile and compile commands"
 ### Task 13: Workspace verification
 
 **Files:**
+
 - Modify: only if exports/`index.ts` missed anything
 
 **Interfaces:**
+
 - Consumes: all prior packages
 
 - [ ] **Step 1: Export check**
@@ -1444,20 +1480,20 @@ Skip the commit if nothing changed.
 
 ## Self-review (spec coverage)
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| `@gimped/common` ByteReader/Writer + U16 | 1 |
-| IoError, MalformedJson, toIoError, toMalformedJson, runWith | 2 |
-| SWZ re-exports / tests still pass | 2 |
-| Replay tagged errors | 3 |
-| XOR key | 4 |
-| Bitstream class_30 | 5 |
-| Checksum method_3796 | 6 |
-| ReplayJson Schema both ways | 7, 11 |
-| Chunks 1–8, write order 3,4,6,1,5,7,2 | 8 |
-| heroSlotCount > 5, checksum verify/recompute | 8 |
-| zlib+XOR, raw fallback | 9 |
-| `--data` names, IDs authoritative | 10, 11, 12 |
-| Pipeline + CLI `--in/--out` | 11, 12 |
-| `pnpm ready` | 13 |
-| No `.replay` fixtures in repo | 8/11 synthetic only |
+| Spec requirement                                            | Task                |
+| ----------------------------------------------------------- | ------------------- |
+| `@gimped/common` ByteReader/Writer + U16                    | 1                   |
+| IoError, MalformedJson, toIoError, toMalformedJson, runWith | 2                   |
+| SWZ re-exports / tests still pass                           | 2                   |
+| Replay tagged errors                                        | 3                   |
+| XOR key                                                     | 4                   |
+| Bitstream class_30                                          | 5                   |
+| Checksum method_3796                                        | 6                   |
+| ReplayJson Schema both ways                                 | 7, 11               |
+| Chunks 1–8, write order 3,4,6,1,5,7,2                       | 8                   |
+| heroSlotCount > 5, checksum verify/recompute                | 8                   |
+| zlib+XOR, raw fallback                                      | 9                   |
+| `--data` names, IDs authoritative                           | 10, 11, 12          |
+| Pipeline + CLI `--in/--out`                                 | 11, 12              |
+| `pnpm ready`                                                | 13                  |
+| No `.replay` fixtures in repo                               | 8/11 synthetic only |

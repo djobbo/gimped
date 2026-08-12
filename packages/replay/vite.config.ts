@@ -10,4 +10,14 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
   },
+  build: {
+    lib: {
+      entry: "src/index.ts",
+      formats: ["es"],
+      fileName: "index",
+    },
+    rollupOptions: {
+      external: [/^effect(?:\/|$)/, /^@effect\//, /^@gimped\//, /^node:/, "fast-xml-parser"],
+    },
+  },
 });

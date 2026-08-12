@@ -10,4 +10,14 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
   },
+  build: {
+    lib: {
+      entry: "src/bin.ts",
+      formats: ["es"],
+      fileName: "bin",
+    },
+    rollupOptions: {
+      external: [/^effect(?:\/|$)/, /^@effect\//, /^@gimped\//, /^node:/, "fast-xml-parser"],
+    },
+  },
 });
