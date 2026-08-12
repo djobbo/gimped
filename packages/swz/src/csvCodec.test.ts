@@ -18,6 +18,17 @@ describe("csvCodec", () => {
     expect(await run(jsonToCsv(data, "MyTable.csv"))).toBe(native);
   });
 
+  it("round-trips exact native CSV without trailing newline", async () => {
+    const native = "MyTable\na,b\n1,2";
+    const data = await run(csvToJson(native, "MyTable.csv"));
+    expect(data).toEqual({
+      name: "MyTable",
+      headers: ["a", "b"],
+      rows: [{ a: "1", b: "2" }],
+    });
+    expect(await run(jsonToCsv(data, "MyTable.csv"))).toBe(native);
+  });
+
   it("rejects empty and duplicate headers", async () => {
     const empty = await runFail(csvToJson("T\n,a\n1,2\n", "t.csv"));
     const dup = await runFail(csvToJson("T\na,a\n1,2\n", "t.csv"));
