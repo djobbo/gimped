@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { MissingRegistry } from "./errors.ts";
+import { IoError, MissingRegistry } from "./errors.ts";
 import { readJsonDir, writeJsonDir } from "./JsonTranspile.ts";
 import * as swz from "./index.ts";
 
@@ -46,6 +46,65 @@ describe("JsonTranspile", () => {
       ]);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects entries that resolve to the same JSON filename", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "swz-json-"));
+    const entries = [
+      { content: "<HeroTypes><x/></HeroTypes>" },
+      { content: "<HeroTypes><y/></HeroTypes>" },
+    ];
+
+    try {
+      const result = await Effect.runPromise(Effect.result(writeJsonDir(entries, dir)));
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(IoError);
+        expect(result.failure.path).toBe(path.join(dir, "HeroTypes.json"));
+      }
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed JSON entries and registry filetype mismatches", async () => {
+    const cases = [
+      {
+        registryType: "xml",
+        entry: { filetype: "xml", xml: 42 },
+      },
+      {
+        registryType: "csv",
+        entry: { filetype: "csv", text: null },
+      },
+      {
+        registryType: "xml",
+        entry: { filetype: "csv", name: "HeroTypes", text: "HeroTypes\na,b\n" },
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), "swz-json-"));
+      const filePath = path.join(dir, "entry.json");
+
+      try {
+        await fs.writeFile(
+          path.join(dir, "registry.json"),
+          JSON.stringify({ files: { "entry.json": { filetype: testCase.registryType } } }),
+        );
+        await fs.writeFile(filePath, JSON.stringify(testCase.entry));
+
+        const result = await Effect.runPromise(Effect.result(readJsonDir(dir)));
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          expect(result.failure).toBeInstanceOf(IoError);
+          expect(result.failure.path).toBe(filePath);
+        }
+      } finally {
+        await fs.rm(dir, { recursive: true, force: true });
+      }
     }
   });
 

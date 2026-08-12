@@ -20,15 +20,34 @@ const tryIo = <A>(ioPath: string, operation: () => Promise<A>): Effect.Effect<A,
 export const writeNativeDir = (
   entries: readonly SwzEntry[],
   outDir: string,
-): Effect.Effect<void, IoError> =>
-  tryIo(outDir, async () => {
+): Effect.Effect<void, IoError> => {
+  const fileNames = entries.map((entry) => entryFileName(entry.content));
+  const seen = new Set<string>();
+  const collision = fileNames.find((fileName) => {
+    if (seen.has(fileName)) return true;
+    seen.add(fileName);
+    return false;
+  });
+
+  if (collision !== undefined) {
+    const collisionPath = path.join(outDir, collision);
+    return Effect.fail(
+      new IoError({
+        path: collisionPath,
+        message: `Multiple entries resolve to ${collision}`,
+      }),
+    );
+  }
+
+  return tryIo(outDir, async () => {
     await fs.mkdir(outDir, { recursive: true });
     await Promise.all(
-      entries.map((entry) =>
-        fs.writeFile(path.join(outDir, entryFileName(entry.content)), entry.content, "utf8"),
+      entries.map((entry, index) =>
+        fs.writeFile(path.join(outDir, fileNames[index]!), entry.content, "utf8"),
       ),
     );
   });
+};
 
 export const readNativeDir = (inDir: string): Effect.Effect<SwzEntry[], IoError> =>
   tryIo(inDir, async () => {

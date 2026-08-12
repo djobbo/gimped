@@ -34,8 +34,7 @@ export const compile = (
   Effect.sync(() => {
     const prng = new Well512();
     const writer = new ByteWriter();
-    const normalizedSeed =
-      seed !== undefined ? seed >>> 0 : (randomInt(0, 0x1_0000_0000) >>> 0);
+    const normalizedSeed = seed !== undefined ? seed >>> 0 : randomInt(0, 0x1_0000_0000) >>> 0;
 
     prng.initState(normalizedSeed);
     writer.writeU32BE(computeHeaderChecksum(prng, key));

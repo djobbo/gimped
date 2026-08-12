@@ -21,7 +21,9 @@ describe("SwzCodec", () => {
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") {
       expect(result.failure).toBeInstanceOf(ChecksumMismatch);
-      expect(result.failure.where).toBe("header");
+      if (result.failure instanceof ChecksumMismatch) {
+        expect(result.failure.where).toBe("header");
+      }
     }
   });
 
