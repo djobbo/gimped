@@ -1,8 +1,10 @@
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import type { PlatformError } from "effect/PlatformError";
+import { csvToJson, jsonToCsv } from "./csvCodec.ts";
 import { detectFiletype, entryFileName } from "./EntryIo.ts";
-import { IoError, MissingRegistry } from "./errors.ts";
+import { IoError, MalformedCsv, MalformedJson, MalformedXml, MissingRegistry } from "./errors.ts";
 import type { SwzEntry } from "./SwzCodec.ts";
+import { jsonToXml, xmlToJson } from "./xmlCodec.ts";
 
 export const RegistryEntry = Schema.Struct({
   filetype: Schema.Literals(["xml", "csv"]),
@@ -15,13 +17,14 @@ export type Registry = typeof Registry.Type;
 
 const XmlJsonEntry = Schema.Struct({
   filetype: Schema.Literal("xml"),
-  xml: Schema.String,
+  root: Schema.Record(Schema.String, Schema.Unknown),
 });
 
 const CsvJsonEntry = Schema.Struct({
   filetype: Schema.Literal("csv"),
-  name: Schema.optionalKey(Schema.String),
-  text: Schema.String,
+  name: Schema.String,
+  headers: Schema.Array(Schema.String),
+  rows: Schema.Array(Schema.Record(Schema.String, Schema.String)),
 });
 
 const JsonEntry = Schema.Union([XmlJsonEntry, CsvJsonEntry]);
@@ -29,6 +32,11 @@ type JsonEntry = typeof JsonEntry.Type;
 
 const toIoError = (path: string, error: PlatformError | unknown): IoError =>
   new IoError({
+    path,
+    message: error instanceof Error ? error.message : String(error),
+  });
+const toMalformedJson = (path: string, error: unknown): MalformedJson =>
+  new MalformedJson({
     path,
     message: error instanceof Error ? error.message : String(error),
   });
@@ -42,8 +50,10 @@ export class JsonTranspile extends Context.Service<
     readonly writeJsonDir: (
       entries: readonly SwzEntry[],
       outDir: string,
-    ) => Effect.Effect<void, IoError>;
-    readonly readJsonDir: (inDir: string) => Effect.Effect<SwzEntry[], IoError | MissingRegistry>;
+    ) => Effect.Effect<void, IoError | MalformedCsv | MalformedXml>;
+    readonly readJsonDir: (
+      inDir: string,
+    ) => Effect.Effect<SwzEntry[], IoError | MissingRegistry | MalformedJson | MalformedCsv | MalformedXml>;
   }
 >()("@gimped/swz/JsonTranspile") {
   static readonly layer: Layer.Layer<JsonTranspile, never, FileSystem.FileSystem | Path.Path> =
@@ -82,18 +92,14 @@ export class JsonTranspile extends Context.Service<
             Effect.gen(function* () {
               const filetype = detectFiletype(entry.content);
               const fileName = fileNames[index]!;
-              const jsonEntry: JsonEntry =
-                filetype === "xml"
-                  ? { filetype, xml: entry.content }
-                  : {
-                      filetype,
-                      name: entry.content.split("\n", 1)[0]?.replaceAll("\r", "") ?? "",
-                      text: entry.content,
-                    };
-
               const filePath = path.join(outDir, fileName);
+              const body =
+                filetype === "xml"
+                  ? { filetype, ...(yield* xmlToJson(entry.content, filePath)) }
+                  : { filetype, ...(yield* csvToJson(entry.content, filePath)) };
+
               yield* fs
-                .writeFileString(filePath, `${JSON.stringify(jsonEntry, null, 2)}\n`)
+                .writeFileString(filePath, `${JSON.stringify(body, null, 2)}\n`)
                 .pipe(Effect.mapError((error) => toIoError(filePath, error)));
               registryFiles[fileName] = { filetype };
             }),
@@ -134,7 +140,7 @@ export class JsonTranspile extends Context.Service<
 
               const jsonEntry = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(JsonEntry))(
                 text,
-              ).pipe(Effect.mapError((error) => toIoError(filePath, error)));
+              ).pipe(Effect.mapError((error) => toMalformedJson(filePath, error)));
 
               if (jsonEntry.filetype !== expectedFiletype) {
                 return yield* new IoError({
@@ -143,8 +149,20 @@ export class JsonTranspile extends Context.Service<
                 });
               }
 
+              const content =
+                jsonEntry.filetype === "xml"
+                  ? yield* jsonToXml({ root: jsonEntry.root }, filePath)
+                  : yield* jsonToCsv(
+                      {
+                        name: jsonEntry.name,
+                        headers: jsonEntry.headers,
+                        rows: jsonEntry.rows,
+                      },
+                      filePath,
+                    );
+
               return {
-                content: jsonEntry.filetype === "xml" ? jsonEntry.xml : jsonEntry.text,
+                content,
               } satisfies SwzEntry;
             }),
           );

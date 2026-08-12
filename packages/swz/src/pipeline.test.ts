@@ -5,6 +5,7 @@ import { TestLive } from "./layers.ts";
 import { runWith } from "./test-utils.ts";
 import { compileFile, decompileFile } from "./pipeline.ts";
 import { compile } from "./SwzCodec.ts";
+import { xmlToJson } from "./xmlCodec.ts";
 
 const entries = [{ content: "<HeroTypes><x/></HeroTypes>" }, { content: "MyTable\na,b\n1,2\n" }];
 
@@ -52,13 +53,26 @@ describe("file pipeline", () => {
           json,
         });
 
-        const restored = json
-          ? yield* swz.readJsonDir(secondDir)
-          : yield* swz.readNativeDir(secondDir);
-        return restored.map((entry) => entry.content).sort();
+        const restored = json ? yield* swz.readJsonDir(secondDir) : yield* swz.readNativeDir(secondDir);
+        return restored.map((entry) => entry.content);
       }),
     );
 
-    expect(actual).toEqual(entries.map((entry) => entry.content).sort());
+    if (!json) {
+      expect(actual.sort()).toEqual(entries.map((entry) => entry.content).sort());
+      return;
+    }
+
+    const csv = actual.find((content) => !content.trimStart().startsWith("<"));
+    const xml = actual.find((content) => content.trimStart().startsWith("<"));
+    expect(csv).toBe("MyTable\na,b\n1,2\n");
+    expect(xml).toBeDefined();
+
+    const originalXml = entries[0]!.content;
+    const [a, b] = await Promise.all([
+      run(xmlToJson(originalXml, "x.xml")),
+      run(xmlToJson(xml!, "x.xml")),
+    ]);
+    expect(b.root).toEqual(a.root);
   });
 });
