@@ -25,6 +25,27 @@ describe("xmlCodec", () => {
     expect(again.root).toEqual(data.root);
   });
 
+  it("preserves attribute values that look like booleans", async () => {
+    const native = '<HeroTypes><Hero flag="true" off="false"/></HeroTypes>';
+    const data = await run(xmlToJson(native, "HeroTypes.xml"));
+    const rebuilt = await run(jsonToXml(data, "HeroTypes.xml"));
+    expect(rebuilt).toContain('flag="true"');
+    const again = await run(xmlToJson(rebuilt, "HeroTypes.xml"));
+    expect(again.root).toEqual({
+      HeroTypes: { Hero: { "@_flag": "true", "@_off": "false" } },
+    });
+  });
+
+  it("ignores XML declarations and processing instructions", async () => {
+    const native =
+      '<?xml version="1.0" encoding="utf-8"?><HeroTypes><Hero name="bodvar"/></HeroTypes>';
+    const data = await run(xmlToJson(native, "HeroTypes.xml"));
+    expect(Object.keys(data.root)).toEqual(["HeroTypes"]);
+    const rebuilt = await run(jsonToXml(data, "HeroTypes.xml"));
+    const again = await run(xmlToJson(rebuilt, "HeroTypes.xml"));
+    expect(again.root).toEqual(data.root);
+  });
+
   it("rejects malformed XML", async () => {
     const result = await runFail(xmlToJson("<HeroTypes><Hero></HeroTypes>", "bad.xml"));
     expect(result._tag).toBe("Failure");

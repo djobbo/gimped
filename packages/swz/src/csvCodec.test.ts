@@ -18,7 +18,7 @@ describe("csvCodec", () => {
     expect(await run(jsonToCsv(data, "MyTable.csv"))).toBe(native);
   });
 
-  it("round-trips exact native CSV without trailing newline", async () => {
+  it("canonicalizes CSV without a trailing newline to always end with one", async () => {
     const native = "MyTable\na,b\n1,2";
     const data = await run(csvToJson(native, "MyTable.csv"));
     expect(data).toEqual({
@@ -26,7 +26,23 @@ describe("csvCodec", () => {
       headers: ["a", "b"],
       rows: [{ a: "1", b: "2" }],
     });
-    expect(await run(jsonToCsv(data, "MyTable.csv"))).toBe(native);
+    expect(await run(jsonToCsv(data, "MyTable.csv"))).toBe(`${native}\n`);
+  });
+
+  it("rejects cells containing newline characters", async () => {
+    const lf = await runFail(
+      jsonToCsv({ name: "T", headers: ["a"], rows: [{ a: "x\ny" }] }, "t.csv"),
+    );
+    const cr = await runFail(
+      jsonToCsv({ name: "T", headers: ["a"], rows: [{ a: "x\ry" }] }, "t.csv"),
+    );
+    expect(lf._tag).toBe("Failure");
+    expect(cr._tag).toBe("Failure");
+    if (lf._tag === "Failure") {
+      expect(lf.failure).toBeInstanceOf(MalformedCsv);
+      expect(lf.failure.message).toContain("newline");
+    }
+    if (cr._tag === "Failure") expect(cr.failure).toBeInstanceOf(MalformedCsv);
   });
 
   it("rejects empty and duplicate headers", async () => {
