@@ -6,6 +6,4 @@ dist
 .DS_Store
 dumps/
 obf/
-docs/superpowers/
-.superpowers/
 .repos/
