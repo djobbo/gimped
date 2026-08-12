@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+export { IoError, MalformedJson } from "@gimped/common";
+
 export class ChecksumMismatch extends Schema.TaggedError<ChecksumMismatch>()("ChecksumMismatch", {
   where: Schema.Literals(["header", "entry"]),
   expected: Schema.Number,
@@ -18,22 +20,12 @@ export class MissingRegistry extends Schema.TaggedError<MissingRegistry>()("Miss
   path: Schema.String,
 }) {}
 
-export class IoError extends Schema.TaggedError<IoError>()("IoError", {
-  path: Schema.String,
-  message: Schema.String,
-}) {}
-
 export class MalformedCsv extends Schema.TaggedError<MalformedCsv>()("MalformedCsv", {
   path: Schema.String,
   message: Schema.String,
 }) {}
 
 export class MalformedXml extends Schema.TaggedError<MalformedXml>()("MalformedXml", {
-  path: Schema.String,
-  message: Schema.String,
-}) {}
-
-export class MalformedJson extends Schema.TaggedError<MalformedJson>()("MalformedJson", {
   path: Schema.String,
   message: Schema.String,
 }) {}

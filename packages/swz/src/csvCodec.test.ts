@@ -1,10 +1,12 @@
+import { runWith } from "@gimped/common";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { MalformedCsv } from "./errors.ts";
 import { csvToJson, jsonToCsv } from "./csvCodec.ts";
+import { CsvCodecLive } from "./layers.ts";
 
-const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
-const runFail = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.result(effect));
+const run = runWith(CsvCodecLive);
+const runFail = <A, E, R>(effect: Effect.Effect<A, E, R>) => run(Effect.result(effect));
 
 describe("csvCodec", () => {
   it("round-trips exact native CSV including quoted cells", async () => {
