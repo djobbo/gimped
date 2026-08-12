@@ -11,10 +11,12 @@ import {
   MissingRegistry,
   UnknownVersion,
 } from "./errors.ts";
+import { CsvCodec } from "./csvCodec.ts";
 import { JsonTranspile } from "./JsonTranspile.ts";
 import { SwzCodec } from "./SwzCodec.ts";
 import { VersionKeys } from "./VersionKeys.ts";
 import { Well512 } from "./Well512.ts";
+import { XmlCodec } from "./xmlCodec.ts";
 
 export type FilePipelineOptions = {
   readonly inPath: string;
@@ -87,7 +89,7 @@ export class Pipeline extends Context.Service<
 
   /** SWZ services including Pipeline; still requires FileSystem, Path, and Crypto. */
   static readonly Default: Layer.Layer<
-    Pipeline | SwzCodec | VersionKeys | EntryIo | JsonTranspile | Well512,
+    Pipeline | SwzCodec | VersionKeys | EntryIo | JsonTranspile | Well512 | XmlCodec | CsvCodec,
     never,
     FileSystem.FileSystem | Path.Path | Crypto.Crypto
   > = Layer.provideMerge(
@@ -96,7 +98,10 @@ export class Pipeline extends Context.Service<
       SwzCodec.layer.pipe(Layer.provide(Well512.layer)),
       VersionKeys.layer,
       EntryIo.layer,
-      JsonTranspile.layer,
+      JsonTranspile.layer.pipe(
+        Layer.provideMerge(XmlCodec.layer),
+        Layer.provideMerge(CsvCodec.layer),
+      ),
       Well512.layer,
     ),
   );

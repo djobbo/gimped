@@ -1,10 +1,12 @@
+import { runWith } from "@gimped/common";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { MalformedXml } from "./errors.ts";
+import { XmlCodecLive } from "./layers.ts";
 import { jsonToXml, xmlToJson } from "./xmlCodec.ts";
 
-const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect);
-const runFail = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(Effect.result(effect));
+const run = runWith(XmlCodecLive);
+const runFail = <A, E, R>(effect: Effect.Effect<A, E, R>) => run(Effect.result(effect));
 
 describe("xmlCodec", () => {
   it("round-trips semantically (parse -> json -> xml -> parse)", async () => {

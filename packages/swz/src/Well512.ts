@@ -46,16 +46,9 @@ export class Well512 extends Context.Service<
     readonly create: () => Effect.Effect<Well512Instance>;
   }
 >()("@gimped/swz/Well512") {
-  static readonly layer = Layer.effect(
-    Well512,
-    Effect.gen(function* () {
-      const create = Effect.fn("Well512.create")(function* () {
-        return createInstance();
-      });
-
-      return Well512.of({ create });
-    }),
-  );
+  static readonly layer = Layer.sync(Well512, () => ({
+    create: Effect.fn("Well512.create")(() => Effect.sync(() => createInstance())),
+  }));
 }
 
 export const createWell512 = Effect.fn("createWell512")(function* () {

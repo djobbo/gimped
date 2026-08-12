@@ -1,5 +1,8 @@
+import { runWith } from "@gimped/common";
 import { describe, expect, it } from "vite-plus/test";
-import { playerChecksum, type ChecksumPlayer } from "./checksum.ts";
+import { Checksum, playerChecksum, type ChecksumPlayer } from "./checksum.ts";
+
+const run = runWith(Checksum.layer);
 
 const player = (over: Partial<ChecksumPlayer> = {}): ChecksumPlayer => ({
   colorSchemeId: 1,
@@ -18,11 +21,11 @@ const player = (over: Partial<ChecksumPlayer> = {}): ChecksumPlayer => ({
 });
 
 describe("playerChecksum", () => {
-  it("matches colorSchemeId*5 + null handicap 29, mod 173", () => {
-    expect(playerChecksum([player()], 0, 1)).toBe(34);
+  it("matches colorSchemeId*5 + null handicap 29, mod 173", async () => {
+    expect(await run(playerChecksum([player()], 0, 1))).toBe(34);
   });
 
-  it("includes levelId * 47", () => {
-    expect(playerChecksum([player()], 2, 1)).toBe((34 + 94) % 173);
+  it("includes levelId * 47", async () => {
+    expect(await run(playerChecksum([player()], 2, 1))).toBe((34 + 94) % 173);
   });
 });

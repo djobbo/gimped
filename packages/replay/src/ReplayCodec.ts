@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import { Bitstream } from "./bitstream.ts";
-import { playerChecksum } from "./checksum.ts";
+import { computePlayerChecksum } from "./checksum.ts";
 import { ChecksumMismatch, InvalidReplay } from "./errors.ts";
 import type { Replay } from "./ReplayJson.ts";
 
@@ -167,7 +167,7 @@ const writeSetup = (bits: Bitstream, replay: Replay): void => {
     writePlayer(bits, player, replay.heroSlotCount);
   }
   bits.writeBits(1, 0);
-  bits.writeU32(playerChecksum(replay.players, replay.level.id, replay.heroSlotCount));
+  bits.writeU32(computePlayerChecksum(replay.players, replay.level.id, replay.heroSlotCount));
 };
 
 const readRules = (bits: Bitstream): Rules => {
@@ -360,7 +360,7 @@ const decodeSync = (bytes: Uint8Array): Replay => {
         const read: Player[] = [];
         while (bits.readBits(1) !== 0) read.push(readPlayer(bits, slots));
         const expected = bits.readU32();
-        const actual = playerChecksum(read, levelId, slots);
+        const actual = computePlayerChecksum(read, levelId, slots);
         if (expected !== actual)
           throw new DecodeFailure(new ChecksumMismatch({ expected, actual }));
         level = { id: levelId };
@@ -414,31 +414,34 @@ export class ReplayCodec extends Context.Service<
     readonly encode: (replay: Replay) => Effect.Effect<Uint8Array, InvalidReplay>;
   }
 >()("@gimped/replay/ReplayCodec") {
-  static readonly layer: Layer.Layer<ReplayCodec> = Layer.effect(
-    ReplayCodec,
-    Effect.sync(() => {
-      const decode = Effect.fn("ReplayCodec.decode")(function* (bytes: Uint8Array) {
-        try {
-          return decodeSync(bytes);
-        } catch (cause) {
-          if (cause instanceof DecodeFailure) return yield* cause.failure;
-          if (cause instanceof RangeError) return yield* new InvalidReplay({ reason: "truncated" });
-          throw cause;
-        }
+  static readonly layer: Layer.Layer<ReplayCodec> = Layer.sync(ReplayCodec, () => {
+    const decode = Effect.fn("ReplayCodec.decode")(function* (bytes: Uint8Array) {
+      return yield* Effect.try({
+        try: () => decodeSync(bytes),
+        catch: (cause) => {
+          if (cause instanceof DecodeFailure) return cause.failure;
+          if (cause instanceof RangeError) return new InvalidReplay({ reason: "truncated" });
+          return new InvalidReplay({
+            reason: cause instanceof Error ? cause.message : "decode failed",
+          });
+        },
       });
+    });
 
-      const encode = Effect.fn("ReplayCodec.encode")(function* (replay: Replay) {
-        try {
-          return encodeSync(replay);
-        } catch (cause) {
-          if (cause instanceof DecodeFailure) return yield* cause.failure;
-          throw cause;
-        }
+    const encode = Effect.fn("ReplayCodec.encode")(function* (replay: Replay) {
+      return yield* Effect.try({
+        try: () => encodeSync(replay),
+        catch: (cause) => {
+          if (cause instanceof DecodeFailure) return cause.failure;
+          return new InvalidReplay({
+            reason: cause instanceof Error ? cause.message : "encode failed",
+          });
+        },
       });
+    });
 
-      return ReplayCodec.of({ decode, encode });
-    }),
-  );
+    return { decode, encode };
+  });
 
   static readonly Default = this.layer;
 }

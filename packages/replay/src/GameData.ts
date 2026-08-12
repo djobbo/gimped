@@ -4,43 +4,58 @@ import {
   SwzCodec,
   UnknownVersion,
   VersionKeys,
-  xmlToJson,
+  XmlCodec,
 } from "@gimped/swz";
-import { Context, Crypto, Effect, FileSystem, Layer, Path } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Crypto,
+  Effect,
+  FileSystem,
+  Layer,
+  MutableHashMap,
+  Option,
+  Path,
+  Predicate,
+  Record as Rec,
+  Schema,
+} from "effect";
 import { GameDataError } from "./errors.ts";
 import type { Replay } from "./ReplayJson.ts";
 
 type Tables = {
-  readonly heroes: Map<number, string>;
-  readonly costumes: Map<number, string>;
-  readonly levels: Map<number, string>;
-  readonly scoring: Map<number, string>;
-  readonly colors: Map<number, string>;
+  readonly heroes: MutableHashMap.MutableHashMap<number, string>;
+  readonly costumes: MutableHashMap.MutableHashMap<number, string>;
+  readonly levels: MutableHashMap.MutableHashMap<number, string>;
+  readonly scoring: MutableHashMap.MutableHashMap<number, string>;
+  readonly colors: MutableHashMap.MutableHashMap<number, string>;
 };
 
 const emptyTables = (): Tables => ({
-  heroes: new Map(),
-  costumes: new Map(),
-  levels: new Map(),
-  scoring: new Map(),
-  colors: new Map(),
+  heroes: MutableHashMap.empty(),
+  costumes: MutableHashMap.empty(),
+  levels: MutableHashMap.empty(),
+  scoring: MutableHashMap.empty(),
+  colors: MutableHashMap.empty(),
 });
 
-const asArray = <T>(value: T | readonly T[] | undefined): readonly T[] =>
-  value === undefined ? [] : Array.isArray(value) ? value : [value];
+const asArray = <A>(value: A | ReadonlyArray<A> | undefined): ReadonlyArray<A> => {
+  if (Predicate.isUndefined(value)) return Arr.empty();
+  return Arr.Array.isArray(value) ? value : Arr.of(value);
+};
 
 const textValue = (node: unknown): string | undefined => {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (node !== null && typeof node === "object" && "#text" in node) {
-    const text = (node as Record<string, unknown>)["#text"];
-    if (typeof text === "string" || typeof text === "number") return String(text);
+  if (Predicate.isString(node) || Predicate.isNumber(node)) return String(node);
+  if (Predicate.hasProperty(node, "#text")) {
+    const text = node["#text"];
+    if (Predicate.isString(text) || Predicate.isNumber(text)) return String(text);
   }
   return undefined;
 };
 
 const attr = (node: Record<string, unknown>, name: string): string | undefined => {
   const value = node[`@_${name}`];
-  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+  return Predicate.isString(value) || Predicate.isNumber(value) ? String(value) : undefined;
 };
 
 const childText = (node: Record<string, unknown>, name: string): string | undefined =>
@@ -50,17 +65,17 @@ const field = (node: Record<string, unknown>, name: string): string | undefined 
   attr(node, name) ?? childText(node, name);
 
 const parseId = (value: string | undefined): number | undefined => {
-  if (value === undefined || value === "") return undefined;
+  if (Predicate.isUndefined(value) || value === "") return undefined;
   const id = Number(value);
   return Number.isFinite(id) ? id : undefined;
 };
 
 const setIfNamed = (
-  map: Map<number, string>,
+  map: MutableHashMap.MutableHashMap<number, string>,
   id: number | undefined,
   name: string | undefined,
 ): void => {
-  if (id !== undefined && name !== undefined) map.set(id, name);
+  if (id !== undefined && name !== undefined) MutableHashMap.set(map, id, name);
 };
 
 const ingestNode = (tables: Tables, node: Record<string, unknown>): void => {
@@ -88,36 +103,31 @@ const ingestNode = (tables: Tables, node: Record<string, unknown>): void => {
 };
 
 const walk = (tables: Tables, node: unknown): void => {
-  for (const item of asArray(node as Record<string, unknown> | readonly unknown[] | undefined)) {
-    if (item === null || typeof item !== "object") continue;
-    if (Array.isArray(item)) {
+  for (const item of asArray(
+    node as Record<string, unknown> | ReadonlyArray<unknown> | undefined,
+  )) {
+    if (Predicate.isNull(item) || Predicate.isUndefined(item) || !Predicate.isObject(item))
+      continue;
+    if (Arr.Array.isArray(item)) {
       walk(tables, item);
       continue;
     }
     const obj = item as Record<string, unknown>;
     ingestNode(tables, obj);
-    for (const value of Object.values(obj)) walk(tables, value);
+    for (const value of Rec.values(obj)) walk(tables, value);
   }
 };
 
 const looksLikeXml = (content: string): boolean => content.trimStart().startsWith("<");
 
-const ingestXml = (tables: Tables, content: string, filePath: string) =>
-  xmlToJson(content, filePath).pipe(
-    Effect.map((data) => {
-      walk(tables, data.root);
-    }),
-    Effect.orElseSucceed(() => undefined),
-  );
-
 const toGameDataError = (dataPath: string, error: unknown): GameDataError => {
-  if (error instanceof UnknownVersion) {
+  if (Schema.is(UnknownVersion)(error)) {
     return new GameDataError({ path: dataPath, message: `unknown version: ${error.version}` });
   }
-  if (error instanceof InvalidSwz) {
+  if (Schema.is(InvalidSwz)(error)) {
     return new GameDataError({ path: dataPath, message: error.reason });
   }
-  if (error instanceof SwzChecksumMismatch) {
+  if (Schema.is(SwzChecksumMismatch)(error)) {
     return new GameDataError({
       path: dataPath,
       message: `checksum mismatch (${error.where}): expected ${error.expected}, got ${error.actual}`,
@@ -129,22 +139,31 @@ const toGameDataError = (dataPath: string, error: unknown): GameDataError => {
   });
 };
 
+const named = (
+  map: MutableHashMap.MutableHashMap<number, string>,
+  id: number,
+): string | undefined => Option.getOrUndefined(MutableHashMap.get(map, id));
+
 const applyTables = (replay: Replay, tables: Tables): Replay => ({
   ...replay,
-  rules: tables.scoring.has(replay.rules.scoringTypeId)
-    ? { ...replay.rules, scoringTypeName: tables.scoring.get(replay.rules.scoringTypeId)! }
-    : { ...replay.rules },
-  level: tables.levels.has(replay.level.id)
-    ? { ...replay.level, name: tables.levels.get(replay.level.id)! }
-    : { ...replay.level },
-  players: replay.players.map((player) => {
-    const colorSchemeName = tables.colors.get(player.colorSchemeId);
+  rules: (() => {
+    const scoringTypeName = named(tables.scoring, replay.rules.scoringTypeId);
+    return scoringTypeName === undefined
+      ? { ...replay.rules }
+      : { ...replay.rules, scoringTypeName };
+  })(),
+  level: (() => {
+    const name = named(tables.levels, replay.level.id);
+    return name === undefined ? { ...replay.level } : { ...replay.level, name };
+  })(),
+  players: Arr.map(replay.players, (player) => {
+    const colorSchemeName = named(tables.colors, player.colorSchemeId);
     return {
       ...player,
       ...(colorSchemeName === undefined ? {} : { colorSchemeName }),
-      heroes: player.heroes.map((hero) => {
-        const heroName = tables.heroes.get(hero.heroId);
-        const costumeName = tables.costumes.get(hero.costumeId);
+      heroes: Arr.map(player.heroes, (hero) => {
+        const heroName = named(tables.heroes, hero.heroId);
+        const costumeName = named(tables.costumes, hero.costumeId);
         return {
           ...hero,
           ...(heroName === undefined ? {} : { heroName }),
@@ -183,6 +202,20 @@ export class GameData extends Context.Service<
       const path = yield* Path.Path;
       const codec = yield* SwzCodec;
       const versionKeys = yield* VersionKeys;
+      const xml = yield* XmlCodec;
+
+      const ingestXml = Effect.fn("GameData.ingestXml")(function* (
+        tables: Tables,
+        content: string,
+        filePath: string,
+      ) {
+        yield* xml.xmlToJson(content, filePath).pipe(
+          Effect.map((data) => {
+            walk(tables, data.root);
+          }),
+          Effect.orElseSucceed(() => undefined),
+        );
+      });
 
       const ingestDirectory = Effect.fn("GameData.ingestDirectory")(function* (
         tables: Tables,
@@ -240,5 +273,9 @@ export class GameData extends Context.Service<
 
       return GameData.of({ annotate });
     }),
-  ).pipe(Layer.provide(SwzCodec.Default), Layer.provide(VersionKeys.layer));
+  ).pipe(
+    Layer.provide(SwzCodec.Default),
+    Layer.provide(VersionKeys.layer),
+    Layer.provide(XmlCodec.layer),
+  );
 }
