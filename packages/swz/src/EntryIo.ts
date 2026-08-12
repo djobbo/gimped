@@ -1,5 +1,5 @@
+import { toIoError } from "@gimped/common";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
-import type { PlatformError } from "effect/PlatformError";
 import { IoError } from "./errors.ts";
 import type { SwzEntry } from "./SwzCodec.ts";
 
@@ -7,12 +7,6 @@ export type EntryFiletype = "xml" | "csv";
 
 const WINDOWS_ILLEGAL_FILENAME_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
 const XML_ROOT_TAG = /^<\s*([A-Za-z_][\w.-]*)/;
-
-const toIoError = (path: string, error: PlatformError | unknown): IoError =>
-  new IoError({
-    path,
-    message: error instanceof Error ? error.message : String(error),
-  });
 
 export const detectFiletype = (content: string): EntryFiletype =>
   content.trimStart().startsWith("<") ? "xml" : "csv";

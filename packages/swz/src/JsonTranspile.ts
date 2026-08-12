@@ -1,5 +1,5 @@
+import { toIoError, toMalformedJson } from "@gimped/common";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
-import type { PlatformError } from "effect/PlatformError";
 import { csvToJson, jsonToCsv } from "./csvCodec.ts";
 import { detectFiletype, entryFileName } from "./EntryIo.ts";
 import { IoError, MalformedCsv, MalformedJson, MalformedXml, MissingRegistry } from "./errors.ts";
@@ -29,17 +29,6 @@ const CsvJsonEntry = Schema.Struct({
 
 const JsonEntry = Schema.Union([XmlJsonEntry, CsvJsonEntry]);
 type JsonEntry = typeof JsonEntry.Type;
-
-const toIoError = (path: string, error: PlatformError | unknown): IoError =>
-  new IoError({
-    path,
-    message: error instanceof Error ? error.message : String(error),
-  });
-const toMalformedJson = (path: string, error: unknown): MalformedJson =>
-  new MalformedJson({
-    path,
-    message: error instanceof Error ? error.message : String(error),
-  });
 
 const jsonFileName = (content: string, pathApi: Path.Path): string =>
   `${pathApi.parse(entryFileName(content)).name}.json`;
