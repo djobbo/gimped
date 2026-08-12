@@ -3,6 +3,7 @@ import { compile, layer, readJsonDir, readNativeDir } from "@gimped/swz";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { Command } from "effect/unstable/cli";
 import { describe, expect, it } from "vite-plus/test";
+import { xmlToJson } from "../../swz/src/xmlCodec.ts";
 import { root } from "./cli.ts";
 
 const entries = [{ content: "<HeroTypes><x/></HeroTypes>" }, { content: "MyTable\na,b\n1,2\n" }];
@@ -41,10 +42,24 @@ describe("swz CLI", () => {
         yield* runCli(["decompile", "--in", rebuiltSwz, "--out", secondDir, ...jsonFlag]);
 
         const restored = json ? yield* readJsonDir(secondDir) : yield* readNativeDir(secondDir);
-        return restored.map((entry) => entry.content).sort();
+        return restored.map((entry) => entry.content);
       }),
     );
 
-    expect(actual).toEqual(entries.map((entry) => entry.content).sort());
+    if (!json) {
+      expect(actual.sort()).toEqual(entries.map((entry) => entry.content).sort());
+      return;
+    }
+
+    const csv = actual.find((content) => !content.trimStart().startsWith("<"));
+    const xml = actual.find((content) => content.trimStart().startsWith("<"));
+    expect(csv).toBe("MyTable\na,b\n1,2\n");
+    expect(xml).toBeDefined();
+
+    const [a, b] = await Promise.all([
+      run(xmlToJson(entries[0]!.content, "x.xml")),
+      run(xmlToJson(xml!, "x.xml")),
+    ]);
+    expect(b.root).toEqual(a.root);
   });
 });

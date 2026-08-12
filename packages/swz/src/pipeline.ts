@@ -5,6 +5,9 @@ import {
   ChecksumMismatch,
   InvalidSwz,
   IoError,
+  MalformedCsv,
+  MalformedJson,
+  MalformedXml,
   MissingRegistry,
   UnknownVersion,
 } from "./errors.ts";
@@ -20,7 +23,15 @@ export type FilePipelineOptions = {
   readonly json: boolean;
 };
 
-type PipelineError = IoError | MissingRegistry | UnknownVersion | ChecksumMismatch | InvalidSwz;
+type PipelineError =
+  | IoError
+  | MissingRegistry
+  | UnknownVersion
+  | ChecksumMismatch
+  | InvalidSwz
+  | MalformedCsv
+  | MalformedXml
+  | MalformedJson;
 
 const toIoError = (path: string, error: PlatformError | unknown): IoError =>
   new IoError({
