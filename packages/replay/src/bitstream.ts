@@ -83,7 +83,7 @@ export class Bitstream {
     const left = 8 - bitOffset;
     for (let i = 0; i < count; i++) {
       const idx = this.readPos >>> 3;
-      if (idx >= this.bytes.length) throw new RangeError("EOF");
+      if (idx + 1 >= this.bytes.length) throw new RangeError("EOF");
       out[i] = ((this.bytes[idx]! << bitOffset) | (this.bytes[idx + 1]! >>> left)) & 0xff;
       this.readPos += 8;
     }
