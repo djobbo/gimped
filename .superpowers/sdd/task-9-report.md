@@ -8,10 +8,10 @@ Complete. All package tests pass. No regressions found; no code changes or commi
 
 Command: `npx pnpm@10.14.0 -r test`
 
-| Package | Test files | Tests | Result |
-|---------|------------|-------|--------|
-| `@gimped/swz` | 6 | 21 | PASS |
-| `@gimped/swz-cli` | 1 | 3 | PASS |
+| Package           | Test files | Tests | Result |
+| ----------------- | ---------- | ----- | ------ |
+| `@gimped/swz`     | 6          | 21    | PASS   |
+| `@gimped/swz-cli` | 1          | 3     | PASS   |
 
 **Total: 24 tests, 0 failures.**
 
@@ -30,22 +30,22 @@ Root `vp check` traverses the vendored `.repos/vite-plus` snapshot fixtures and 
 
 ### Per-package check
 
-| Package | Format | Lint | Result |
-|---------|--------|------|--------|
-| `@gimped/swz-cli` | pass (8 files) | pass (6 files) | PASS |
-| `@gimped/swz` | fail (7 files) | — | FAIL (formatting only) |
+| Package           | Format         | Lint           | Result                 |
+| ----------------- | -------------- | -------------- | ---------------------- |
+| `@gimped/swz-cli` | pass (8 files) | pass (6 files) | PASS                   |
+| `@gimped/swz`     | fail (7 files) | —              | FAIL (formatting only) |
 
 `@gimped/swz` formatting drift affects `package.json`, `SwzCodec.ts`, `Well512.*`, `version-keys.json`, `tsconfig.json`, `vite.config.ts`. Pre-existing cosmetic issue; tests unaffected. Not fixed in this task per brief scope.
 
 ## Step 3: Success criteria checklist
 
-| # | Criterion | Evidence | Status |
-|---|-----------|----------|--------|
-| 1 | Vite+ monorepo at root with both packages | Root `vite.config.ts` (`defineConfig` from `vite-plus`); `pnpm-workspace.yaml` lists `packages/*`; `@gimped/swz` and `@gimped/swz-cli` under `packages/` | PASS |
-| 2 | Decompile/compile with key `762411009` | `SwzCodec.test.ts` round-trip; `pipeline.test.ts` and `cli.test.ts` compile fixtures with `762411009` | PASS |
-| 3 | Entry-equal round-trip | Native round-trip in `SwzCodec.test.ts`, `pipeline.test.ts`, `cli.test.ts` — entry contents compared and equal after decompile→compile→decompile | PASS |
-| 4 | `--json` registry round-trip | `JsonTranspile.test.ts` writes/reads `registry.json` and round-trips entries; `pipeline.test.ts` and `cli.test.ts` cover `{ format: "json" }` end-to-end | PASS |
-| 5 | `--version latest` → `10090` / `762411009` | `version-keys.json`: `aliases.latest = "10090"`, `keys["10090"] = 762411009`; `VersionKeys.test.ts` asserts both; `pipeline.test.ts` uses `version: "latest"` | PASS |
+| #   | Criterion                                  | Evidence                                                                                                                                                      | Status |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | Vite+ monorepo at root with both packages  | Root `vite.config.ts` (`defineConfig` from `vite-plus`); `pnpm-workspace.yaml` lists `packages/*`; `@gimped/swz` and `@gimped/swz-cli` under `packages/`      | PASS   |
+| 2   | Decompile/compile with key `762411009`     | `SwzCodec.test.ts` round-trip; `pipeline.test.ts` and `cli.test.ts` compile fixtures with `762411009`                                                         | PASS   |
+| 3   | Entry-equal round-trip                     | Native round-trip in `SwzCodec.test.ts`, `pipeline.test.ts`, `cli.test.ts` — entry contents compared and equal after decompile→compile→decompile              | PASS   |
+| 4   | `--json` registry round-trip               | `JsonTranspile.test.ts` writes/reads `registry.json` and round-trips entries; `pipeline.test.ts` and `cli.test.ts` cover `{ format: "json" }` end-to-end      | PASS   |
+| 5   | `--version latest` → `10090` / `762411009` | `version-keys.json`: `aliases.latest = "10090"`, `keys["10090"] = 762411009`; `VersionKeys.test.ts` asserts both; `pipeline.test.ts` uses `version: "latest"` | PASS   |
 
 ## Concerns (pre-existing, documented in prior tasks)
 

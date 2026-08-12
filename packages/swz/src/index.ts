@@ -5,3 +5,5 @@ export * from "./EntryIo.ts";
 export * from "./JsonTranspile.ts";
 export * from "./pipeline.ts";
 export * from "./errors.ts";
+export * from "./binary.ts";
+export * from "./layers.ts";
