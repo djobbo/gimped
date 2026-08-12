@@ -6,11 +6,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "rootDir": "src",
+    "resolveJsonModule": true
   },
-  "references": [
-    { "path": "./packages/common" },
-    { "path": "./packages/swz" },
-    { "path": "./packages/swz-cli" }
-  ]
+  "include": ["src"]
 }
