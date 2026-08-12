@@ -7,6 +7,9 @@ export default defineConfig({
   lint: {
     ignorePatterns: [".repos/**", ".superpowers/**"],
   },
+  test: {
+    exclude: ["node_modules/**", ".repos/**", ".superpowers/**"],
+  },
   run: {
     cache: true,
   },
