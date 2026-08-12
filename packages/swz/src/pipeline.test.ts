@@ -53,7 +53,9 @@ describe("file pipeline", () => {
           json,
         });
 
-        const restored = json ? yield* swz.readJsonDir(secondDir) : yield* swz.readNativeDir(secondDir);
+        const restored = json
+          ? yield* swz.readJsonDir(secondDir)
+          : yield* swz.readNativeDir(secondDir);
         return restored.map((entry) => entry.content);
       }),
     );
