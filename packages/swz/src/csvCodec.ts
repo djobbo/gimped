@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { MalformedCsv } from "./errors.ts";
 
 export type CsvJsonData = {
@@ -120,65 +120,90 @@ const escapeCell = (cell: string): string => {
   return cell;
 };
 
-export const csvToJson = (
-  content: string,
-  path: string,
-): Effect.Effect<CsvJsonData, MalformedCsv> =>
-  Effect.try({
-    try: () => {
-      const normalized = content.replaceAll("\r", "");
-      const lines = normalized.split("\n");
-      if (lines.at(-1) === "") {
-        lines.pop();
-      }
+const parseCsv = (content: string): CsvJsonData => {
+  const normalized = content.replaceAll("\r", "");
+  const lines = normalized.split("\n");
+  if (lines.at(-1) === "") {
+    lines.pop();
+  }
 
-      if (lines.length < 2) {
-        throw new Error("CSV must include at least a name line and a header line");
-      }
+  if (lines.length < 2) {
+    throw new Error("CSV must include at least a name line and a header line");
+  }
 
-      const name = lines[0] ?? "";
-      const headers = parseLine(lines[1]!);
-      validateHeaders(headers);
+  const name = lines[0] ?? "";
+  const headers = parseLine(lines[1]!);
+  validateHeaders(headers);
 
-      const rows = lines.slice(2).map((line, index) => {
-        const fields = parseLine(line);
-        if (fields.length !== headers.length) {
-          throw new Error(
-            `Row ${index + 1} has ${fields.length} fields but expected ${headers.length}`,
-          );
-        }
+  const rows = lines.slice(2).map((line, index) => {
+    const fields = parseLine(line);
+    if (fields.length !== headers.length) {
+      throw new Error(
+        `Row ${index + 1} has ${fields.length} fields but expected ${headers.length}`,
+      );
+    }
 
-        const row: Record<string, string> = {};
-        for (const [headerIndex, header] of headers.entries()) {
-          row[header] = fields[headerIndex]!;
-        }
-        return row;
+    const row: Record<string, string> = {};
+    for (const [headerIndex, header] of headers.entries()) {
+      row[header] = fields[headerIndex]!;
+    }
+    return row;
+  });
+
+  return { name, headers, rows };
+};
+
+const buildCsv = (data: CsvJsonData): string => {
+  validateNoNewline(data.name, "Name line");
+  validateHeaders(data.headers);
+  validateRows(data.headers, data.rows);
+
+  const lines: string[] = [];
+  lines.push(data.name);
+  lines.push(data.headers.map(escapeCell).join(","));
+  for (const row of data.rows) {
+    lines.push(data.headers.map((header) => escapeCell(row[header]!)).join(","));
+  }
+
+  // Canonical form: CSV rebuilt from JSON always ends with a trailing newline,
+  // regardless of whether the original entry had one.
+  return `${lines.join("\n")}\n`;
+};
+
+export class CsvCodec extends Context.Service<
+  CsvCodec,
+  {
+    readonly csvToJson: (content: string, path: string) => Effect.Effect<CsvJsonData, MalformedCsv>;
+    readonly jsonToCsv: (data: CsvJsonData, path: string) => Effect.Effect<string, MalformedCsv>;
+  }
+>()("@gimped/swz/CsvCodec") {
+  static readonly layer: Layer.Layer<CsvCodec> = Layer.sync(CsvCodec, () => {
+    const csvToJson = Effect.fn("CsvCodec.csvToJson")(function* (content: string, path: string) {
+      return yield* Effect.try({
+        try: () => parseCsv(content),
+        catch: (error) =>
+          malformed(path, error instanceof Error ? error.message : "Failed to parse CSV content"),
       });
+    });
 
-      return { name, headers, rows };
-    },
-    catch: (error) =>
-      malformed(path, error instanceof Error ? error.message : "Failed to parse CSV content"),
+    const jsonToCsv = Effect.fn("CsvCodec.jsonToCsv")(function* (data: CsvJsonData, path: string) {
+      return yield* Effect.try({
+        try: () => buildCsv(data),
+        catch: (error) =>
+          malformed(path, error instanceof Error ? error.message : "Failed to build CSV content"),
+      });
+    });
+
+    return { csvToJson, jsonToCsv };
   });
+}
 
-export const jsonToCsv = (data: CsvJsonData, path: string): Effect.Effect<string, MalformedCsv> =>
-  Effect.try({
-    try: () => {
-      validateNoNewline(data.name, "Name line");
-      validateHeaders(data.headers);
-      validateRows(data.headers, data.rows);
+export const csvToJson = Effect.fn("csvToJson")(function* (content: string, path: string) {
+  const codec = yield* CsvCodec;
+  return yield* codec.csvToJson(content, path);
+});
 
-      const lines: string[] = [];
-      lines.push(data.name);
-      lines.push(data.headers.map(escapeCell).join(","));
-      for (const row of data.rows) {
-        lines.push(data.headers.map((header) => escapeCell(row[header]!)).join(","));
-      }
-
-      // Canonical form: CSV rebuilt from JSON always ends with a trailing newline,
-      // regardless of whether the original entry had one.
-      return `${lines.join("\n")}\n`;
-    },
-    catch: (error) =>
-      malformed(path, error instanceof Error ? error.message : "Failed to build CSV content"),
-  });
+export const jsonToCsv = Effect.fn("jsonToCsv")(function* (data: CsvJsonData, path: string) {
+  const codec = yield* CsvCodec;
+  return yield* codec.jsonToCsv(data, path);
+});

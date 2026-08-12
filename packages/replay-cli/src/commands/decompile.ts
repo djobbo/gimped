@@ -1,5 +1,5 @@
 import { decompileFile } from "@gimped/replay";
-import { Option } from "effect";
+import { Effect, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 export const decompile = Command.make(
@@ -12,10 +12,11 @@ export const decompile = Command.make(
       Flag.withDescription("SWZ directory or .swz for ID names"),
     ),
   },
-  (config) =>
-    decompileFile({
+  Effect.fn("decompile")(function* (config) {
+    return yield* decompileFile({
       inPath: config.in,
       outPath: config.out,
       dataPath: Option.getOrUndefined(config.data),
-    }),
+    });
+  }),
 ).pipe(Command.withDescription("Decompile a .replay file to JSON"));

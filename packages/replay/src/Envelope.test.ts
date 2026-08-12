@@ -4,9 +4,10 @@ import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vite-plus/test";
 import { Envelope } from "./Envelope.ts";
 import { EnvelopeLive } from "./layers.ts";
-import { xorBytes } from "./xor.ts";
+import { xorBytes, Xor } from "./xor.ts";
 
 const run = runWith(EnvelopeLive);
+const runXor = runWith(Xor.layer);
 
 describe("Envelope", () => {
   it("open reverses seal", async () => {
@@ -39,7 +40,8 @@ describe("Envelope", () => {
 
   it("open inflates then XORs", async () => {
     const plain = Uint8Array.from([1, 2, 3]);
-    const sealed = deflateSync(xorBytes(plain));
+    const xored = await runXor(xorBytes(plain));
+    const sealed = deflateSync(xored);
     const opened = await run(
       Effect.gen(function* () {
         const env = yield* Envelope;

@@ -1,3 +1,5 @@
+import { Context, Effect, Layer } from "effect";
+
 export type ChecksumHero = {
   readonly heroId: number;
   readonly costumeId: number;
@@ -28,7 +30,7 @@ const popcount = (x: number): number => {
   return (((n + (n >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
 };
 
-export const playerChecksum = (
+export const computePlayerChecksum = (
   players: readonly ChecksumPlayer[],
   levelId: number,
   heroSlotCount: number,
@@ -64,3 +66,30 @@ export const playerChecksum = (
   sum += levelId * 47;
   return sum % 173;
 };
+
+export class Checksum extends Context.Service<
+  Checksum,
+  {
+    readonly playerChecksum: (
+      players: readonly ChecksumPlayer[],
+      levelId: number,
+      heroSlotCount: number,
+    ) => Effect.Effect<number>;
+  }
+>()("@gimped/replay/Checksum") {
+  static readonly layer: Layer.Layer<Checksum> = Layer.sync(Checksum, () => ({
+    playerChecksum: Effect.fn("Checksum.playerChecksum")(
+      (players: readonly ChecksumPlayer[], levelId: number, heroSlotCount: number) =>
+        Effect.sync(() => computePlayerChecksum(players, levelId, heroSlotCount)),
+    ),
+  }));
+}
+
+export const playerChecksum = Effect.fn("playerChecksum")(function* (
+  players: readonly ChecksumPlayer[],
+  levelId: number,
+  heroSlotCount: number,
+) {
+  const checksum = yield* Checksum;
+  return yield* checksum.playerChecksum(players, levelId, heroSlotCount);
+});

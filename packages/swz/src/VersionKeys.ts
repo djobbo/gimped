@@ -19,24 +19,19 @@ export class VersionKeys extends Context.Service<
     ) => Effect.Effect<number, UnknownVersion>;
   }
 >()("@gimped/swz/VersionKeys") {
-  static readonly layer = Layer.effect(
-    VersionKeys,
-    Effect.gen(function* () {
-      const resolveKey = Effect.fn("VersionKeys.resolveKey")(function* (
-        version: string,
-        map: VersionKeyMap = defaultVersionKeyMap,
-      ) {
-        const buildId = map.aliases[version] ?? version;
-        const key = map.keys[buildId];
-        if (key === undefined) {
-          return yield* new UnknownVersion({ version });
-        }
-        return key >>> 0;
-      });
-
-      return VersionKeys.of({ resolveKey });
+  static readonly layer = Layer.sync(VersionKeys, () => ({
+    resolveKey: Effect.fn("VersionKeys.resolveKey")(function* (
+      version: string,
+      map: VersionKeyMap = defaultVersionKeyMap,
+    ) {
+      const buildId = map.aliases[version] ?? version;
+      const key = map.keys[buildId];
+      if (key === undefined) {
+        return yield* new UnknownVersion({ version });
+      }
+      return key >>> 0;
     }),
-  );
+  }));
 }
 
 export const resolveKey = Effect.fn("resolveKey")(function* (version: string, map?: VersionKeyMap) {
