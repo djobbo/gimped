@@ -8,6 +8,8 @@ export type CsvJsonData = {
 };
 
 const malformed = (path: string, message: string): MalformedCsv => new MalformedCsv({ path, message });
+const HAS_TRAILING_NEWLINE = Symbol("csv.hasTrailingNewline");
+type CsvJsonDataWithMeta = CsvJsonData & { readonly [HAS_TRAILING_NEWLINE]?: boolean };
 
 const parseLine = (line: string): string[] => {
   const fields: string[] = [];
@@ -112,6 +114,7 @@ export const csvToJson = (content: string, path: string): Effect.Effect<CsvJsonD
   Effect.try({
     try: () => {
       const normalized = content.replaceAll("\r", "");
+      const hasTrailingNewline = normalized.endsWith("\n");
       const lines = normalized.split("\n");
       if (lines.at(-1) === "") {
         lines.pop();
@@ -140,7 +143,12 @@ export const csvToJson = (content: string, path: string): Effect.Effect<CsvJsonD
         return row;
       });
 
-      return { name, headers, rows };
+      const result: CsvJsonDataWithMeta = { name, headers, rows };
+      Object.defineProperty(result, HAS_TRAILING_NEWLINE, {
+        value: hasTrailingNewline,
+        enumerable: false,
+      });
+      return result;
     },
     catch: (error) =>
       malformed(path, error instanceof Error ? error.message : "Failed to parse CSV content"),
@@ -159,7 +167,8 @@ export const jsonToCsv = (data: CsvJsonData, path: string): Effect.Effect<string
         lines.push(data.headers.map((header) => escapeCell(row[header]!)).join(","));
       }
 
-      return `${lines.join("\n")}\n`;
+      const hasTrailingNewline = (data as CsvJsonDataWithMeta)[HAS_TRAILING_NEWLINE] ?? true;
+      return hasTrailingNewline ? `${lines.join("\n")}\n` : lines.join("\n");
     },
     catch: (error) =>
       malformed(path, error instanceof Error ? error.message : "Failed to build CSV content"),
