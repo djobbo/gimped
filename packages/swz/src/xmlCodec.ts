@@ -6,7 +6,7 @@ export type XmlJsonData = {
   readonly root: Readonly<Record<string, unknown>>;
 };
 
-const parserOptions = {
+const sharedOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   textNodeName: "#text",
@@ -14,8 +14,14 @@ const parserOptions = {
   parseTagValue: false,
 } as const;
 
-const parser = new XMLParser(parserOptions);
-const builder = new XMLBuilder(parserOptions);
+const parser = new XMLParser({
+  ...sharedOptions,
+  ignoreDeclaration: true,
+  ignorePiTags: true,
+});
+
+// Without suppressBooleanAttributes the builder rewrites attr="true" to a bare attr.
+const builder = new XMLBuilder({ ...sharedOptions, suppressBooleanAttributes: false });
 
 const malformed = (path: string, message: string): MalformedXml =>
   new MalformedXml({ path, message });

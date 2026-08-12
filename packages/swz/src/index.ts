@@ -3,6 +3,8 @@ export * from "./SwzCodec.ts";
 export * from "./VersionKeys.ts";
 export * from "./EntryIo.ts";
 export * from "./JsonTranspile.ts";
+export * from "./csvCodec.ts";
+export * from "./xmlCodec.ts";
 export * from "./pipeline.ts";
 export * from "./errors.ts";
 export * from "./binary.ts";

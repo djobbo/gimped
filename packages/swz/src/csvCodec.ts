@@ -9,8 +9,6 @@ export type CsvJsonData = {
 
 const malformed = (path: string, message: string): MalformedCsv =>
   new MalformedCsv({ path, message });
-const HAS_TRAILING_NEWLINE = Symbol("csv.hasTrailingNewline");
-type CsvJsonDataWithMeta = CsvJsonData & { readonly [HAS_TRAILING_NEWLINE]?: boolean };
 
 const parseLine = (line: string): string[] => {
   const fields: string[] = [];
@@ -71,6 +69,12 @@ const parseLine = (line: string): string[] => {
   return fields;
 };
 
+const validateNoNewline = (value: string, context: string): void => {
+  if (value.includes("\n") || value.includes("\r")) {
+    throw new Error(`${context} must not contain a newline character`);
+  }
+};
+
 const validateHeaders = (headers: readonly string[]): void => {
   const seen = new Set<string>();
   for (const header of headers) {
@@ -80,6 +84,7 @@ const validateHeaders = (headers: readonly string[]): void => {
     if (seen.has(header)) {
       throw new Error(`Duplicate header "${header}"`);
     }
+    validateNoNewline(header, `Header "${header}"`);
     seen.add(header);
   }
 };
@@ -98,6 +103,7 @@ const validateRows = (
       if (typeof row[header] !== "string") {
         throw new Error(`Row ${rowNumber} key "${header}" must be a string`);
       }
+      validateNoNewline(row[header]!, `Row ${rowNumber} key "${header}"`);
     }
     for (const key of Object.keys(row)) {
       if (!headerSet.has(key)) {
@@ -108,7 +114,7 @@ const validateRows = (
 };
 
 const escapeCell = (cell: string): string => {
-  if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+  if (cell.includes(",") || cell.includes('"')) {
     return `"${cell.replaceAll('"', '""')}"`;
   }
   return cell;
@@ -121,7 +127,6 @@ export const csvToJson = (
   Effect.try({
     try: () => {
       const normalized = content.replaceAll("\r", "");
-      const hasTrailingNewline = normalized.endsWith("\n");
       const lines = normalized.split("\n");
       if (lines.at(-1) === "") {
         lines.pop();
@@ -150,12 +155,7 @@ export const csvToJson = (
         return row;
       });
 
-      const result: CsvJsonDataWithMeta = { name, headers, rows };
-      Object.defineProperty(result, HAS_TRAILING_NEWLINE, {
-        value: hasTrailingNewline,
-        enumerable: false,
-      });
-      return result;
+      return { name, headers, rows };
     },
     catch: (error) =>
       malformed(path, error instanceof Error ? error.message : "Failed to parse CSV content"),
@@ -164,6 +164,7 @@ export const csvToJson = (
 export const jsonToCsv = (data: CsvJsonData, path: string): Effect.Effect<string, MalformedCsv> =>
   Effect.try({
     try: () => {
+      validateNoNewline(data.name, "Name line");
       validateHeaders(data.headers);
       validateRows(data.headers, data.rows);
 
@@ -174,8 +175,9 @@ export const jsonToCsv = (data: CsvJsonData, path: string): Effect.Effect<string
         lines.push(data.headers.map((header) => escapeCell(row[header]!)).join(","));
       }
 
-      const hasTrailingNewline = (data as CsvJsonDataWithMeta)[HAS_TRAILING_NEWLINE] ?? true;
-      return hasTrailingNewline ? `${lines.join("\n")}\n` : lines.join("\n");
+      // Canonical form: CSV rebuilt from JSON always ends with a trailing newline,
+      // regardless of whether the original entry had one.
+      return `${lines.join("\n")}\n`;
     },
     catch: (error) =>
       malformed(path, error instanceof Error ? error.message : "Failed to build CSV content"),
