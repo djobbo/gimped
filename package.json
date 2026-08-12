@@ -1,0 +1,20 @@
+{
+  "name": "@gimped/workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ready": "vp check && vp run -r test && vp run -r build",
+    "test": "vp run -r test",
+    "build": "vp run -r build",
+    "check": "vp check"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vite-plus": "^0.2.9",
+    "@types/node": "^24.0.0"
+  }
+}

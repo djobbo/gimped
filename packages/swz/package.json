@@ -1,0 +1,23 @@
+{
+  "name": "@gimped/swz",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "build": "vp build",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "fast-xml-parser": "^5.2.0"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "@types/node": "catalog:"
+  }
+}
