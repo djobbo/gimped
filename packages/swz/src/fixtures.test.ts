@@ -1,23 +1,33 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { ChecksumMismatch } from "./errors.ts";
+import { TestLive } from "./layers.ts";
+import { runWith } from "./test-utils.ts";
 import { compile, decompile } from "./SwzCodec.ts";
 import { resolveKey } from "./VersionKeys.ts";
 
 const fixturesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "fixtures");
-
 const FIXTURES = ["Engine.swz", "Init.swz", "Dynamic.swz", "Game.swz"] as const;
 
-const readFixture = (name: (typeof FIXTURES)[number]): Uint8Array =>
-  new Uint8Array(fs.readFileSync(path.join(fixturesDir, name)));
+const run = runWith(TestLive);
+
+const readFixture = (name: (typeof FIXTURES)[number]) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    return yield* fs.readFile(path.join(fixturesDir, name));
+  });
 
 describe("real SWZ fixtures", () => {
   it.each(FIXTURES)("decompiles %s with version latest key", async (name) => {
-    const key = await Effect.runPromise(resolveKey("latest"));
-    const entries = await Effect.runPromise(decompile(readFixture(name), key));
+    const entries = await run(
+      Effect.gen(function* () {
+        const key = yield* resolveKey("latest");
+        const bytes = yield* readFixture(name);
+        return yield* decompile(bytes, key);
+      }),
+    );
     expect(entries.length).toBeGreaterThan(0);
     for (const entry of entries) {
       expect(entry.content.length).toBeGreaterThan(0);
@@ -27,7 +37,12 @@ describe("real SWZ fixtures", () => {
   });
 
   it.each(FIXTURES)("rejects %s with the wrong key", async (name) => {
-    const result = await Effect.runPromise(Effect.result(decompile(readFixture(name), 1)));
+    const result = await run(
+      Effect.gen(function* () {
+        const bytes = yield* readFixture(name);
+        return yield* Effect.result(decompile(bytes, 1));
+      }),
+    );
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") {
       expect(result.failure).toBeInstanceOf(ChecksumMismatch);
@@ -38,10 +53,16 @@ describe("real SWZ fixtures", () => {
   });
 
   it.each(FIXTURES)("round-trips %s entry contents through compile/decompile", async (name) => {
-    const key = await Effect.runPromise(resolveKey("latest"));
-    const original = await Effect.runPromise(decompile(readFixture(name), key));
-    const rebuilt = await Effect.runPromise(compile(original, key, 731341442));
-    const roundTrip = await Effect.runPromise(decompile(rebuilt, key));
+    const { original, roundTrip } = await run(
+      Effect.gen(function* () {
+        const key = yield* resolveKey("latest");
+        const bytes = yield* readFixture(name);
+        const original = yield* decompile(bytes, key);
+        const rebuilt = yield* compile(original, key, 731341442);
+        const roundTrip = yield* decompile(rebuilt, key);
+        return { original, roundTrip };
+      }),
+    );
     expect(roundTrip.map((entry) => entry.content)).toEqual(original.map((entry) => entry.content));
   });
 });

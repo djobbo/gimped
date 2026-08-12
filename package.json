@@ -2,7 +2,6 @@
   "name": "@gimped/workspace",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@10.14.0",
   "type": "module",
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
@@ -10,12 +9,13 @@
     "build": "vp run -r build",
     "check": "vp check"
   },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vite-plus": "^0.2.9"
+  },
   "engines": {
     "node": ">=22.18.0"
   },
-  "devDependencies": {
-    "typescript": "^5.9.0",
-    "vite-plus": "^0.2.9",
-    "@types/node": "^24.0.0"
-  }
+  "packageManager": "pnpm@10.14.0"
 }

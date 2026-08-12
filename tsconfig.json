@@ -8,8 +8,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "references": [
-    { "path": "./packages/swz" },
-    { "path": "./packages/swz-cli" }
-  ]
+  "references": [{ "path": "./packages/swz" }, { "path": "./packages/swz-cli" }]
 }

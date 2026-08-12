@@ -1,11 +1,12 @@
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
-import { Effect } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { IoError } from "./errors.ts";
 import { detectFiletype, entryFileName, readNativeDir, writeNativeDir } from "./EntryIo.ts";
 import * as swz from "./index.ts";
+import { EntryIoLive } from "./layers.ts";
+import { runWith } from "./test-utils.ts";
+
+const run = runWith(EntryIoLive);
 
 describe("EntryIo", () => {
   it("exports entry helpers from the package entry point", () => {
@@ -31,50 +32,55 @@ describe("EntryIo", () => {
   });
 
   it("writes and reads a native directory deterministically", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "swz-"));
-    const entries = [
-      { content: "<HeroTypes><x/></HeroTypes>" },
-      { content: "MyTable\na,b\n1,2\n" },
-    ];
+    const contents = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+        const entries = [
+          { content: "<HeroTypes><x/></HeroTypes>" },
+          { content: "MyTable\na,b\n1,2\n" },
+        ];
 
-    try {
-      await Effect.runPromise(writeNativeDir(entries, dir));
-      await fs.writeFile(path.join(dir, "ignored.txt"), "ignored", "utf8");
-      const back = await Effect.runPromise(readNativeDir(dir));
+        yield* writeNativeDir(entries, dir);
+        yield* fs.writeFileString(path.join(dir, "ignored.txt"), "ignored");
+        const back = yield* readNativeDir(dir);
+        return back.map((entry) => entry.content);
+      }),
+    );
 
-      expect(back.map((entry) => entry.content)).toEqual([
-        "<HeroTypes><x/></HeroTypes>",
-        "MyTable\na,b\n1,2\n",
-      ]);
-    } finally {
-      await fs.rm(dir, { recursive: true, force: true });
-    }
+    expect(contents).toEqual(["<HeroTypes><x/></HeroTypes>", "MyTable\na,b\n1,2\n"]);
   });
 
   it("rejects entries that resolve to the same native filename", async () => {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "swz-"));
-    const entries = [
-      { content: "<HeroTypes><x/></HeroTypes>" },
-      { content: "<HeroTypes><y/></HeroTypes>" },
-    ];
+    const { result, expectedPath } = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+        const result = yield* Effect.result(
+          writeNativeDir(
+            [
+              { content: "<HeroTypes><x/></HeroTypes>" },
+              { content: "<HeroTypes><y/></HeroTypes>" },
+            ],
+            dir,
+          ),
+        );
+        return { result, expectedPath: path.join(dir, "HeroTypes.xml") };
+      }),
+    );
 
-    try {
-      const result = await Effect.runPromise(Effect.result(writeNativeDir(entries, dir)));
-
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure") {
-        expect(result.failure).toBeInstanceOf(IoError);
-        expect(result.failure.path).toBe(path.join(dir, "HeroTypes.xml"));
-      }
-    } finally {
-      await fs.rm(dir, { recursive: true, force: true });
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure).toBeInstanceOf(IoError);
+      expect(result.failure.path).toBe(expectedPath);
     }
   });
 
   it("maps filesystem failures to IoError", async () => {
-    const missing = path.join(os.tmpdir(), `missing-swz-${crypto.randomUUID()}`);
-    const result = await Effect.runPromise(Effect.result(readNativeDir(missing)));
-
+    const missing = `C:\\missing-swz-${crypto.randomUUID()}`;
+    const result = await run(Effect.result(readNativeDir(missing)));
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") {
       expect(result.failure).toBeInstanceOf(IoError);
