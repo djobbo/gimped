@@ -51,6 +51,26 @@ describe("EntryIo", () => {
     }
   });
 
+  it("rejects entries that resolve to the same native filename", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "swz-"));
+    const entries = [
+      { content: "<HeroTypes><x/></HeroTypes>" },
+      { content: "<HeroTypes><y/></HeroTypes>" },
+    ];
+
+    try {
+      const result = await Effect.runPromise(Effect.result(writeNativeDir(entries, dir)));
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(IoError);
+        expect(result.failure.path).toBe(path.join(dir, "HeroTypes.xml"));
+      }
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("maps filesystem failures to IoError", async () => {
     const missing = path.join(os.tmpdir(), `missing-swz-${crypto.randomUUID()}`);
     const result = await Effect.runPromise(Effect.result(readNativeDir(missing)));
