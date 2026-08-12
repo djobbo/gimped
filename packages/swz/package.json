@@ -12,7 +12,8 @@
     "check": "vp check"
   },
   "dependencies": {
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "fast-xml-parser": "catalog:"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
