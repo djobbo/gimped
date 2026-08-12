@@ -7,7 +7,8 @@ export type CsvJsonData = {
   readonly rows: readonly Readonly<Record<string, string>>[];
 };
 
-const malformed = (path: string, message: string): MalformedCsv => new MalformedCsv({ path, message });
+const malformed = (path: string, message: string): MalformedCsv =>
+  new MalformedCsv({ path, message });
 const HAS_TRAILING_NEWLINE = Symbol("csv.hasTrailingNewline");
 type CsvJsonDataWithMeta = CsvJsonData & { readonly [HAS_TRAILING_NEWLINE]?: boolean };
 
@@ -18,16 +19,16 @@ const parseLine = (line: string): string[] => {
   while (true) {
     if (i > line.length) break;
 
-    if (line[i] === "\"") {
+    if (line[i] === '"') {
       i += 1;
       let value = "";
       let closed = false;
 
       while (i < line.length) {
         const char = line[i]!;
-        if (char === "\"") {
-          if (line[i + 1] === "\"") {
-            value += "\"";
+        if (char === '"') {
+          if (line[i + 1] === '"') {
+            value += '"';
             i += 2;
             continue;
           }
@@ -50,7 +51,7 @@ const parseLine = (line: string): string[] => {
     } else {
       const start = i;
       while (i < line.length && line[i] !== ",") {
-        if (line[i] === "\"") {
+        if (line[i] === '"') {
           throw new Error("Unexpected quote in unquoted field");
         }
         i += 1;
@@ -83,7 +84,10 @@ const validateHeaders = (headers: readonly string[]): void => {
   }
 };
 
-const validateRows = (headers: readonly string[], rows: readonly Readonly<Record<string, string>>[]): void => {
+const validateRows = (
+  headers: readonly string[],
+  rows: readonly Readonly<Record<string, string>>[],
+): void => {
   const headerSet = new Set(headers);
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 1;
@@ -104,13 +108,16 @@ const validateRows = (headers: readonly string[], rows: readonly Readonly<Record
 };
 
 const escapeCell = (cell: string): string => {
-  if (cell.includes(",") || cell.includes("\"") || cell.includes("\n")) {
-    return `"${cell.replaceAll("\"", "\"\"")}"`;
+  if (cell.includes(",") || cell.includes('"') || cell.includes("\n")) {
+    return `"${cell.replaceAll('"', '""')}"`;
   }
   return cell;
 };
 
-export const csvToJson = (content: string, path: string): Effect.Effect<CsvJsonData, MalformedCsv> =>
+export const csvToJson = (
+  content: string,
+  path: string,
+): Effect.Effect<CsvJsonData, MalformedCsv> =>
   Effect.try({
     try: () => {
       const normalized = content.replaceAll("\r", "");

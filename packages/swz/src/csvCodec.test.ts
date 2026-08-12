@@ -40,10 +40,7 @@ describe("csvCodec", () => {
 
   it("rejects row width / key mismatches on rebuild", async () => {
     const result = await runFail(
-      jsonToCsv(
-        { name: "T", headers: ["a", "b"], rows: [{ a: "1" }] },
-        "t.csv",
-      ),
+      jsonToCsv({ name: "T", headers: ["a", "b"], rows: [{ a: "1" }] }, "t.csv"),
     );
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(MalformedCsv);

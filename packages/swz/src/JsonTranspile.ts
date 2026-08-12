@@ -53,7 +53,10 @@ export class JsonTranspile extends Context.Service<
     ) => Effect.Effect<void, IoError | MalformedCsv | MalformedXml>;
     readonly readJsonDir: (
       inDir: string,
-    ) => Effect.Effect<SwzEntry[], IoError | MissingRegistry | MalformedJson | MalformedCsv | MalformedXml>;
+    ) => Effect.Effect<
+      SwzEntry[],
+      IoError | MissingRegistry | MalformedJson | MalformedCsv | MalformedXml
+    >;
   }
 >()("@gimped/swz/JsonTranspile") {
   static readonly layer: Layer.Layer<JsonTranspile, never, FileSystem.FileSystem | Path.Path> =

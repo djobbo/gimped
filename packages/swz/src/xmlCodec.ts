@@ -17,9 +17,13 @@ const parserOptions = {
 const parser = new XMLParser(parserOptions);
 const builder = new XMLBuilder(parserOptions);
 
-const malformed = (path: string, message: string): MalformedXml => new MalformedXml({ path, message });
+const malformed = (path: string, message: string): MalformedXml =>
+  new MalformedXml({ path, message });
 
-const validateSingleRootObject = (value: unknown, context: string): Readonly<Record<string, unknown>> => {
+const validateSingleRootObject = (
+  value: unknown,
+  context: string,
+): Readonly<Record<string, unknown>> => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${context} must be a non-null object`);
   }
@@ -32,7 +36,10 @@ const validateSingleRootObject = (value: unknown, context: string): Readonly<Rec
   return value as Readonly<Record<string, unknown>>;
 };
 
-export const xmlToJson = (content: string, path: string): Effect.Effect<XmlJsonData, MalformedXml> =>
+export const xmlToJson = (
+  content: string,
+  path: string,
+): Effect.Effect<XmlJsonData, MalformedXml> =>
   Effect.try({
     try: () => {
       const validation = XMLValidator.validate(content);
