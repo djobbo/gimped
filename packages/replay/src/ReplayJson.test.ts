@@ -72,4 +72,42 @@ describe("ReplayJson", () => {
     );
     expect(result._tag).toBe("Failure");
   });
+
+  it("rejects an input entityId outside bits(5)", async () => {
+    const replay = { ...minimal(), inputs: [{ entityId: 32, time: 16 }] };
+    const result = await Effect.runPromise(
+      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
+    );
+    expect(result._tag).toBe("Failure");
+  });
+
+  it("rejects an input value outside bits(14)", async () => {
+    const replay = { ...minimal(), inputs: [{ entityId: 1, time: 16, input: 16384 }] };
+    const result = await Effect.runPromise(
+      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
+    );
+    expect(result._tag).toBe("Failure");
+  });
+
+  it("rejects heroSlotCount above 5", async () => {
+    const result = await Effect.runPromise(
+      Effect.result(Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), heroSlotCount: 6 })),
+    );
+    expect(result._tag).toBe("Failure");
+  });
+
+  it("rejects a u16 cosmetics field above 65535", async () => {
+    const base = minimal();
+    const replay = {
+      ...base,
+      players: base.players.map((player) => ({
+        ...player,
+        cosmetics: { ...player.cosmetics, field2378: 65536 },
+      })),
+    };
+    const result = await Effect.runPromise(
+      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
+    );
+    expect(result._tag).toBe("Failure");
+  });
 });

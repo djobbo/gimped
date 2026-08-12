@@ -1,5 +1,10 @@
 import { Schema } from "effect";
 
+const bits5 = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 31 }));
+const bits14 = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 16383 }));
+const u16 = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 65535 }));
+const heroSlots = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 5 }));
+
 export const Game = Schema.Struct({
   id: Schema.Number,
   nameId: Schema.Number,
@@ -56,10 +61,10 @@ export const Cosmetics = Schema.Struct({
     Schema.Number,
     Schema.Number,
   ]),
-  field2378: Schema.Number,
-  field15047: Schema.Number,
+  field2378: u16,
+  field15047: u16,
   bitfield: Schema.Array(Schema.Number),
-  field4335: Schema.Number,
+  field4335: u16,
   field3535: Schema.Number,
   field6575: Schema.Number,
 });
@@ -83,18 +88,18 @@ export const Player = Schema.Struct({
 });
 
 export const Score = Schema.Struct({
-  entityId: Schema.Number,
-  score: Schema.Number,
+  entityId: bits5,
+  score: u16,
 });
 
 export const Input = Schema.Struct({
-  entityId: Schema.Number,
+  entityId: bits5,
   time: Schema.Number,
-  input: Schema.optionalKey(Schema.Number),
+  input: Schema.optionalKey(bits14),
 });
 
 export const EntityEvent = Schema.Struct({
-  entityId: Schema.Number,
+  entityId: bits5,
   time: Schema.Number,
 });
 
@@ -109,7 +114,7 @@ export const ReplayJson = Schema.Struct({
   game: Game,
   rules: Rules,
   level: Level,
-  heroSlotCount: Schema.Number,
+  heroSlotCount: heroSlots,
   players: Schema.Array(Player),
   results: Results,
   inputs: Schema.Array(Input),

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { Bitstream } from "./bitstream.ts";
 import { ChecksumMismatch, InvalidReplay } from "./errors.ts";
 import { CodecLive } from "./layers.ts";
-import { decode, encode } from "./ReplayCodec.ts";
+import { chunkTypes, decode, encode } from "./ReplayCodec.ts";
 import type { Replay } from "./ReplayJson.ts";
 
 const run = runWith(CodecLive);
@@ -137,6 +137,27 @@ describe("ReplayCodec", () => {
         expect(result.failure.reason).toContain("hero slot");
       }
     }
+  });
+
+  it("writes chunks in order 3, 4, 6, 1, 5, 7, 2", async () => {
+    const bytes = await run(encode(minimal()));
+    expect(chunkTypes(bytes)).toEqual([3, 4, 6, 1, 5, 7, 2]);
+  });
+
+  it("fails encode when a player has more heroes than heroSlotCount", async () => {
+    const base = minimal();
+    const extra = { heroId: 4, costumeId: 0, field3172: 0, weaponSkinId: 0 };
+    const replay: Replay = {
+      ...base,
+      heroSlotCount: 1,
+      players: base.players.map((player) => ({
+        ...player,
+        heroes: [...player.heroes, extra],
+      })),
+    };
+    const result = await run(Effect.result(encode(replay)));
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(InvalidReplay);
   });
 
   it("fails on a truncated bitstream", async () => {

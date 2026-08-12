@@ -259,6 +259,15 @@ const readEvents = (bits: Bitstream): EntityEvent[] => {
 };
 
 const encodeSync = (replay: Replay): Uint8Array => {
+  for (const player of replay.players) {
+    if (player.heroes.length > replay.heroSlotCount) {
+      throw new DecodeFailure(
+        new InvalidReplay({
+          reason: `player has ${player.heroes.length} heroes, but heroSlotCount is ${replay.heroSlotCount}`,
+        }),
+      );
+    }
+  }
   const bits = new Bitstream();
   bits.writeU32(replay.replayVersion);
   writeGame(bits, replay.game);
@@ -269,6 +278,46 @@ const encodeSync = (replay: Replay): Uint8Array => {
   writeEvents(bits, 7, replay.otherEvents);
   bits.writeBits(4, 2);
   return bits.toUint8Array();
+};
+
+/** Reads version then 4-bit chunk types, skipping payloads. Not part of the public API. */
+export const chunkTypes = (bytes: Uint8Array): number[] => {
+  const bits = new Bitstream(bytes);
+  bits.readU32();
+  const types: number[] = [];
+  while (bits.remainingBits >= 4) {
+    const type = bits.readBits(4);
+    types.push(type);
+    switch (type) {
+      case 1:
+        readInputs(bits, []);
+        break;
+      case 2:
+        return types;
+      case 3:
+        readGame(bits);
+        break;
+      case 4: {
+        readRules(bits);
+        bits.readU32();
+        const slots = bits.readU16();
+        while (bits.readBits(1) !== 0) readPlayer(bits, slots);
+        bits.readU32();
+        break;
+      }
+      case 5:
+      case 7:
+        readEvents(bits);
+        break;
+      case 6:
+        readResults(bits);
+        break;
+      case 8:
+      default:
+        return types;
+    }
+  }
+  return types;
 };
 
 const decodeSync = (bytes: Uint8Array): Replay => {
@@ -362,7 +411,7 @@ export class ReplayCodec extends Context.Service<
   ReplayCodec,
   {
     readonly decode: (bytes: Uint8Array) => Effect.Effect<Replay, InvalidReplay | ChecksumMismatch>;
-    readonly encode: (replay: Replay) => Effect.Effect<Uint8Array>;
+    readonly encode: (replay: Replay) => Effect.Effect<Uint8Array, InvalidReplay>;
   }
 >()("@gimped/replay/ReplayCodec") {
   static readonly layer: Layer.Layer<ReplayCodec> = Layer.effect(
@@ -378,9 +427,14 @@ export class ReplayCodec extends Context.Service<
         }
       });
 
-      const encode = Effect.fn("ReplayCodec.encode")((replay: Replay) =>
-        Effect.sync(() => encodeSync(replay)),
-      );
+      const encode = Effect.fn("ReplayCodec.encode")(function* (replay: Replay) {
+        try {
+          return encodeSync(replay);
+        } catch (cause) {
+          if (cause instanceof DecodeFailure) return yield* cause.failure;
+          throw cause;
+        }
+      });
 
       return ReplayCodec.of({ decode, encode });
     }),
