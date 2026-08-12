@@ -3,4 +3,5 @@ export * from "./SwzCodec.ts";
 export * from "./VersionKeys.ts";
 export * from "./EntryIo.ts";
 export * from "./JsonTranspile.ts";
+export * from "./pipeline.ts";
 export * from "./errors.ts";
