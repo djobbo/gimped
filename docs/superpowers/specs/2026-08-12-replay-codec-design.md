@@ -15,15 +15,15 @@ Decompile writes **one JSON file**. Compile reads that JSON and writes a game-re
 
 ## Context (from `dumps/scripts`)
 
-| Role | Dump |
-| ---- | ---- |
-| Bitstream | `class_30` |
-| Write `.replay` | `class_314` |
-| Read chunks | `class_313.method_2634` |
-| UI load (inflate + XOR) | `class_615.method_828` |
-| Replay version | `class_50.var_3399` = `268` |
-| XOR key | `class_314.var_6718` (init in `class_725`) |
-| Bit masks | `class_30.var_9449` = `(1<<n)-1` |
+| Role                    | Dump                                       |
+| ----------------------- | ------------------------------------------ |
+| Bitstream               | `class_30`                                 |
+| Write `.replay`         | `class_314`                                |
+| Read chunks             | `class_313.method_2634`                    |
+| UI load (inflate + XOR) | `class_615.method_828`                     |
+| Replay version          | `class_50.var_3399` = `268`                |
+| XOR key                 | `class_314.var_6718` (init in `class_725`) |
+| Bit masks               | `class_30.var_9449` = `(1<<n)-1`           |
 
 On-disk format:
 
@@ -52,14 +52,14 @@ Scaffold like existing packages (Vite+, `vp test` / `vp build` / `vp check`, `ef
 
 Move these out of `@gimped/swz` (behavior unchanged):
 
-| Piece | Notes |
-| ----- | ----- |
-| `IoError` | `{ path, message }` |
-| `MalformedJson` | `{ path, message }` |
-| `toIoError` | `PlatformError \| unknown` → `IoError` |
-| `toMalformedJson` | `unknown` → `MalformedJson` |
+| Piece                       | Notes                                        |
+| --------------------------- | -------------------------------------------- |
+| `IoError`                   | `{ path, message }`                          |
+| `MalformedJson`             | `{ path, message }`                          |
+| `toIoError`                 | `PlatformError \| unknown` → `IoError`       |
+| `toMalformedJson`           | `unknown` → `MalformedJson`                  |
 | `ByteReader` / `ByteWriter` | byte-aligned; add `readU16BE` / `writeU16BE` |
-| `runWith` | test helper |
+| `runWith`                   | test helper                                  |
 
 `rotr` stays in `@gimped/swz` (SWZ checksum only).
 
@@ -119,12 +119,12 @@ XOR key (64 bytes), from `class_725`:
 
 MSB-first packing. Write/read `n` bits of a value using masks `(1<<k)-1` (32-bit mask is `0xffffffff`).
 
-| Primitive | Encoding |
-| --------- | -------- |
-| `bits(n, v)` | `n` bits of `v`, MSB first |
-| `u32` | 4-byte big-endian int, copied as bytes into the bit stream |
-| `u16` | 2-byte big-endian short, copied as bytes |
-| `string` | `u16` byte length + UTF-8 bytes (length capped at 65535 on write) |
+| Primitive    | Encoding                                                          |
+| ------------ | ----------------------------------------------------------------- |
+| `bits(n, v)` | `n` bits of `v`, MSB first                                        |
+| `u32`        | 4-byte big-endian int, copied as bytes into the bit stream        |
+| `u16`        | 2-byte big-endian short, copied as bytes                          |
+| `string`     | `u16` byte length + UTF-8 bytes (length capped at 65535 on write) |
 
 First field: `replayVersion` (`u32`). This dump uses `268`. Do not reject other versions if chunks parse.
 
@@ -132,16 +132,16 @@ Then 4-bit chunk type, repeated until type `2` or no bytes remain.
 
 ## Chunks
 
-| Type | Meaning | Layout |
-| ---- | ------- | ------ |
-| 3 | Game info | `u32` id, `u32` nameId, `string` if nameId ≠ 0, `bits(1)` customOnline |
-| 4 | Match setup | rules (`15 × u32`), level `u32`, heroSlotCount `u16`, players, checksum `u32` |
-| 6 | Results | duration `u32`, scores, `u32` endValue |
-| 1 | Inputs | per entity until `bits(1)=0` |
-| 5 | Events | `{ bits(1), entityId bits(5), time u32 }*` until `bits(1)=0` |
-| 7 | Other events | same as 5 |
-| 2 | End | no payload |
-| 8 | Corrupt | `InvalidReplay` |
+| Type  | Meaning                                                                              | Layout                                                                        |
+| ----- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 3     | Game info                                                                            | `u32` id, `u32` nameId, `string` if nameId ≠ 0, `bits(1)` customOnline        |
+| 4     | Match setup                                                                          | rules (`15 × u32`), level `u32`, heroSlotCount `u16`, players, checksum `u32` |
+| 6     | Results                                                                              | duration `u32`, scores, `u32` endValue                                        |
+| 1     | Inputs                                                                               | per entity until `bits(1)=0`                                                  |
+| 5     | Events                                                                               | `{ bits(1), entityId bits(5), time u32 }*` until `bits(1)=0`                  |
+| 7     | Other events                                                                         | same as 5                                                                     |
+| 2     | End                                                                                  | no payload                                                                    |
+| 8     | Corrupt                                                                              | `InvalidReplay`                                                               |
 | other | Stop the chunk loop (game default). Missing setup after the loop is `InvalidReplay`. |
 
 **Players** (chunk 4), each prefixed with `bits(1)=1`, list ended by `bits(1)=0`:
@@ -272,16 +272,16 @@ Player object:
 
 Effect v4: `Context.Service` + `static layer`, `Effect.fn("Service.method")`, `FileSystem` / `Path` (no `node:fs`). Service ids: `"@gimped/replay/<Module>"`.
 
-| Module | Kind | Role |
-| ------ | ---- | ---- |
-| `bitstream.ts` | pure | `class_30` bit reader/writer |
-| `xor.ts` | pure | 64-byte XOR |
-| `checksum.ts` | pure | `method_3796` |
-| `ReplayJson.ts` | Schema | `ReplayJson` and nested structs |
-| `Envelope` | service | inflate/deflate + XOR + raw fallback |
-| `ReplayCodec` | service | bitstream ↔ `Replay` |
-| `GameData` | service | optional ID→name |
-| `Pipeline` | service | `decompileFile` / `compileFile` |
+| Module          | Kind    | Role                                 |
+| --------------- | ------- | ------------------------------------ |
+| `bitstream.ts`  | pure    | `class_30` bit reader/writer         |
+| `xor.ts`        | pure    | 64-byte XOR                          |
+| `checksum.ts`   | pure    | `method_3796`                        |
+| `ReplayJson.ts` | Schema  | `ReplayJson` and nested structs      |
+| `Envelope`      | service | inflate/deflate + XOR + raw fallback |
+| `ReplayCodec`   | service | bitstream ↔ `Replay`                 |
+| `GameData`      | service | optional ID→name                     |
+| `Pipeline`      | service | `decompileFile` / `compileFile`      |
 
 `GameData.none` fills no names. `GameData.fromPath` loads `--data`: a decompiled SWZ directory (native XML/CSV) or a `.swz` via `@gimped/swz`. Best-effort tables: HeroType, CostumeType, LevelType, ScoringType, ColorScheme. Missing tables omit names; they do not fail the decompile. Load failure of the path itself is `GameDataError`.
 
@@ -289,13 +289,13 @@ Effect v4: `Context.Service` + `static layer`, `Effect.fn("Service.method")`, `F
 
 ## Errors
 
-| Error | Package | When |
-| ----- | ------- | ---- |
-| `IoError` | common | FS failure, missing path |
-| `MalformedJson` | common | compile JSON parse or Schema decode fails |
-| `InvalidReplay` | replay | truncated bitstream, bad chunk 8, `heroSlotCount > 5`, unusable envelope |
-| `ChecksumMismatch` | replay | setup checksum ≠ recomputed (`expected` / `actual`) |
-| `GameDataError` | replay | `--data` path cannot be loaded |
+| Error              | Package | When                                                                     |
+| ------------------ | ------- | ------------------------------------------------------------------------ |
+| `IoError`          | common  | FS failure, missing path                                                 |
+| `MalformedJson`    | common  | compile JSON parse or Schema decode fails                                |
+| `InvalidReplay`    | replay  | truncated bitstream, bad chunk 8, `heroSlotCount > 5`, unusable envelope |
+| `ChecksumMismatch` | replay  | setup checksum ≠ recomputed (`expected` / `actual`)                      |
+| `GameDataError`    | replay  | `--data` path cannot be loaded                                           |
 
 Replay `ChecksumMismatch` is a distinct tagged error from SWZ’s (different fields). Do not move SWZ’s into common.
 

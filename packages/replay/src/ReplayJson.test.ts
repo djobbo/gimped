@@ -66,7 +66,9 @@ describe("ReplayJson", () => {
 
   it("rejects missing replayVersion", async () => {
     const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), replayVersion: undefined })),
+      Effect.result(
+        Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), replayVersion: undefined }),
+      ),
     );
     expect(result._tag).toBe("Failure");
   });
