@@ -1,4 +1,3 @@
-import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { Well512Live } from "./layers.ts";
 import { runWith } from "./test-utils.ts";

@@ -22,10 +22,10 @@ Native formats (from game load path):
 
 ## Round-trip policy
 
-| Format | Requirement |
-| ------ | ----------- |
-| CSV | Exact native string equality after JSON round-trip |
-| XML | Semantic equality only (attribute order / whitespace / self-closing style may change) |
+| Format | Requirement                                                                           |
+| ------ | ------------------------------------------------------------------------------------- |
+| CSV    | Exact native string equality after JSON round-trip                                    |
+| XML    | Semantic equality only (attribute order / whitespace / self-closing style may change) |
 
 ## JSON schemas
 
@@ -102,18 +102,18 @@ Unchanged:
 
 New `Schema.TaggedError` types in `errors.ts`, each with `path: string` and `message: string`:
 
-| Error | When |
-| ----- | ---- |
-| `MalformedCsv` | Native CSV parse failure on decompile; invalid CSV JSON / rebuild failure on compile |
-| `MalformedXml` | Native XML parse failure on decompile; invalid XML JSON / rebuild failure on compile |
-| `MalformedJson` | Entry file is not valid JSON or fails entry Schema decode |
+| Error           | When                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------ |
+| `MalformedCsv`  | Native CSV parse failure on decompile; invalid CSV JSON / rebuild failure on compile |
+| `MalformedXml`  | Native XML parse failure on decompile; invalid XML JSON / rebuild failure on compile |
+| `MalformedJson` | Entry file is not valid JSON or fails entry Schema decode                            |
 
 Unchanged:
 
-| Error | When |
-| ----- | ---- |
-| `MissingRegistry` | `--json` compile without `registry.json` |
-| `IoError` | Filesystem failures, filename collisions, registry Schema/IO issues, entry `filetype` ≠ registry filetype |
+| Error             | When                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `MissingRegistry` | `--json` compile without `registry.json`                                                                  |
+| `IoError`         | Filesystem failures, filename collisions, registry Schema/IO issues, entry `filetype` ≠ registry filetype |
 
 Pipeline and CLI Effect error channels must include the three new errors so they surface on stderr with non-zero exit.
 

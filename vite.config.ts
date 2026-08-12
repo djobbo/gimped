@@ -2,10 +2,13 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: [".repos/**"],
+    ignorePatterns: [".repos/**", ".superpowers/**"],
   },
   lint: {
-    ignorePatterns: [".repos/**"],
+    ignorePatterns: [".repos/**", ".superpowers/**"],
+  },
+  test: {
+    exclude: ["node_modules/**", ".repos/**", ".superpowers/**"],
   },
   run: {
     cache: true,

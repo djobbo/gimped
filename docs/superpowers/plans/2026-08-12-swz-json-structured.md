@@ -20,29 +20,31 @@
 
 ## File structure
 
-| File | Role |
-| ---- | ---- |
-| `packages/swz/src/errors.ts` | Add `MalformedCsv`, `MalformedXml`, `MalformedJson` |
-| `packages/swz/src/csvCodec.ts` | Pure `csvToJson` / `jsonToCsv` |
-| `packages/swz/src/csvCodec.test.ts` | CSV unit tests |
-| `packages/swz/src/xmlCodec.ts` | Pure `xmlToJson` / `jsonToXml` |
-| `packages/swz/src/xmlCodec.test.ts` | XML unit tests |
-| `packages/swz/src/JsonTranspile.ts` | Wire converters + new entry schemas + `MalformedJson` |
-| `packages/swz/src/JsonTranspile.test.ts` | Update expectations + parse-error cases |
-| `packages/swz/src/pipeline.ts` | Widen `PipelineError` |
-| `packages/swz/src/pipeline.test.ts` | JSON path: exact CSV, semantic XML |
-| `packages/swz/package.json` / lockfile | Add `fast-xml-parser` dependency |
-| `packages/swz-cli/src/cli.test.ts` | Only if JSON round-trip assertions break |
+| File                                     | Role                                                  |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `packages/swz/src/errors.ts`             | Add `MalformedCsv`, `MalformedXml`, `MalformedJson`   |
+| `packages/swz/src/csvCodec.ts`           | Pure `csvToJson` / `jsonToCsv`                        |
+| `packages/swz/src/csvCodec.test.ts`      | CSV unit tests                                        |
+| `packages/swz/src/xmlCodec.ts`           | Pure `xmlToJson` / `jsonToXml`                        |
+| `packages/swz/src/xmlCodec.test.ts`      | XML unit tests                                        |
+| `packages/swz/src/JsonTranspile.ts`      | Wire converters + new entry schemas + `MalformedJson` |
+| `packages/swz/src/JsonTranspile.test.ts` | Update expectations + parse-error cases               |
+| `packages/swz/src/pipeline.ts`           | Widen `PipelineError`                                 |
+| `packages/swz/src/pipeline.test.ts`      | JSON path: exact CSV, semantic XML                    |
+| `packages/swz/package.json` / lockfile   | Add `fast-xml-parser` dependency                      |
+| `packages/swz-cli/src/cli.test.ts`       | Only if JSON round-trip assertions break              |
 
 ---
 
 ### Task 1: Tagged parse errors
 
 **Files:**
+
 - Modify: `packages/swz/src/errors.ts`
 - Create: `packages/swz/src/errors.parse.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `new MalformedCsv({ path: string, message: string })`
   - `new MalformedXml({ path: string, message: string })`
@@ -116,10 +118,12 @@ git commit -m "feat(swz): add MalformedCsv/Xml/Json tagged errors"
 ### Task 2: CSV codec (exact round-trip)
 
 **Files:**
+
 - Create: `packages/swz/src/csvCodec.ts`
 - Create: `packages/swz/src/csvCodec.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MalformedCsv` from `./errors.ts`
 - Produces:
   - `export type CsvJsonData = { readonly name: string; readonly headers: readonly string[]; readonly rows: readonly Readonly<Record<string, string>>[] }`
@@ -172,10 +176,7 @@ describe("csvCodec", () => {
 
   it("rejects row width / key mismatches on rebuild", async () => {
     const result = await runFail(
-      jsonToCsv(
-        { name: "T", headers: ["a", "b"], rows: [{ a: "1" }] },
-        "t.csv",
-      ),
+      jsonToCsv({ name: "T", headers: ["a", "b"], rows: [{ a: "1" }] }, "t.csv"),
     );
     expect(result._tag).toBe("Failure");
     if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(MalformedCsv);
@@ -211,12 +212,14 @@ git commit -m "feat(swz): add exact CSV JSON codec with header validation"
 ### Task 3: XML codec (semantic round-trip)
 
 **Files:**
+
 - Modify: `packages/swz/package.json` (add dependency)
 - Modify: `pnpm-lock.yaml` (via install)
 - Create: `packages/swz/src/xmlCodec.ts`
 - Create: `packages/swz/src/xmlCodec.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MalformedXml` from `./errors.ts`, `fast-xml-parser`
 - Produces:
   - `export type XmlJsonData = { readonly root: Readonly<Record<string, unknown>> }`
@@ -317,12 +320,14 @@ git commit -m "feat(swz): add semantic XML JSON codec via fast-xml-parser"
 ### Task 4: Wire JsonTranspile to structured converters
 
 **Files:**
+
 - Modify: `packages/swz/src/JsonTranspile.ts`
 - Modify: `packages/swz/src/JsonTranspile.test.ts`
 - Modify: `packages/swz/src/pipeline.ts` (`PipelineError` union)
 - Modify: `packages/swz/src/pipeline.test.ts`
 
 **Interfaces:**
+
 - Consumes: `csvToJson` / `jsonToCsv`, `xmlToJson` / `jsonToXml`, new errors
 - Produces (updated service method errors):
   - `writeJsonDir: (...) => Effect.Effect<void, IoError | MalformedCsv | MalformedXml>`
@@ -353,8 +358,8 @@ const filetype = detectFiletype(entry.content);
 const filePath = path.join(outDir, fileName);
 const body =
   filetype === "xml"
-    ? { filetype, ...(yield* xmlToJson(entry.content, filePath)) }
-    : { filetype, ...(yield* csvToJson(entry.content, filePath)) };
+    ? { filetype, ...(yield * xmlToJson(entry.content, filePath)) }
+    : { filetype, ...(yield * csvToJson(entry.content, filePath)) };
 ```
 
 `readJsonDir` per entry:
@@ -479,15 +484,15 @@ Skip this commit if the tree is clean.
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-| ---------------- | ---- |
-| CSV named-rows JSON schema | 2, 4 |
-| Exact CSV round-trip + quoting | 2 |
-| Empty/duplicate header errors | 2 |
-| XML `@_` / `#text` tree | 3 |
-| Semantic XML round-trip | 3, 4 |
+| Spec requirement                                  | Task       |
+| ------------------------------------------------- | ---------- |
+| CSV named-rows JSON schema                        | 2, 4       |
+| Exact CSV round-trip + quoting                    | 2          |
+| Empty/duplicate header errors                     | 2          |
+| XML `@_` / `#text` tree                           | 3          |
+| Semantic XML round-trip                           | 3, 4       |
 | `MalformedCsv` / `MalformedXml` / `MalformedJson` | 1, 2, 3, 4 |
-| Registry unchanged | 4 |
-| Pipeline/CLI error channel widen | 4, 5 |
-| No raw `xml`/`text` fields | 4 |
-| `fast-xml-parser` dependency | 3 |
+| Registry unchanged                                | 4          |
+| Pipeline/CLI error channel widen                  | 4, 5       |
+| No raw `xml`/`text` fields                        | 4          |
+| `fast-xml-parser` dependency                      | 3          |

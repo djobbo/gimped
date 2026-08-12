@@ -12,6 +12,7 @@
     "check": "vp check"
   },
   "dependencies": {
+    "@gimped/common": "workspace:*",
     "effect": "catalog:",
     "fast-xml-parser": "catalog:"
   },
