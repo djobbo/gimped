@@ -1,5 +1,5 @@
+import { toIoError } from "@gimped/common";
 import { Context, Crypto, Effect, FileSystem, Layer, Path } from "effect";
-import type { PlatformError } from "effect/PlatformError";
 import { EntryIo } from "./EntryIo.ts";
 import {
   ChecksumMismatch,
@@ -32,12 +32,6 @@ type PipelineError =
   | MalformedCsv
   | MalformedXml
   | MalformedJson;
-
-const toIoError = (path: string, error: PlatformError | unknown): IoError =>
-  new IoError({
-    path,
-    message: error instanceof Error ? error.message : String(error),
-  });
 
 export class Pipeline extends Context.Service<
   Pipeline,
