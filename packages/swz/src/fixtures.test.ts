@@ -1,11 +1,12 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { ChecksumMismatch } from "./errors.ts";
 import { TestLive } from "./layers.ts";
 import { runWith } from "./test-utils.ts";
 import { writeNativeDir } from "./EntryIo.ts";
+import { RegistryText } from "./registry.ts";
 import { compile, decompile } from "./SwzCodec.ts";
 import { resolveKey } from "./VersionKeys.ts";
 
@@ -77,7 +78,9 @@ describe("real SWZ fixtures", () => {
         const entries = yield* decompile(bytes, key);
         const dir = yield* fs.makeTempDirectory({ prefix: "swz-dynamic-" });
         yield* writeNativeDir(entries, dir);
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return Object.keys(registry.files);
       }),
     );

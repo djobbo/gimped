@@ -1,9 +1,10 @@
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { IoError, MalformedCsv, MalformedJson, MissingRegistry } from "./errors.ts";
-import { readJsonDir, writeJsonDir } from "./JsonTranspile.ts";
+import { JsonEntryText, readJsonDir, writeJsonDir } from "./JsonTranspile.ts";
 import * as swz from "./index.ts";
 import { JsonTranspileLive } from "./layers.ts";
+import { RegistryText } from "./registry.ts";
 import { runWith } from "./test-utils.ts";
 import { xmlToJson } from "./xmlCodec.ts";
 
@@ -29,9 +30,15 @@ describe("JsonTranspile", () => {
         yield* writeJsonDir(entries, dir);
 
         return {
-          hero: JSON.parse(yield* fs.readFileString(path.join(dir, "HeroTypes.json"))),
-          table: JSON.parse(yield* fs.readFileString(path.join(dir, "MyTable.json"))),
-          registry: JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json"))),
+          hero: yield* Schema.decodeUnknownEffect(JsonEntryText)(
+            yield* fs.readFileString(path.join(dir, "HeroTypes.json")),
+          ),
+          table: yield* Schema.decodeUnknownEffect(JsonEntryText)(
+            yield* fs.readFileString(path.join(dir, "MyTable.json")),
+          ),
+          registry: yield* Schema.decodeUnknownEffect(RegistryText)(
+            yield* fs.readFileString(path.join(dir, "registry.json")),
+          ),
           back: (yield* readJsonDir(dir)).entries.map((entry) => entry.content),
         };
       }),
@@ -55,7 +62,10 @@ describe("JsonTranspile", () => {
     });
     expect(snapshot.back[1]).toBe("MyTable\na,b\n1,2\n");
     const xmlAgain = await run(xmlToJson(snapshot.back[0]!, "HeroTypes.xml"));
-    expect(xmlAgain.root).toEqual(snapshot.hero.root);
+    expect(snapshot.hero.filetype).toBe("xml");
+    if (snapshot.hero.filetype === "xml") {
+      expect(xmlAgain.root).toEqual(snapshot.hero.root);
+    }
   });
 
   it("writes shared-root XML entries as distinct JSON files", async () => {
@@ -71,7 +81,9 @@ describe("JsonTranspile", () => {
           ],
           dir,
         );
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return Object.keys(registry.files);
       }),
     );
@@ -148,9 +160,14 @@ describe("JsonTranspile", () => {
           const filePath = path.join(dir, "entry.json");
           yield* fs.writeFileString(
             path.join(dir, "registry.json"),
-            JSON.stringify({ files: { "entry.json": { filetype: testCase.registryType } } }),
+            Schema.encodeUnknownSync(RegistryText)({
+              files: { "entry.json": { filetype: testCase.registryType } },
+            }),
           );
-          yield* fs.writeFileString(filePath, JSON.stringify(testCase.entry));
+          yield* fs.writeFileString(
+            filePath,
+            Schema.encodeUnknownSync(Schema.UnknownFromJsonString)(testCase.entry),
+          );
           const result = yield* Effect.result(readJsonDir(dir));
           return { result, filePath };
         }),
@@ -202,7 +219,9 @@ describe("JsonTranspile", () => {
         ];
         yield* writeJsonDir(entries, dir, { seed: 481516234 });
         const back = yield* readJsonDir(dir);
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return { back, registry };
       }),
     );

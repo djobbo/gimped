@@ -3,7 +3,7 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { TestLive } from "./layers.ts";
 import { compileFile, decompileFile } from "./pipeline.ts";
-import { ReplayJson, type Replay } from "./ReplayJson.ts";
+import { ReplayJsonText, type Replay } from "./ReplayJson.ts";
 
 const minimal = (): Replay => ({
   replayVersion: 268,
@@ -78,18 +78,17 @@ describe("file pipeline", () => {
         const replayPath = path.join(root, "match.replay");
         const jsonOut = path.join(root, "out.json");
 
-        yield* fs.writeFileString(jsonIn, JSON.stringify(minimal(), null, 2) + "\n");
+        yield* fs.writeFileString(
+          jsonIn,
+          `${yield* Schema.encodeUnknownEffect(ReplayJsonText)(minimal())}\n`,
+        );
         yield* compileFile({ inPath: jsonIn, outPath: replayPath });
         yield* decompileFile({ inPath: replayPath, outPath: jsonOut });
 
         const firstText = yield* fs.readFileString(jsonIn);
         const secondText = yield* fs.readFileString(jsonOut);
-        const first = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ReplayJson))(
-          firstText,
-        );
-        const second = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ReplayJson))(
-          secondText,
-        );
+        const first = yield* Schema.decodeUnknownEffect(ReplayJsonText)(firstText);
+        const second = yield* Schema.decodeUnknownEffect(ReplayJsonText)(secondText);
         return { first, second };
       }),
     );
@@ -110,13 +109,13 @@ describe("file pipeline", () => {
 
         yield* fs.writeFileString(
           jsonIn,
-          JSON.stringify(withHeroName(minimal(), "Bodvar"), null, 2) + "\n",
+          `${yield* Schema.encodeUnknownEffect(ReplayJsonText)(withHeroName(minimal(), "Bodvar"))}\n`,
         );
         yield* compileFile({ inPath: jsonIn, outPath: replayPath });
         yield* decompileFile({ inPath: replayPath, outPath: jsonOut });
 
         const text = yield* fs.readFileString(jsonOut);
-        return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ReplayJson))(text);
+        return yield* Schema.decodeUnknownEffect(ReplayJsonText)(text);
       }),
     );
 

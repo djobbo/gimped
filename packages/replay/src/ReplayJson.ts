@@ -122,4 +122,6 @@ export const ReplayJson = Schema.Struct({
   otherEvents: Schema.Array(EntityEvent),
 });
 
+export const ReplayJsonText = Schema.fromJsonString(ReplayJson, { space: 2 });
+
 export type Replay = typeof ReplayJson.Type;

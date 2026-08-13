@@ -24,11 +24,11 @@ export class Envelope extends Context.Service<
           catch: () => new InvalidAnm({ reason: "bad zlib" }),
         });
       }),
-      seal: Effect.fn("Envelope.seal")(function* (payload: Uint8Array) {
+      seal: Effect.fn("Envelope.seal")((payload: Uint8Array) => {
         const writer = new ByteWriter();
         writer.writeU32LE(payload.byteLength);
         writer.writeBytes(deflateSync(payload));
-        return writer.toUint8Array();
+        return Effect.succeed(writer.toUint8Array());
       }),
     }),
   );

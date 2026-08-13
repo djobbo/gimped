@@ -2,7 +2,7 @@ import { runWith } from "@gimped/common";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { AnmCodec } from "./AnmCodec.ts";
-import { AnimDefJson, type AnimDef } from "./AnimDefJson.ts";
+import { AnimDefJsonText, type AnimDef } from "./AnimDefJson.ts";
 import { Envelope } from "./Envelope.ts";
 import { TestLive } from "./layers.ts";
 import { compileFile, decompileFile } from "./pipeline.ts";
@@ -54,12 +54,15 @@ describe("file pipeline", () => {
         yield* decompileFile({ inPath: anmOut, outPath: dir2 });
         const firstText = yield* fs.readFileString(path.join(dir1, "anims__Foo.swf__a__Foo.json"));
         const secondText = yield* fs.readFileString(path.join(dir2, "anims__Foo.swf__a__Foo.json"));
-        return { first: JSON.parse(firstText), second: JSON.parse(secondText) };
+        return {
+          first: yield* Schema.decodeUnknownEffect(AnimDefJsonText)(firstText),
+          second: yield* Schema.decodeUnknownEffect(AnimDefJsonText)(secondText),
+        };
       }),
     );
     expect(second).toEqual(first);
     expect(first.moves[0].frames[0].bones[0].name).toBeUndefined();
-    expect(Schema.decodeUnknownSync(AnimDefJson)(first).key).toBe("anims/Foo.swf/a__Foo");
+    expect(first.key).toBe("anims/Foo.swf/a__Foo");
   });
 
   it("adds bone names from --data and compile drops them", async () => {
@@ -84,10 +87,10 @@ describe("file pipeline", () => {
         yield* decompileFile({ inPath: anmIn, outPath: dir1, dataPath: dataDir });
         yield* compileFile({ inPath: dir1, outPath: anmOut });
         yield* decompileFile({ inPath: anmOut, outPath: dir2 });
-        const named = JSON.parse(
+        const named = yield* Schema.decodeUnknownEffect(AnimDefJsonText)(
           yield* fs.readFileString(path.join(dir1, "anims__Foo.swf__a__Foo.json")),
         );
-        const unnamed = JSON.parse(
+        const unnamed = yield* Schema.decodeUnknownEffect(AnimDefJsonText)(
           yield* fs.readFileString(path.join(dir2, "anims__Foo.swf__a__Foo.json")),
         );
         return { named, unnamed };

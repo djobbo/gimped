@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
-import { layer } from "@gimped/replay";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { layer, ReplayJsonText } from "@gimped/replay";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import { describe, expect, it } from "vite-plus/test";
 import { root } from "./cli.ts";
@@ -82,13 +82,19 @@ describe("replay CLI", () => {
         const replayPath = path.join(temp, "match.replay");
         const jsonOut = path.join(temp, "out.json");
 
-        yield* fs.writeFileString(jsonIn, JSON.stringify(minimal(), null, 2) + "\n");
+        yield* fs.writeFileString(
+          jsonIn,
+          `${Schema.encodeUnknownSync(ReplayJsonText)(minimal())}\n`,
+        );
         yield* runCli(["compile", "--in", jsonIn, "--out", replayPath]);
         yield* runCli(["decompile", "--in", replayPath, "--out", jsonOut]);
 
         const firstText = yield* fs.readFileString(jsonIn);
         const secondText = yield* fs.readFileString(jsonOut);
-        return { first: JSON.parse(firstText), second: JSON.parse(secondText) };
+        return {
+          first: yield* Schema.decodeUnknownEffect(ReplayJsonText)(firstText),
+          second: yield* Schema.decodeUnknownEffect(ReplayJsonText)(secondText),
+        };
       }),
     );
 

@@ -58,6 +58,9 @@ export const IndexJson = Schema.Struct({
   files: Schema.Array(IndexEntry),
 });
 
+export const AnimDefJsonText = Schema.fromJsonString(AnimDefJson, { space: 2 });
+export const IndexJsonText = Schema.fromJsonString(IndexJson, { space: 2 });
+
 export type AnimDef = typeof AnimDefJson.Type;
 export type IndexFile = typeof IndexJson.Type;
 export type BoneValue = typeof Bone.Type;
@@ -67,27 +70,27 @@ export type MoveValue = typeof Move.Type;
 export class AnimDefJsonService extends Context.Service<
   AnimDefJsonService,
   {
-    readonly encodeDef: (def: AnimDef) => Effect.Effect<unknown>;
+    readonly encodeDef: (def: AnimDef) => Effect.Effect<string>;
     readonly decodeDef: (text: string, path: string) => Effect.Effect<AnimDef, MalformedJson>;
-    readonly encodeIndex: (index: IndexFile) => Effect.Effect<unknown>;
+    readonly encodeIndex: (index: IndexFile) => Effect.Effect<string>;
     readonly decodeIndex: (text: string, path: string) => Effect.Effect<IndexFile, MalformedJson>;
   }
 >()("@gimped/anm/AnimDefJson") {
   static readonly layer: Layer.Layer<AnimDefJsonService> = Layer.sync(AnimDefJsonService, () =>
     AnimDefJsonService.of({
       encodeDef: Effect.fn("AnimDefJson.encodeDef")(function* (def: AnimDef) {
-        return yield* Schema.encodeUnknownEffect(AnimDefJson)(def).pipe(Effect.orDie);
+        return yield* Schema.encodeUnknownEffect(AnimDefJsonText)(def).pipe(Effect.orDie);
       }),
       decodeDef: Effect.fn("AnimDefJson.decodeDef")(function* (text: string, path: string) {
-        return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(AnimDefJson))(text).pipe(
+        return yield* Schema.decodeUnknownEffect(AnimDefJsonText)(text).pipe(
           Effect.mapError((error) => toMalformedJson(path, error)),
         );
       }),
       encodeIndex: Effect.fn("AnimDefJson.encodeIndex")(function* (index: IndexFile) {
-        return yield* Schema.encodeUnknownEffect(IndexJson)(index).pipe(Effect.orDie);
+        return yield* Schema.encodeUnknownEffect(IndexJsonText)(index).pipe(Effect.orDie);
       }),
       decodeIndex: Effect.fn("AnimDefJson.decodeIndex")(function* (text: string, path: string) {
-        return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(IndexJson))(text).pipe(
+        return yield* Schema.decodeUnknownEffect(IndexJsonText)(text).pipe(
           Effect.mapError((error) => toMalformedJson(path, error)),
         );
       }),

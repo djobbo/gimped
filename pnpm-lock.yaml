@@ -9,6 +9,9 @@ catalogs:
     '@effect/platform-node':
       specifier: 4.0.0-beta.107
       version: 4.0.0-beta.107
+    '@effect/vitest':
+      specifier: 4.0.0-beta.107
+      version: 4.0.0-beta.107
     '@oxlint/plugins':
       specifier: ^1.78.0
       version: 1.78.0
@@ -27,6 +30,9 @@ catalogs:
     vite-plus:
       specifier: ^0.2.9
       version: 0.2.9
+    vitest:
+      specifier: ^4.1.10
+      version: 4.1.10
 
 importers:
 
@@ -57,6 +63,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.107(effect@4.0.0-beta.107)(ioredis@5.11.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -66,6 +75,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/anm-cli:
     dependencies:
@@ -79,6 +91,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-beta.107
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -88,6 +103,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/common:
     dependencies:
@@ -95,6 +113,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-beta.107
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -104,6 +125,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/replay:
     dependencies:
@@ -120,6 +144,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.107(effect@4.0.0-beta.107)(ioredis@5.11.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -129,6 +156,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/replay-cli:
     dependencies:
@@ -142,6 +172,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-beta.107
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -151,6 +184,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/swz:
     dependencies:
@@ -167,6 +203,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.107(effect@4.0.0-beta.107)(ioredis@5.11.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -176,6 +215,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   packages/swz-cli:
     dependencies:
@@ -189,6 +231,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-beta.107
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.3
@@ -198,6 +243,9 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@24.13.3)(typescript@5.9.3)(vite@8.2.1(@types/node@24.13.3))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   tools/oxlint:
     dependencies:
@@ -247,6 +295,12 @@ packages:
     peerDependencies:
       effect: ^4.0.0-beta.107
       ioredis: '>=5.7.0 <6.0.0'
+
+  '@effect/vitest@4.0.0-beta.107':
+    resolution: {integrity: sha512-n4/qsx4DnT4dEI/wNgMivxyUeJoeiU1TCSz0WnoHWk/dny40Oxjip2P9IXGQDgPb9fsYVnerF0QRA6nPUuExQA==}
+    peerDependencies:
+      effect: ^4.0.0-beta.107
+      vitest: '>=4.1.0 <5.0.0'
 
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
@@ -1575,6 +1629,11 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@effect/vitest@4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)':
+    dependencies:
+      effect: 4.0.0-beta.107
+      vitest: 4.1.10(@types/node@24.13.3)(@vitest/browser-preview@4.1.10(vite@8.2.1(@types/node@24.13.3))(vitest@4.1.10))(vite@8.2.1(@types/node@24.13.3))
 
   '@ioredis/commands@1.10.0': {}
 
