@@ -66,16 +66,15 @@ export class EntryIo extends Context.Service<
             `${JSON.stringify(indexValue, null, 2)}\n`,
           )
           .pipe(Effect.mapError((error) => toIoError(path.join(outDir, "index.json"), error)));
-        yield* Effect.forEach(defs, (def, i) =>
-          Effect.gen(function* () {
-            const fileName = files[i]!;
-            const filePath = path.join(outDir, fileName);
-            const value = yield* json.encodeDef(def);
-            yield* fs
-              .writeFileString(filePath, `${JSON.stringify(value, null, 2)}\n`)
-              .pipe(Effect.mapError((error) => toIoError(filePath, error)));
-          }),
-        );
+        const writeDef = Effect.fn("EntryIo.writeDef")(function* (def: AnimDef, i: number) {
+          const fileName = files[i]!;
+          const filePath = path.join(outDir, fileName);
+          const value = yield* json.encodeDef(def);
+          yield* fs
+            .writeFileString(filePath, `${JSON.stringify(value, null, 2)}\n`)
+            .pipe(Effect.mapError((error) => toIoError(filePath, error)));
+        });
+        yield* Effect.forEach(defs, writeDef);
       });
 
       const readDir = Effect.fn("EntryIo.readDir")(function* (inDir: string) {
@@ -86,19 +85,18 @@ export class EntryIo extends Context.Service<
           .readFileString(indexPath)
           .pipe(Effect.mapError((error) => toIoError(indexPath, error)));
         const index = yield* json.decodeIndex(text, indexPath);
-        return yield* Effect.forEach(index.files, (entry) =>
-          Effect.gen(function* () {
-            const filePath = path.join(inDir, entry.file);
-            const defText = yield* fs
-              .readFileString(filePath)
-              .pipe(Effect.mapError((error) => toIoError(filePath, error)));
-            const def = yield* json.decodeDef(defText, filePath);
-            if (def.key !== entry.key) {
-              return yield* new InvalidAnm({ reason: "key mismatch" });
-            }
-            return def;
-          }),
-        );
+        const readDef = Effect.fn("EntryIo.readDef")(function* (entry: IndexFile["files"][number]) {
+          const filePath = path.join(inDir, entry.file);
+          const defText = yield* fs
+            .readFileString(filePath)
+            .pipe(Effect.mapError((error) => toIoError(filePath, error)));
+          const def = yield* json.decodeDef(defText, filePath);
+          if (def.key !== entry.key) {
+            return yield* new InvalidAnm({ reason: "key mismatch" });
+          }
+          return def;
+        });
+        return yield* Effect.forEach(index.files, readDef);
       });
 
       return EntryIo.of({ writeDir, readDir });
