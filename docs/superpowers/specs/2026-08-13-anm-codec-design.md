@@ -3,6 +3,12 @@
 Date: 2026-08-13  
 Status: approved (pending user review of this written spec)
 
+prefer effect native modules
+do not use vanilla js functions, use Effect.gen or Effect.fn
+make each module in the anm package an Effect Layer
+
+make sure to follow @.repos/effect/LLMS.md and @packages/swz/node_modules/effect/AGENTS.md for best practices
+
 ## Goal
 
 Add Brawlhalla `.anm` decompile/recompile, matching the SWZ / replay package split:
@@ -18,17 +24,17 @@ Frame bone deltas are **expanded** in JSON (full transforms). Compile re-encodes
 
 ## Context (from `dumps/scripts`)
 
-| Role | Dump |
-| --- | --- |
-| Resource type `"ANM"` | `class_248` (`fileName` suffix `.anm`) |
-| Envelope (skip `int32`, zlib) | `class_248.method_649` |
-| Dispatch | `class_316.method_6777` → `class_10.method_2269` |
-| Payload loop | `class_13.method_2269` (`[AnimManager.hx]` lives on `class_10`) |
-| Animation def | `class_8.method_5518` (`[AnimDef.hx]`) |
-| Move | `class_11.method_5492` |
-| Frame (lazy in-game, eager here) | `class_9.method_1295` |
-| Bone | `class_35.method_1941` |
-| Bone name table | `class_38.var_6932` from SWZ `BoneTypes` (`class_42` registers `class_38.method_8780`) |
+| Role                             | Dump                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| Resource type `"ANM"`            | `class_248` (`fileName` suffix `.anm`)                                                 |
+| Envelope (skip `int32`, zlib)    | `class_248.method_649`                                                                 |
+| Dispatch                         | `class_316.method_6777` → `class_10.method_2269`                                       |
+| Payload loop                     | `class_13.method_2269` (`[AnimManager.hx]` lives on `class_10`)                        |
+| Animation def                    | `class_8.method_5518` (`[AnimDef.hx]`)                                                 |
+| Move                             | `class_11.method_5492`                                                                 |
+| Frame (lazy in-game, eager here) | `class_9.method_1295`                                                                  |
+| Bone                             | `class_35.method_1941`                                                                 |
+| Bone name table                  | `class_38.var_6932` from SWZ `BoneTypes` (`class_42` registers `class_38.method_8780`) |
 
 The game dump has a Point writer (`class_9.method_4693`) and no full `.anm` writer. Compile reverses the readers.
 
@@ -51,16 +57,16 @@ Scaffold like existing packages (Vite+, `vp test` / `vp build` / `vp check`, `ef
 
 Keep existing BE helpers. Add little-endian and Flash primitives used by ANM (behavior of existing methods unchanged):
 
-| Primitive | Notes |
-| --- | --- |
-| `readU16LE` / `writeU16LE` | |
-| `readU32LE` / `writeU32LE` | |
-| `readI8` / `writeI8` | signed byte |
-| `readI16LE` / `writeI16LE` | Flash `readShort` / `writeShort` |
-| `readF32LE` / `writeF32LE` | IEEE 754 |
-| `readF64LE` / `writeF64LE` | IEEE 754 |
-| `readBool` / `writeBool` | `u8` 0/1 |
-| `readUTF` / `writeUTF` | Flash `ByteArray.readUTF`: `u16` length (endian of the reader) + UTF-8 bytes |
+| Primitive                  | Notes                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `readU16LE` / `writeU16LE` |                                                                              |
+| `readU32LE` / `writeU32LE` |                                                                              |
+| `readI8` / `writeI8`       | signed byte                                                                  |
+| `readI16LE` / `writeI16LE` | Flash `readShort` / `writeShort`                                             |
+| `readF32LE` / `writeF32LE` | IEEE 754                                                                     |
+| `readF64LE` / `writeF64LE` | IEEE 754                                                                     |
+| `readBool` / `writeBool`   | `u8` 0/1                                                                     |
+| `readUTF` / `writeUTF`     | Flash `ByteArray.readUTF`: `u16` length (endian of the reader) + UTF-8 bytes |
 
 ANM uses these with little-endian. Length of UTF follows LE.
 
@@ -136,17 +142,17 @@ Compile writes `true` before each def, then a final `false`.
 
 Field order in the file (constructor args are remapped):
 
-| File order | JSON name | Stored as |
-| --- | --- | --- |
-| UTF | `name` | move name |
-| u32 | `duration` | frame count (`var_14365`); number of frames in the blob |
-| u32 | `loop` | `var_1610` |
-| u32 | `recover` | `var_14259` |
-| u32 | `free` | `var_7145` |
-| u32 | `iconUI` | `var_6104` |
-| u32 | `startFrame` | `var_6850` |
-| u32 | `runEndCount` then that many u32 | `runEnds` |
-| u32 | (not in JSON) | `frameBlobSize` — byte length of the following blob |
+| File order | JSON name                        | Stored as                                               |
+| ---------- | -------------------------------- | ------------------------------------------------------- |
+| UTF        | `name`                           | move name                                               |
+| u32        | `duration`                       | frame count (`var_14365`); number of frames in the blob |
+| u32        | `loop`                           | `var_1610`                                              |
+| u32        | `recover`                        | `var_14259`                                             |
+| u32        | `free`                           | `var_7145`                                              |
+| u32        | `iconUI`                         | `var_6104`                                              |
+| u32        | `startFrame`                     | `var_6850`                                              |
+| u32        | `runEndCount` then that many u32 | `runEnds`                                               |
+| u32        | (not in JSON)                    | `frameBlobSize` — byte length of the following blob     |
 
 The game records `position`, stores it as the lazy offset, then `position += frameBlobSize`. This tool **eagerly** parses `duration` frames from the blob. After parsing, the reader must have consumed exactly `frameBlobSize` bytes (`InvalidAnm` otherwise).
 
@@ -307,15 +313,15 @@ Optional bone `name`: `Schema.optional`. Encode omits when unset. Decode accepts
 
 Effect v4: `Context.Service` + `static layer`, `Effect.fn("Service.method")`, `FileSystem` / `Path` (no `node:fs`). Service ids: `"@gimped/anm/<Module>"`.
 
-| Module | Kind | Role |
-| --- | --- | --- |
-| (common) `ByteReader` / `ByteWriter` | pure | LE / signed / float / UTF |
-| `AnimDefJson.ts` | Schema | `IndexJson`, `AnimDefJson`, nested structs |
-| `Envelope` | service | size prefix + zlib |
-| `AnmCodec` | service | payload ↔ domain; expand / re-encode deltas |
-| `BoneTypes` | service | optional `--data` index → name |
-| `EntryIo` | service | `index.json` + one JSON per def |
-| `Pipeline` | service | `decompileFile` / `compileFile` |
+| Module                               | Kind    | Role                                        |
+| ------------------------------------ | ------- | ------------------------------------------- |
+| (common) `ByteReader` / `ByteWriter` | pure    | LE / signed / float / UTF                   |
+| `AnimDefJson.ts`                     | Schema  | `IndexJson`, `AnimDefJson`, nested structs  |
+| `Envelope`                           | service | size prefix + zlib                          |
+| `AnmCodec`                           | service | payload ↔ domain; expand / re-encode deltas |
+| `BoneTypes`                          | service | optional `--data` index → name              |
+| `EntryIo`                            | service | `index.json` + one JSON per def             |
+| `Pipeline`                           | service | `decompileFile` / `compileFile`             |
 
 `BoneTypes.none` fills no names. `BoneTypes.fromPath` is used when `--data` is set.
 
@@ -323,13 +329,13 @@ Effect v4: `Context.Service` + `static layer`, `Effect.fn("Service.method")`, `F
 
 ## Errors
 
-| Error | Package | When |
-| --- | --- | --- |
-| `IoError` | common | FS failure, missing path |
-| `MalformedJson` | common | compile JSON parse or Schema decode fails |
-| `MissingIndex` | anm | compile directory has no `index.json` |
-| `InvalidAnm` | anm | truncated payload, bad zlib, bone copy with no previous, frame blob size mismatch, `index.json` key ≠ def `key` |
-| `GameDataError` | anm | `--data` path cannot be loaded |
+| Error           | Package | When                                                                                                            |
+| --------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
+| `IoError`       | common  | FS failure, missing path                                                                                        |
+| `MalformedJson` | common  | compile JSON parse or Schema decode fails                                                                       |
+| `MissingIndex`  | anm     | compile directory has no `index.json`                                                                           |
+| `InvalidAnm`    | anm     | truncated payload, bad zlib, bone copy with no previous, frame blob size mismatch, `index.json` key ≠ def `key` |
+| `GameDataError` | anm     | `--data` path cannot be loaded                                                                                  |
 
 ANM `GameDataError` is a distinct tagged error from replay’s (do not import replay’s). Shape: `{ path, message }`. `InvalidAnm`: `{ reason: string }`. `MissingIndex`: no fields required beyond the tag (path may be included as `path`).
 

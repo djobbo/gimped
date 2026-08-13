@@ -12,7 +12,7 @@ import type { SwzEntry } from "./SwzCodec.ts";
 
 export type EntryFiletype = "xml" | "csv";
 
-const WINDOWS_ILLEGAL_FILENAME_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
+const WINDOWS_ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*';
 const XML_ROOT_OPEN = /^<\s*([A-Za-z_][\w.-]*)([^>]*)/;
 const XML_ATTR = /([A-Za-z_][\w.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
@@ -49,7 +49,10 @@ export const entryFileName = (content: string): string => {
       ? xmlFileBaseName(content)
       : (content.split("\n", 1)[0] ?? "").replaceAll("\r", "");
 
-  return `${baseName.replace(WINDOWS_ILLEGAL_FILENAME_CHARS, "_")}.${filetype}`;
+  const sanitized = Array.from(baseName, (char) =>
+    char.charCodeAt(0) <= 0x1f || WINDOWS_ILLEGAL_FILENAME_CHARS.includes(char) ? "_" : char,
+  ).join("");
+  return `${sanitized}.${filetype}`;
 };
 
 export class EntryIo extends Context.Service<

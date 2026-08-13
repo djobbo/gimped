@@ -106,7 +106,9 @@ describe("file pipeline", () => {
           version: "latest",
           json,
         });
-        const registry = JSON.parse(yield* fs.readFileString(path.join(firstDir, REGISTRY_FILENAME)));
+        const registry = JSON.parse(
+          yield* fs.readFileString(path.join(firstDir, REGISTRY_FILENAME)),
+        );
         yield* compileFile({
           inPath: firstDir,
           outPath: rebuiltSwz,
