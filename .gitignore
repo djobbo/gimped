@@ -9,3 +9,4 @@ obf/
 .repos/
 .tmp/
 .worktrees/
+.vite-hooks/_

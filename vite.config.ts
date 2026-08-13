@@ -31,4 +31,7 @@ export default defineConfig({
   run: {
     cache: true,
   },
+  staged: {
+    "*.{js,ts,tsx}": "vp check --fix",
+  },
 });
