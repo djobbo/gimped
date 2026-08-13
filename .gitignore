@@ -8,3 +8,4 @@ dumps/
 obf/
 .repos/
 .tmp/
+.worktrees/
