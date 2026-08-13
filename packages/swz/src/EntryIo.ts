@@ -13,7 +13,31 @@ import type { SwzEntry } from "./SwzCodec.ts";
 export type EntryFiletype = "xml" | "csv";
 
 const WINDOWS_ILLEGAL_FILENAME_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
-const XML_ROOT_TAG = /^<\s*([A-Za-z_][\w.-]*)/;
+const XML_ROOT_OPEN = /^<\s*([A-Za-z_][\w.-]*)([^>]*)/;
+const XML_ATTR = /([A-Za-z_][\w.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+const xmlFileBaseName = (content: string): string => {
+  const match = content.trimStart().match(XML_ROOT_OPEN);
+  const root = match?.[1] ?? "entry";
+  const rawAttrs = match?.[2] ?? "";
+  const attrs: Array<{ readonly name: string; readonly value: string }> = [];
+
+  for (const attr of rawAttrs.matchAll(XML_ATTR)) {
+    const value = attr[2] ?? attr[3] ?? "";
+    if (value.trim() !== "") {
+      attrs.push({ name: attr[1]!, value });
+    }
+  }
+
+  const findAttr = (predicate: (name: string) => boolean) =>
+    attrs.find((attr) => predicate(attr.name.toLowerCase()))?.value;
+  const disambiguator =
+    findAttr((name) => name === "name") ??
+    findAttr((name) => name === "title") ??
+    findAttr((name) => name.endsWith("name"));
+
+  return disambiguator === undefined ? root : `${root}_${disambiguator}`;
+};
 
 export const detectFiletype = (content: string): EntryFiletype =>
   content.trimStart().startsWith("<") ? "xml" : "csv";
@@ -22,7 +46,7 @@ export const entryFileName = (content: string): string => {
   const filetype = detectFiletype(content);
   const baseName =
     filetype === "xml"
-      ? (content.trimStart().match(XML_ROOT_TAG)?.[1] ?? "entry")
+      ? xmlFileBaseName(content)
       : (content.split("\n", 1)[0] ?? "").replaceAll("\r", "");
 
   return `${baseName.replace(WINDOWS_ILLEGAL_FILENAME_CHARS, "_")}.${filetype}`;

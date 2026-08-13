@@ -1,10 +1,11 @@
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { ChecksumMismatch } from "./errors.ts";
 import { TestLive } from "./layers.ts";
 import { runWith } from "./test-utils.ts";
+import { writeNativeDir } from "./EntryIo.ts";
 import { compile, decompile } from "./SwzCodec.ts";
 import { resolveKey } from "./VersionKeys.ts";
 
@@ -64,5 +65,26 @@ describe("real SWZ fixtures", () => {
       }),
     );
     expect(roundTrip.map((entry) => entry.content)).toEqual(original.map((entry) => entry.content));
+  });
+
+  it("extracts Dynamic.swz maps to distinct files", async () => {
+    const names = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const key = yield* resolveKey("latest");
+        const bytes = yield* readFixture("Dynamic.swz");
+        const entries = yield* decompile(bytes, key);
+        const dir = yield* fs.makeTempDirectory({ prefix: "swz-dynamic-" });
+        yield* writeNativeDir(entries, dir);
+        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        return Object.keys(registry.files);
+      }),
+    );
+
+    expect(names).toContain("LevelDesc_Atlas_2v2.xml");
+    expect(names).toContain("CutsceneType_BP4C.xml");
+    expect(new Set(names).size).toBe(names.length);
+    expect(names.length).toBeGreaterThan(100);
   });
 });
