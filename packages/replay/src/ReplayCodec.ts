@@ -110,7 +110,16 @@ const readPlayer = (bits: Bitstream, heroSlotCount: number): Player => {
   const field2463 = bits.readU32();
   const field8849 = bits.readU32();
   const field11747 = bits.readU32();
-  const tauntIds = Array.from({ length: 8 }, () => bits.readU32()) as unknown as TauntIds;
+  const tauntIds: TauntIds = [
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+    bits.readU32(),
+  ];
   const field2378 = bits.readU16();
   const field15047 = bits.readU16();
   const bitfield: number[] = [];
@@ -170,10 +179,23 @@ const writeSetup = (bits: Bitstream, replay: Replay): void => {
   bits.writeU32(computePlayerChecksum(replay.players, replay.level.id, replay.heroSlotCount));
 };
 
-const readRules = (bits: Bitstream): Rules => {
-  const values = RULE_KEYS.map(() => bits.readU32());
-  return Object.fromEntries(RULE_KEYS.map((key, i) => [key, values[i]])) as unknown as Rules;
-};
+const readRules = (bits: Bitstream): Rules => ({
+  flags: bits.readU32(),
+  maxPlayers: bits.readU32(),
+  duration: bits.readU32(),
+  roundDuration: bits.readU32(),
+  startingLives: bits.readU32(),
+  scoringTypeId: bits.readU32(),
+  scoreToWin: bits.readU32(),
+  gameSpeed: bits.readU32(),
+  damageRatio: bits.readU32(),
+  levelSetId: bits.readU32(),
+  itemSpawnRuleSetId: bits.readU32(),
+  weaponSpawnRateId: bits.readU32(),
+  gadgetSpawnRateId: bits.readU32(),
+  unknown12964: bits.readU32(),
+  variation: bits.readU32(),
+});
 
 const writeResults = (bits: Bitstream, results: Results): void => {
   bits.writeBits(4, 6);

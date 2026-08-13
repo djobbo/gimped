@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Predicate } from "effect";
 import { MalformedCsv } from "./errors.ts";
 
 export type CsvJsonData = {
@@ -100,7 +100,7 @@ const validateRows = (
       if (!(header in row)) {
         throw new Error(`Row ${rowNumber} missing key "${header}"`);
       }
-      if (typeof row[header] !== "string") {
+      if (!Predicate.isString(row[header])) {
         throw new Error(`Row ${rowNumber} key "${header}" must be a string`);
       }
       validateNoNewline(row[header]!, `Row ${rowNumber} key "${header}"`);

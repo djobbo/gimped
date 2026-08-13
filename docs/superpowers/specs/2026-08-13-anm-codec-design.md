@@ -3,6 +3,12 @@
 Date: 2026-08-13  
 Status: approved (pending user review of this written spec)
 
+prefer effect native modules
+do not use vanilla js functions, use Effect.gen or Effect.fn
+make each module in the anm package an Effect Layer
+
+make sure to follow @.repos/effect/LLMS.md and @packages/swz/node_modules/effect/AGENTS.md for best practices
+
 ## Goal
 
 Add Brawlhalla `.anm` decompile/recompile, matching the SWZ / replay package split:
