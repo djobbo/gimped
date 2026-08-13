@@ -4,3 +4,5 @@ export * from "./Envelope.ts";
 export * from "./AnmCodec.ts";
 export * from "./EntryIo.ts";
 export * from "./BoneTypes.ts";
+export * from "./pipeline.ts";
+export * from "./layers.ts";
