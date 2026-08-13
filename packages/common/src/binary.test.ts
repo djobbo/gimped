@@ -41,16 +41,16 @@ describe("ByteReader / ByteWriter", () => {
     f32.setFloat32(0, 1.5, true);
     const f64 = new DataView(new ArrayBuffer(8));
     f64.setFloat64(0, -2.5, true);
-    expect([...bytes.slice(0, 2)]).toEqual([0x34, 0x12]);
-    expect([...bytes.slice(2, 6)]).toEqual([0xef, 0xbe, 0xad, 0xde]);
+    expect(Array.from(bytes.slice(0, 2))).toEqual([0x34, 0x12]);
+    expect(Array.from(bytes.slice(2, 6))).toEqual([0xef, 0xbe, 0xad, 0xde]);
     expect(bytes[6]).toBe(0xff);
-    expect([...bytes.slice(7, 9)]).toEqual([0xfe, 0xff]);
-    expect([...bytes.slice(9, 13)]).toEqual([...new Uint8Array(f32.buffer)]);
-    expect([...bytes.slice(13, 21)]).toEqual([...new Uint8Array(f64.buffer)]);
+    expect(Array.from(bytes.slice(7, 9))).toEqual([0xfe, 0xff]);
+    expect(Array.from(bytes.slice(9, 13))).toEqual([...new Uint8Array(f32.buffer)]);
+    expect(Array.from(bytes.slice(13, 21))).toEqual([...new Uint8Array(f64.buffer)]);
     expect(bytes[21]).toBe(1);
     expect(bytes[22]).toBe(0);
-    expect([...bytes.slice(23, 27)]).toEqual([2, 0, 0x68, 0x69]);
-    expect([...bytes.slice(27)]).toEqual([9, 8]);
+    expect(Array.from(bytes.slice(23, 27))).toEqual([2, 0, 0x68, 0x69]);
+    expect(Array.from(bytes.slice(27))).toEqual([9, 8]);
 
     const reader = new ByteReader(bytes);
     expect(reader.readU16LE()).toBe(0x1234);
