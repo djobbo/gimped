@@ -1,7 +1,6 @@
-import { runWith } from "@gimped/common";
 import { NodeServices } from "@effect/platform-node";
+import { describe, expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
-import { describe, expect, it } from "vite-plus/test";
 import { GameDataError } from "./errors.ts";
 import { GameData } from "./GameData.ts";
 import type { Replay } from "./ReplayJson.ts";
@@ -71,8 +70,6 @@ const withHeroId = (replay: Replay, heroId: number): Replay => ({
 });
 
 const live = GameData.layer.pipe(Layer.provideMerge(NodeServices.layer));
-const runNone = runWith(GameData.none);
-const runLive = runWith(live);
 
 const writeHeroTypes = Effect.fn("writeHeroTypes")(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -83,49 +80,45 @@ const writeHeroTypes = Effect.fn("writeHeroTypes")(function* () {
 });
 
 describe("GameData", () => {
-  it("none does not add heroName", async () => {
-    const replay = minimal();
-    const annotated = await runNone(
+  layer(GameData.none)((it) => {
+    it.effect("none does not add heroName", () =>
       Effect.gen(function* () {
+        const replay = minimal();
         const data = yield* GameData;
-        return yield* data.annotate(replay, "/unused");
+        const annotated = yield* data.annotate(replay, "/unused");
+        expect(annotated.players[0]?.heroes[0]?.heroName).toBeUndefined();
       }),
     );
-    expect(annotated.players[0]?.heroes[0]?.heroName).toBeUndefined();
   });
 
-  it("annotates heroName from HeroTypes.xml", async () => {
-    const replay = minimal();
-    const annotated = await runLive(
+  layer(live)((it) => {
+    it.effect("annotates heroName from HeroTypes.xml", () =>
+      Effect.gen(function* () {
+        const replay = minimal();
+        const dir = yield* writeHeroTypes();
+        const data = yield* GameData;
+        const annotated = yield* data.annotate(replay, dir);
+        expect(replay.players[0]?.heroes[0]?.heroName).toBeUndefined();
+        expect(annotated.players[0]?.heroes[0]?.heroName).toBe("Bodvar");
+      }),
+    );
+
+    it.effect("leaves unknown hero ids unnamed", () =>
       Effect.gen(function* () {
         const dir = yield* writeHeroTypes();
         const data = yield* GameData;
-        return yield* data.annotate(replay, dir);
+        const annotated = yield* data.annotate(withHeroId(minimal(), 99), dir);
+        expect(annotated.players[0]?.heroes[0]?.heroName).toBeUndefined();
       }),
     );
-    expect(replay.players[0]?.heroes[0]?.heroName).toBeUndefined();
-    expect(annotated.players[0]?.heroes[0]?.heroName).toBe("Bodvar");
-  });
 
-  it("leaves unknown hero ids unnamed", async () => {
-    const annotated = await runLive(
-      Effect.gen(function* () {
-        const dir = yield* writeHeroTypes();
-        const data = yield* GameData;
-        return yield* data.annotate(withHeroId(minimal(), 99), dir);
-      }),
-    );
-    expect(annotated.players[0]?.heroes[0]?.heroName).toBeUndefined();
-  });
-
-  it("fails with GameDataError when the path is missing", async () => {
-    const result = await runLive(
+    it.effect("fails with GameDataError when the path is missing", () =>
       Effect.gen(function* () {
         const data = yield* GameData;
-        return yield* Effect.result(data.annotate(minimal(), "/this/path/does/not/exist"));
+        const result = yield* Effect.result(data.annotate(minimal(), "/this/path/does/not/exist"));
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(GameDataError);
       }),
     );
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(GameDataError);
   });
 });

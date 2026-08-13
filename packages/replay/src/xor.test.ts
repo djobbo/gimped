@@ -1,16 +1,16 @@
-import { runWith } from "@gimped/common";
-import { describe, expect, it } from "vite-plus/test";
+import { expect, layer } from "@effect/vitest";
+import { Effect } from "effect";
 import { xorBytes, Xor } from "./xor.ts";
 
-const run = runWith(Xor.layer);
-
-describe("xorBytes", () => {
-  it("is symmetric and uses key[i % 64]", async () => {
-    const input = Uint8Array.from({ length: 70 }, (_, i) => i);
-    const once = await run(xorBytes(input));
-    expect(once[0]).toBe(0 ^ 107);
-    expect(once[64]).toBe(64 ^ 107);
-    expect([...(await run(xorBytes(once)))]).toEqual([...input]);
-    expect([...input]).toEqual([...Uint8Array.from({ length: 70 }, (_, i) => i)]);
-  });
+layer(Xor.layer)("xorBytes", (it) => {
+  it.effect("is symmetric and uses key[i % 64]", () =>
+    Effect.gen(function* () {
+      const input = Uint8Array.from({ length: 70 }, (_, i) => i);
+      const once = yield* xorBytes(input);
+      expect(once[0]).toBe(0 ^ 107);
+      expect(once[64]).toBe(64 ^ 107);
+      expect([...(yield* xorBytes(once))]).toEqual([...input]);
+      expect([...input]).toEqual([...Uint8Array.from({ length: 70 }, (_, i) => i)]);
+    }),
+  );
 });

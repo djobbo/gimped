@@ -1,10 +1,7 @@
-import { MalformedJson, runWith } from "@gimped/common";
+import { MalformedJson } from "@gimped/common";
+import { expect, layer } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { describe, expect, it } from "vite-plus/test";
 import { AnimDefJsonService, AnimDefJsonText, type AnimDef } from "./AnimDefJson.ts";
-
-const Live = AnimDefJsonService.layer;
-const run = runWith(Live);
 
 const minimal = (): AnimDef => ({
   key: "anims/Foo.swf/a__Foo",
@@ -42,7 +39,7 @@ const minimal = (): AnimDef => ({
   ],
 });
 
-describe("AnimDefJson", () => {
+layer(AnimDefJsonService.layer)("AnimDefJson", (it) => {
   it("omits optional bone name, fireSocket, and platform when unset", () => {
     const json = Schema.encodeUnknownSync(AnimDefJsonText)(minimal());
     expect(json).not.toContain('"name":"a_Torso1"');
@@ -50,45 +47,34 @@ describe("AnimDefJson", () => {
     expect(json).not.toContain("platform");
   });
 
-  it("decodes a def from JSON text and rejects garbage", async () => {
-    const def = await run(
-      Effect.gen(function* () {
-        const json = yield* AnimDefJsonService;
-        return yield* json.decodeDef(
-          Schema.encodeUnknownSync(AnimDefJsonText)(minimal()),
-          "x.json",
-        );
-      }),
-    );
-    expect(def.key).toBe("anims/Foo.swf/a__Foo");
+  it.effect("decodes a def from JSON text and rejects garbage", () =>
+    Effect.gen(function* () {
+      const json = yield* AnimDefJsonService;
+      const def = yield* json.decodeDef(
+        Schema.encodeUnknownSync(AnimDefJsonText)(minimal()),
+        "x.json",
+      );
+      expect(def.key).toBe("anims/Foo.swf/a__Foo");
 
-    const error = await run(
-      Effect.gen(function* () {
-        const json = yield* AnimDefJsonService;
-        return yield* json.decodeDef("{", "bad.json").pipe(Effect.flip);
-      }),
-    );
-    expect(error._tag).toBe("MalformedJson");
-    expect(error.path).toBe("bad.json");
-  });
+      const error = yield* json.decodeDef("{", "bad.json").pipe(Effect.flip);
+      expect(error._tag).toBe("MalformedJson");
+      expect(error.path).toBe("bad.json");
+    }),
+  );
 
-  it("rejects an out-of-range gfxFrame", async () => {
-    const input = minimal();
-    input.moves[0]!.frames[0]!.bones[0]!.gfxFrame = 300;
-
-    const error = await run(
-      Effect.gen(function* () {
-        const json = yield* AnimDefJsonService;
-        return yield* Effect.flip(
-          json.decodeDef(
-            Schema.encodeUnknownSync(Schema.UnknownFromJsonString)(input),
-            "bad-gfx-frame.json",
-          ),
-        );
-      }),
-    );
-
-    expect(error).toBeInstanceOf(MalformedJson);
-    expect(error.path).toBe("bad-gfx-frame.json");
-  });
+  it.effect("rejects an out-of-range gfxFrame", () =>
+    Effect.gen(function* () {
+      const input = minimal();
+      input.moves[0]!.frames[0]!.bones[0]!.gfxFrame = 300;
+      const json = yield* AnimDefJsonService;
+      const error = yield* Effect.flip(
+        json.decodeDef(
+          Schema.encodeUnknownSync(Schema.UnknownFromJsonString)(input),
+          "bad-gfx-frame.json",
+        ),
+      );
+      expect(error).toBeInstanceOf(MalformedJson);
+      expect(error.path).toBe("bad-gfx-frame.json");
+    }),
+  );
 });

@@ -1,5 +1,5 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
-import { describe, expect, it } from "vite-plus/test";
 import { ReplayJson, type Replay } from "./ReplayJson.ts";
 
 const minimal = (): Replay => ({
@@ -55,59 +55,63 @@ const minimal = (): Replay => ({
 });
 
 describe("ReplayJson", () => {
-  it("round-trips a document without name keys", async () => {
-    const encoded = await Effect.runPromise(Schema.encodeUnknownEffect(ReplayJson)(minimal()));
-    expect(encoded).not.toHaveProperty("level.name");
-    const decoded = await Effect.runPromise(Schema.decodeUnknownEffect(ReplayJson)(encoded));
-    expect(decoded.level.id).toBe(12);
-    expect(decoded.level.name).toBeUndefined();
-    expect(decoded.inputs[0]?.input).toBeUndefined();
-  });
+  it.effect("round-trips a document without name keys", () =>
+    Effect.gen(function* () {
+      const encoded = yield* Schema.encodeUnknownEffect(ReplayJson)(minimal());
+      expect(encoded).not.toHaveProperty("level.name");
+      const decoded = yield* Schema.decodeUnknownEffect(ReplayJson)(encoded);
+      expect(decoded.level.id).toBe(12);
+      expect(decoded.level.name).toBeUndefined();
+      expect(decoded.inputs[0]?.input).toBeUndefined();
+    }),
+  );
 
-  it("rejects missing replayVersion", async () => {
-    const result = await Effect.runPromise(
-      Effect.result(
+  it.effect("rejects missing replayVersion", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
         Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), replayVersion: undefined }),
-      ),
-    );
-    expect(result._tag).toBe("Failure");
-  });
+      );
+      expect(result._tag).toBe("Failure");
+    }),
+  );
 
-  it("rejects an input entityId outside bits(5)", async () => {
-    const replay = { ...minimal(), inputs: [{ entityId: 32, time: 16 }] };
-    const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
-    );
-    expect(result._tag).toBe("Failure");
-  });
+  it.effect("rejects an input entityId outside bits(5)", () =>
+    Effect.gen(function* () {
+      const replay = { ...minimal(), inputs: [{ entityId: 32, time: 16 }] };
+      const result = yield* Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay));
+      expect(result._tag).toBe("Failure");
+    }),
+  );
 
-  it("rejects an input value outside bits(14)", async () => {
-    const replay = { ...minimal(), inputs: [{ entityId: 1, time: 16, input: 16384 }] };
-    const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
-    );
-    expect(result._tag).toBe("Failure");
-  });
+  it.effect("rejects an input value outside bits(14)", () =>
+    Effect.gen(function* () {
+      const replay = { ...minimal(), inputs: [{ entityId: 1, time: 16, input: 16384 }] };
+      const result = yield* Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay));
+      expect(result._tag).toBe("Failure");
+    }),
+  );
 
-  it("rejects heroSlotCount above 5", async () => {
-    const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), heroSlotCount: 6 })),
-    );
-    expect(result._tag).toBe("Failure");
-  });
+  it.effect("rejects heroSlotCount above 5", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
+        Schema.decodeUnknownEffect(ReplayJson)({ ...minimal(), heroSlotCount: 6 }),
+      );
+      expect(result._tag).toBe("Failure");
+    }),
+  );
 
-  it("rejects a u16 cosmetics field above 65535", async () => {
-    const base = minimal();
-    const replay = {
-      ...base,
-      players: base.players.map((player) => ({
-        ...player,
-        cosmetics: { ...player.cosmetics, field2378: 65536 },
-      })),
-    };
-    const result = await Effect.runPromise(
-      Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay)),
-    );
-    expect(result._tag).toBe("Failure");
-  });
+  it.effect("rejects a u16 cosmetics field above 65535", () =>
+    Effect.gen(function* () {
+      const base = minimal();
+      const replay = {
+        ...base,
+        players: base.players.map((player) => ({
+          ...player,
+          cosmetics: { ...player.cosmetics, field2378: 65536 },
+        })),
+      };
+      const result = yield* Effect.result(Schema.decodeUnknownEffect(ReplayJson)(replay));
+      expect(result._tag).toBe("Failure");
+    }),
+  );
 });

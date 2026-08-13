@@ -1,15 +1,12 @@
+import { expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path, Schema } from "effect";
-import { describe, expect, it } from "vite-plus/test";
 import { IoError } from "./errors.ts";
 import { detectFiletype, entryFileName, readNativeDir, writeNativeDir } from "./EntryIo.ts";
 import * as swz from "./index.ts";
 import { EntryIoLive } from "./layers.ts";
 import { RegistryText } from "./registry.ts";
-import { runWith } from "./test-utils.ts";
 
-const run = runWith(EntryIoLive);
-
-describe("EntryIo", () => {
+layer(EntryIoLive)("EntryIo", (it) => {
   it("exports entry helpers from the package entry point", () => {
     expect(swz.entryFileName).toBe(entryFileName);
     expect(swz.readNativeDir).toBe(readNativeDir);
@@ -49,120 +46,106 @@ describe("EntryIo", () => {
     expect(entryFileName('My<Table>:*?|"\na,b\n')).toBe("My_Table______.csv");
   });
 
-  it("writes and reads a native directory deterministically", async () => {
-    const contents = await run(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
-        const entries = [
-          { content: "<HeroTypes><x/></HeroTypes>" },
-          { content: "MyTable\na,b\n1,2\n" },
-        ];
+  it.effect("writes and reads a native directory deterministically", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+      const entries = [
+        { content: "<HeroTypes><x/></HeroTypes>" },
+        { content: "MyTable\na,b\n1,2\n" },
+      ];
 
-        yield* writeNativeDir(entries, dir);
-        yield* fs.writeFileString(path.join(dir, "ignored.txt"), "ignored");
-        const back = yield* readNativeDir(dir);
-        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
-          yield* fs.readFileString(path.join(dir, "registry.json")),
-        );
-        return {
-          contents: back.entries.map((entry) => entry.content),
-          seed: back.seed,
-          registry,
-        };
-      }),
-    );
+      yield* writeNativeDir(entries, dir);
+      yield* fs.writeFileString(path.join(dir, "ignored.txt"), "ignored");
+      const back = yield* readNativeDir(dir);
+      const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+        yield* fs.readFileString(path.join(dir, "registry.json")),
+      );
+      expect(back.entries.map((entry) => entry.content)).toEqual([
+        "<HeroTypes><x/></HeroTypes>",
+        "MyTable\na,b\n1,2\n",
+      ]);
+      expect(back.seed).toBeUndefined();
+      expect(Object.keys(registry.files)).toEqual(["HeroTypes.xml", "MyTable.csv"]);
+    }),
+  );
 
-    expect(contents.contents).toEqual(["<HeroTypes><x/></HeroTypes>", "MyTable\na,b\n1,2\n"]);
-    expect(contents.seed).toBeUndefined();
-    expect(Object.keys(contents.registry.files)).toEqual(["HeroTypes.xml", "MyTable.csv"]);
-  });
+  it.effect("writes shared-root XML entries as distinct files", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+      yield* writeNativeDir(
+        [
+          { content: '<LevelDesc LevelName="Atlas_2v2"><x/></LevelDesc>' },
+          { content: '<LevelDesc LevelName="Batavia"><y/></LevelDesc>' },
+        ],
+        dir,
+      );
+      const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+        yield* fs.readFileString(path.join(dir, "registry.json")),
+      );
+      expect(Object.keys(registry.files)).toEqual([
+        "LevelDesc_Atlas_2v2.xml",
+        "LevelDesc_Batavia.xml",
+      ]);
+    }),
+  );
 
-  it("writes shared-root XML entries as distinct files", async () => {
-    const names = await run(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
-        yield* writeNativeDir(
-          [
-            { content: '<LevelDesc LevelName="Atlas_2v2"><x/></LevelDesc>' },
-            { content: '<LevelDesc LevelName="Batavia"><y/></LevelDesc>' },
-          ],
+  it.effect("rejects entries that resolve to the same native filename", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+      const result = yield* Effect.result(
+        writeNativeDir(
+          [{ content: "<HeroTypes><x/></HeroTypes>" }, { content: "<HeroTypes><y/></HeroTypes>" }],
           dir,
-        );
-        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
-          yield* fs.readFileString(path.join(dir, "registry.json")),
-        );
-        return Object.keys(registry.files);
-      }),
-    );
+        ),
+      );
+      const expectedPath = path.join(dir, "HeroTypes.xml");
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(IoError);
+        expect(result.failure.path).toBe(expectedPath);
+      }
+    }),
+  );
 
-    expect(names).toEqual(["LevelDesc_Atlas_2v2.xml", "LevelDesc_Batavia.xml"]);
-  });
+  it.effect("maps filesystem failures to IoError", () =>
+    Effect.gen(function* () {
+      const missing = `C:\\missing-swz-${crypto.randomUUID()}`;
+      const result = yield* Effect.result(readNativeDir(missing));
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(IoError);
+        expect(result.failure.path).toBe(missing);
+      }
+    }),
+  );
 
-  it("rejects entries that resolve to the same native filename", async () => {
-    const { result, expectedPath } = await run(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
-        const result = yield* Effect.result(
-          writeNativeDir(
-            [
-              { content: "<HeroTypes><x/></HeroTypes>" },
-              { content: "<HeroTypes><y/></HeroTypes>" },
-            ],
-            dir,
-          ),
-        );
-        return { result, expectedPath: path.join(dir, "HeroTypes.xml") };
-      }),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure).toBeInstanceOf(IoError);
-      expect(result.failure.path).toBe(expectedPath);
-    }
-  });
-
-  it("maps filesystem failures to IoError", async () => {
-    const missing = `C:\\missing-swz-${crypto.randomUUID()}`;
-    const result = await run(Effect.result(readNativeDir(missing)));
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure).toBeInstanceOf(IoError);
-      expect(result.failure.path).toBe(missing);
-    }
-  });
-
-  it("preserves seed and non-alphabetical order via registry.json", async () => {
-    const snapshot = await run(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
-        const entries = [
-          { content: "<ZooTypes><z/></ZooTypes>" },
-          { content: "<AppleTypes><a/></AppleTypes>" },
-        ];
-        yield* writeNativeDir(entries, dir, { seed: 481516234 });
-        const back = yield* readNativeDir(dir);
-        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
-          yield* fs.readFileString(path.join(dir, "registry.json")),
-        );
-        return { back, registry };
-      }),
-    );
-
-    expect(snapshot.registry.seed).toBe(481516234);
-    expect(Object.keys(snapshot.registry.files)).toEqual(["ZooTypes.xml", "AppleTypes.xml"]);
-    expect(snapshot.back.seed).toBe(481516234);
-    expect(snapshot.back.entries.map((entry) => entry.content)).toEqual([
-      "<ZooTypes><z/></ZooTypes>",
-      "<AppleTypes><a/></AppleTypes>",
-    ]);
-  });
+  it.effect("preserves seed and non-alphabetical order via registry.json", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "swz-" });
+      const entries = [
+        { content: "<ZooTypes><z/></ZooTypes>" },
+        { content: "<AppleTypes><a/></AppleTypes>" },
+      ];
+      yield* writeNativeDir(entries, dir, { seed: 481516234 });
+      const back = yield* readNativeDir(dir);
+      const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+        yield* fs.readFileString(path.join(dir, "registry.json")),
+      );
+      expect(registry.seed).toBe(481516234);
+      expect(Object.keys(registry.files)).toEqual(["ZooTypes.xml", "AppleTypes.xml"]);
+      expect(back.seed).toBe(481516234);
+      expect(back.entries.map((entry) => entry.content)).toEqual([
+        "<ZooTypes><z/></ZooTypes>",
+        "<AppleTypes><a/></AppleTypes>",
+      ]);
+    }),
+  );
 });

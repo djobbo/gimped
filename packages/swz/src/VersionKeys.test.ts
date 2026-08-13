@@ -1,31 +1,34 @@
+import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
-import { describe, expect, it } from "vite-plus/test";
 import { UnknownVersion } from "./errors.ts";
 import { VersionKeysLive } from "./layers.ts";
-import { runWith } from "./test-utils.ts";
 import { defaultVersionKeyMap, resolveKey } from "./VersionKeys.ts";
 
-const run = runWith(VersionKeysLive);
+layer(VersionKeysLive)("VersionKeys", (it) => {
+  it.effect("resolves latest alias to key 762411009", () =>
+    Effect.gen(function* () {
+      expect(yield* resolveKey("latest")).toBe(762411009);
+    }),
+  );
 
-describe("VersionKeys", () => {
-  it("resolves latest alias to key 762411009", async () => {
-    expect(await run(resolveKey("latest"))).toBe(762411009);
-  });
+  it.effect("resolves build id directly", () =>
+    Effect.gen(function* () {
+      expect(yield* resolveKey("10090")).toBe(762411009);
+    }),
+  );
 
-  it("resolves build id directly", async () => {
-    expect(await run(resolveKey("10090"))).toBe(762411009);
-  });
-
-  it("fails on unknown version", async () => {
-    const result = await run(Effect.result(resolveKey("nope")));
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure).toBeInstanceOf(UnknownVersion);
-      if (result.failure instanceof UnknownVersion) {
-        expect(result.failure.version).toBe("nope");
+  it.effect("fails on unknown version", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(resolveKey("nope"));
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(UnknownVersion);
+        if (result.failure instanceof UnknownVersion) {
+          expect(result.failure.version).toBe("nope");
+        }
       }
-    }
-  });
+    }),
+  );
 
   it("ships default map with latest → 10090", () => {
     expect(defaultVersionKeyMap.aliases.latest).toBe("10090");
