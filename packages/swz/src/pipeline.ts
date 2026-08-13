@@ -13,7 +13,7 @@ import {
 } from "./errors.ts";
 import { CsvCodec } from "./csvCodec.ts";
 import { JsonTranspile } from "./JsonTranspile.ts";
-import { SwzCodec } from "./SwzCodec.ts";
+import { seedFromHeader, SwzCodec } from "./SwzCodec.ts";
 import { VersionKeys } from "./VersionKeys.ts";
 import { Well512 } from "./Well512.ts";
 import { XmlCodec } from "./xmlCodec.ts";
@@ -63,20 +63,21 @@ export class Pipeline extends Context.Service<
           .pipe(Effect.mapError((error) => toIoError(options.inPath, error)));
         const key = yield* versionKeys.resolveKey(options.version);
         const entries = yield* codec.decompile(bytes, key);
+        const seed = seedFromHeader(bytes, key);
 
         yield* options.json
-          ? jsonTranspile.writeJsonDir(entries, options.outPath)
-          : entryIo.writeNativeDir(entries, options.outPath);
+          ? jsonTranspile.writeJsonDir(entries, options.outPath, { seed })
+          : entryIo.writeNativeDir(entries, options.outPath, { seed });
       });
 
       const compileFile = Effect.fn("Pipeline.compileFile")(function* (
         options: FilePipelineOptions,
       ) {
-        const entries = yield* options.json
+        const dir = yield* options.json
           ? jsonTranspile.readJsonDir(options.inPath)
           : entryIo.readNativeDir(options.inPath);
         const key = yield* versionKeys.resolveKey(options.version);
-        const bytes = yield* codec.compile(entries, key);
+        const bytes = yield* codec.compile(dir.entries, key, dir.seed);
 
         yield* fs
           .writeFile(options.outPath, bytes)

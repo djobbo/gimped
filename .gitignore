@@ -7,3 +7,4 @@ dist
 dumps/
 obf/
 .repos/
+.tmp/

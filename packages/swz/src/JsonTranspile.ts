@@ -3,17 +3,15 @@ import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { CsvCodec } from "./csvCodec.ts";
 import { detectFiletype, entryFileName } from "./EntryIo.ts";
 import { IoError, MalformedCsv, MalformedJson, MalformedXml, MissingRegistry } from "./errors.ts";
+import {
+  makeRegistry,
+  readRegistry,
+  writeRegistry,
+  type DirWriteOptions,
+  type SwzDir,
+} from "./registry.ts";
 import type { SwzEntry } from "./SwzCodec.ts";
 import { XmlCodec } from "./xmlCodec.ts";
-
-export const RegistryEntry = Schema.Struct({
-  filetype: Schema.Literals(["xml", "csv"]),
-});
-
-export const Registry = Schema.Struct({
-  files: Schema.Record(Schema.String, RegistryEntry),
-});
-export type Registry = typeof Registry.Type;
 
 const XmlJsonEntry = Schema.Struct({
   filetype: Schema.Literal("xml"),
@@ -39,11 +37,12 @@ export class JsonTranspile extends Context.Service<
     readonly writeJsonDir: (
       entries: readonly SwzEntry[],
       outDir: string,
+      options?: DirWriteOptions,
     ) => Effect.Effect<void, IoError | MalformedCsv | MalformedXml>;
     readonly readJsonDir: (
       inDir: string,
     ) => Effect.Effect<
-      SwzEntry[],
+      SwzDir,
       IoError | MissingRegistry | MalformedJson | MalformedCsv | MalformedXml
     >;
   }
@@ -63,6 +62,7 @@ export class JsonTranspile extends Context.Service<
       const writeJsonDir = Effect.fn("JsonTranspile.writeJsonDir")(function* (
         entries: readonly SwzEntry[],
         outDir: string,
+        options?: DirWriteOptions,
       ) {
         const fileNames = entries.map((entry) => jsonFileName(entry.content, path));
         const seen = new Set<string>();
@@ -83,8 +83,6 @@ export class JsonTranspile extends Context.Service<
           .makeDirectory(outDir, { recursive: true })
           .pipe(Effect.mapError((error) => toIoError(outDir, error)));
 
-        const registryFiles: Record<string, { filetype: "xml" | "csv" }> = {};
-
         yield* Effect.forEach(entries, (entry, index) =>
           Effect.gen(function* () {
             const filetype = detectFiletype(entry.content);
@@ -98,36 +96,28 @@ export class JsonTranspile extends Context.Service<
             yield* fs
               .writeFileString(filePath, `${JSON.stringify(body, null, 2)}\n`)
               .pipe(Effect.mapError((error) => toIoError(filePath, error)));
-            registryFiles[fileName] = { filetype };
           }),
         );
 
-        const registry: Registry = { files: registryFiles };
-        const registryPath = path.join(outDir, "registry.json");
-        yield* fs
-          .writeFileString(registryPath, `${JSON.stringify(registry, null, 2)}\n`)
-          .pipe(Effect.mapError((error) => toIoError(registryPath, error)));
+        yield* writeRegistry(
+          outDir,
+          makeRegistry(
+            fileNames.map((name, index) => ({
+              name,
+              filetype: detectFiletype(entries[index]!.content),
+            })),
+            options?.seed,
+          ),
+        );
       });
 
       const readJsonDir = Effect.fn("JsonTranspile.readJsonDir")(function* (inDir: string) {
-        const registryPath = path.join(inDir, "registry.json");
-        const registryText = yield* fs
-          .readFileString(registryPath)
-          .pipe(
-            Effect.mapError((error) =>
-              error._tag === "PlatformError" && error.reason._tag === "NotFound"
-                ? new MissingRegistry({ path: registryPath })
-                : toIoError(registryPath, error),
-            ),
-          );
+        const registry = yield* readRegistry(inDir, { required: true });
+        if (registry === undefined) {
+          return yield* new MissingRegistry({ path: path.join(inDir, "registry.json") });
+        }
 
-        const registry = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Registry))(
-          registryText,
-        ).pipe(Effect.mapError((error) => toIoError(registryPath, error)));
-
-        const fileNames = Object.keys(registry.files).sort();
-
-        return yield* Effect.forEach(fileNames, (fileName) =>
+        const entries = yield* Effect.forEach(Object.keys(registry.files), (fileName) =>
           Effect.gen(function* () {
             const filePath = path.join(inDir, fileName);
             const expectedFiletype = registry.files[fileName]!.filetype;
@@ -163,6 +153,8 @@ export class JsonTranspile extends Context.Service<
             } satisfies SwzEntry;
           }),
         );
+
+        return { seed: registry.seed, entries } satisfies SwzDir;
       });
 
       return JsonTranspile.of({ writeJsonDir, readJsonDir });
@@ -173,9 +165,10 @@ export class JsonTranspile extends Context.Service<
 export const writeJsonDir = Effect.fn("writeJsonDir")(function* (
   entries: readonly SwzEntry[],
   outDir: string,
+  options?: DirWriteOptions,
 ) {
   const json = yield* JsonTranspile;
-  return yield* json.writeJsonDir(entries, outDir);
+  return yield* json.writeJsonDir(entries, outDir, options);
 });
 
 export const readJsonDir = Effect.fn("readJsonDir")(function* (inDir: string) {

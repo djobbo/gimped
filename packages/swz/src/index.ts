@@ -2,6 +2,7 @@ export * from "./Well512.ts";
 export * from "./SwzCodec.ts";
 export * from "./VersionKeys.ts";
 export * from "./EntryIo.ts";
+export * from "./registry.ts";
 export * from "./JsonTranspile.ts";
 export * from "./csvCodec.ts";
 export * from "./xmlCodec.ts";

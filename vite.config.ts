@@ -8,7 +8,7 @@ export default defineConfig({
     ignorePatterns: [".repos/**", ".superpowers/**"],
   },
   test: {
-    exclude: ["node_modules/**", ".repos/**", ".superpowers/**"],
+    exclude: ["**/node_modules/**", ".repos/**", ".superpowers/**"],
   },
   run: {
     cache: true,
