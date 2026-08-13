@@ -270,7 +270,12 @@ function readMove(reader: ByteReader): MoveValue {
   return { name, startFrame, duration, loop, recover, free, iconUI, runEnds, frames };
 }
 
-function writeMove(writer: ByteWriter, move: MoveValue): void {
+function writeMove(writer: ByteWriter, defKey: string, move: MoveValue): void {
+  if (move.duration !== move.frames.length) {
+    throw invalid(
+      `duration/frame count mismatch at ${defKey} / ${move.name} (duration=${move.duration}, frames=${move.frames.length})`,
+    );
+  }
   writer.writeUTFLE(move.name);
   writer.writeU32LE(move.duration);
   writer.writeU32LE(move.loop);
@@ -304,5 +309,5 @@ function writeDef(writer: ByteWriter, def: AnimDef): void {
   writer.writeUTFLE(def.name);
   writer.writeUTFLE(def.file);
   writer.writeU32LE(def.moves.length);
-  for (const move of def.moves) writeMove(writer, move);
+  for (const move of def.moves) writeMove(writer, def.key, move);
 }

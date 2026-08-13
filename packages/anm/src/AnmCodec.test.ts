@@ -205,4 +205,19 @@ describe("AnmCodec", () => {
     expect(error).toBeInstanceOf(InvalidAnm);
     expect(error.reason).toBe("frame blob size mismatch");
   });
+
+  it("fails when duration does not match frames.length", async () => {
+    const input = oneDef();
+    input.moves[0]!.duration = 2;
+    const error = await run(
+      Effect.gen(function* () {
+        const codec = yield* AnmCodec;
+        return yield* codec.encode([input]).pipe(Effect.flip);
+      }),
+    );
+    expect(error).toBeInstanceOf(InvalidAnm);
+    expect(error.reason).toBe(
+      "duration/frame count mismatch at anims/Foo.swf/a__Foo / Ready (duration=2, frames=1)",
+    );
+  });
 });
