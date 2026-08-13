@@ -1,6 +1,13 @@
 import { toIoError } from "@gimped/common";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
-import { IoError } from "./errors.ts";
+import { IoError, MissingRegistry } from "./errors.ts";
+import {
+  makeRegistry,
+  readRegistry,
+  writeRegistry,
+  type DirWriteOptions,
+  type SwzDir,
+} from "./registry.ts";
 import type { SwzEntry } from "./SwzCodec.ts";
 
 export type EntryFiletype = "xml" | "csv";
@@ -29,8 +36,9 @@ export class EntryIo extends Context.Service<
     readonly writeNativeDir: (
       entries: readonly SwzEntry[],
       outDir: string,
+      options?: DirWriteOptions,
     ) => Effect.Effect<void, IoError>;
-    readonly readNativeDir: (inDir: string) => Effect.Effect<SwzEntry[], IoError>;
+    readonly readNativeDir: (inDir: string) => Effect.Effect<SwzDir, IoError | MissingRegistry>;
   }
 >()("@gimped/swz/EntryIo") {
   static readonly layer: Layer.Layer<EntryIo, never, FileSystem.FileSystem | Path.Path> =
@@ -43,6 +51,7 @@ export class EntryIo extends Context.Service<
         const writeNativeDir = Effect.fn("EntryIo.writeNativeDir")(function* (
           entries: readonly SwzEntry[],
           outDir: string,
+          options?: DirWriteOptions,
         ) {
           const fileNames = entries.map((entry) => entryFileName(entry.content));
           const seen = new Set<string>();
@@ -73,19 +82,34 @@ export class EntryIo extends Context.Service<
             },
             { concurrency: "unbounded" },
           );
+
+          yield* writeRegistry(
+            outDir,
+            makeRegistry(
+              fileNames.map((name, index) => ({
+                name,
+                filetype: detectFiletype(entries[index]!.content),
+              })),
+              options?.seed,
+            ),
+          );
         });
 
         const readNativeDir = Effect.fn("EntryIo.readNativeDir")(function* (inDir: string) {
-          const fileNames = yield* fs.readDirectory(inDir).pipe(
-            Effect.map((names) =>
-              names
-                .filter((fileName) => fileName.endsWith(".xml") || fileName.endsWith(".csv"))
-                .sort(),
-            ),
-            Effect.mapError((error) => toIoError(inDir, error)),
-          );
+          const registry = yield* readRegistry(inDir, { required: false });
+          const fileNames =
+            registry !== undefined
+              ? Object.keys(registry.files)
+              : yield* fs.readDirectory(inDir).pipe(
+                  Effect.map((names) =>
+                    names
+                      .filter((fileName) => fileName.endsWith(".xml") || fileName.endsWith(".csv"))
+                      .sort(),
+                  ),
+                  Effect.mapError((error) => toIoError(inDir, error)),
+                );
 
-          return yield* Effect.forEach(
+          const entries = yield* Effect.forEach(
             fileNames,
             (fileName) => {
               const filePath = path.join(inDir, fileName);
@@ -96,6 +120,8 @@ export class EntryIo extends Context.Service<
             },
             { concurrency: "unbounded" },
           );
+
+          return { seed: registry?.seed, entries } satisfies SwzDir;
         });
 
         return EntryIo.of({
@@ -111,9 +137,10 @@ export class EntryIo extends Context.Service<
 export const writeNativeDir = Effect.fn("writeNativeDir")(function* (
   entries: readonly SwzEntry[],
   outDir: string,
+  options?: DirWriteOptions,
 ) {
   const entryIo = yield* EntryIo;
-  return yield* entryIo.writeNativeDir(entries, outDir);
+  return yield* entryIo.writeNativeDir(entries, outDir, options);
 });
 
 export const readNativeDir = Effect.fn("readNativeDir")(function* (inDir: string) {
