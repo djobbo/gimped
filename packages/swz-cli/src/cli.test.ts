@@ -41,7 +41,7 @@ describe("swz CLI", () => {
         yield* runCli(["decompile", "--in", rebuiltSwz, "--out", secondDir, ...jsonFlag]);
 
         const restored = json ? yield* readJsonDir(secondDir) : yield* readNativeDir(secondDir);
-        return restored.map((entry) => entry.content);
+        return restored.entries.map((entry) => entry.content);
       }),
     );
 

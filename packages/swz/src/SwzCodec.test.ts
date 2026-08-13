@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { ChecksumMismatch } from "./errors.ts";
 import { CodecLive } from "./layers.ts";
 import { runWith } from "./test-utils.ts";
-import { compile, decompile } from "./SwzCodec.ts";
+import { compile, decompile, seedFromHeader } from "./SwzCodec.ts";
 
 const run = runWith(CodecLive);
 
@@ -41,5 +41,12 @@ describe("SwzCodec", () => {
     const out2 = await run(decompile(bytes2, key));
     expect(out1.map((entry) => entry.content)).toEqual(entries.map((entry) => entry.content));
     expect(out2.map((entry) => entry.content)).toEqual(entries.map((entry) => entry.content));
+  });
+
+  it("reads the compile seed back from the header", async () => {
+    const key = 762411009;
+    const seed = 481516234;
+    const bytes = await run(compile([{ content: "<A/>" }], key, seed));
+    expect(seedFromHeader(bytes, key)).toBe(seed);
   });
 });
