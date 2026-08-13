@@ -1,8 +1,8 @@
 import { runWith } from "@gimped/common";
 import { NodeServices } from "@effect/platform-node";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { AnimDefJsonService, type AnimDef } from "./AnimDefJson.ts";
+import { AnimDefJsonService, AnimDefJsonText, IndexJsonText, type AnimDef } from "./AnimDefJson.ts";
 import { EntryIo } from "./EntryIo.ts";
 import { InvalidAnm, MissingIndex } from "./errors.ts";
 
@@ -35,7 +35,7 @@ describe("EntryIo", () => {
         return { indexText, names, read };
       }),
     );
-    expect(JSON.parse(round.indexText).files).toEqual([
+    expect(Schema.decodeUnknownSync(IndexJsonText)(round.indexText).files).toEqual([
       { file: "anims__A.swf__a__A.json", key: "anims/A.swf/a__A" },
       { file: "anims__B.swf__a__B.json", key: "anims/B.swf/a__B" },
     ]);
@@ -65,13 +65,18 @@ describe("EntryIo", () => {
         yield* io.writeDir([def("anims/A.swf/a__A", "a__A")], dir);
         const filePath = path.join(dir, "anims__A.swf__a__A.json");
         const text = yield* fs.readFileString(filePath);
-        const parsed = JSON.parse(text) as { key: string };
-        parsed.key = "other";
-        yield* fs.writeFileString(filePath, JSON.stringify(parsed));
+        const parsed = yield* Schema.decodeUnknownEffect(AnimDefJsonText)(text);
+        const tampered = yield* Schema.encodeUnknownEffect(AnimDefJsonText)({
+          ...parsed,
+          key: "other",
+        });
+        yield* fs.writeFileString(filePath, `${tampered}\n`);
         return yield* io.readDir(dir).pipe(Effect.flip);
       }),
     );
     expect(error).toBeInstanceOf(InvalidAnm);
-    expect((error as InvalidAnm).reason).toBe("key mismatch");
+    if (error instanceof InvalidAnm) {
+      expect(error.reason).toBe("key mismatch");
+    }
   });
 });

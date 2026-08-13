@@ -25,8 +25,9 @@ const CsvJsonEntry = Schema.Struct({
   rows: Schema.Array(Schema.Record(Schema.String, Schema.String)),
 });
 
-const JsonEntry = Schema.Union([XmlJsonEntry, CsvJsonEntry]);
-type JsonEntry = typeof JsonEntry.Type;
+export const JsonEntry = Schema.Union([XmlJsonEntry, CsvJsonEntry]);
+export type JsonEntry = typeof JsonEntry.Type;
+export const JsonEntryText = Schema.fromJsonString(JsonEntry, { space: 2 });
 
 const jsonFileName = (content: string, pathApi: Path.Path): string =>
   `${pathApi.parse(entryFileName(content)).name}.json`;
@@ -88,13 +89,14 @@ export class JsonTranspile extends Context.Service<
             const filetype = detectFiletype(entry.content);
             const fileName = fileNames[index]!;
             const filePath = path.join(outDir, fileName);
-            const body =
+            const body: JsonEntry =
               filetype === "xml"
                 ? { filetype, ...(yield* xml.xmlToJson(entry.content, filePath)) }
                 : { filetype, ...(yield* csv.csvToJson(entry.content, filePath)) };
+            const text = yield* Schema.encodeUnknownEffect(JsonEntryText)(body).pipe(Effect.orDie);
 
             yield* fs
-              .writeFileString(filePath, `${JSON.stringify(body, null, 2)}\n`)
+              .writeFileString(filePath, `${text}\n`)
               .pipe(Effect.mapError((error) => toIoError(filePath, error)));
           }),
         );
@@ -125,9 +127,9 @@ export class JsonTranspile extends Context.Service<
               .readFileString(filePath)
               .pipe(Effect.mapError((error) => toIoError(filePath, error)));
 
-            const jsonEntry = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(JsonEntry))(
-              text,
-            ).pipe(Effect.mapError((error) => toMalformedJson(filePath, error)));
+            const jsonEntry = yield* Schema.decodeUnknownEffect(JsonEntryText)(text).pipe(
+              Effect.mapError((error) => toMalformedJson(filePath, error)),
+            );
 
             if (jsonEntry.filetype !== expectedFiletype) {
               return yield* new IoError({

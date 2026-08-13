@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "@effect/vitest";
 import { MalformedCsv, MalformedJson, MalformedXml } from "./errors.ts";
 
 describe("parse errors", () => {

@@ -3,10 +3,14 @@ import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
 import { AnimDefJsonService, type AnimDef, type IndexFile } from "./AnimDefJson.ts";
 import { InvalidAnm, MissingIndex } from "./errors.ts";
 
-const WINDOWS_ILLEGAL_FILENAME_CHARS = /[<>:"/\\|?*\u0000-\u001f]/g;
+const WINDOWS_ILLEGAL_FILENAME_CHARS = '<>:"/\\|?*';
 
-const slugFile = (key: string): string =>
-  `${key.replaceAll("/", "__").replace(WINDOWS_ILLEGAL_FILENAME_CHARS, "_")}.json`;
+const sanitizeFileName = (value: string): string =>
+  Array.from(value, (char) =>
+    char.charCodeAt(0) <= 0x1f || WINDOWS_ILLEGAL_FILENAME_CHARS.includes(char) ? "_" : char,
+  ).join("");
+
+const slugFile = (key: string): string => `${sanitizeFileName(key.replaceAll("/", "__"))}.json`;
 
 const uniqueNames = (keys: readonly string[]): readonly string[] => {
   const used = new Set<string>();
@@ -59,19 +63,16 @@ export class EntryIo extends Context.Service<
         const index: IndexFile = {
           files: Arr.zipWith(files, defs, (file, def) => ({ file, key: def.key })),
         };
-        const indexValue = yield* json.encodeIndex(index);
+        const indexText = yield* json.encodeIndex(index);
         yield* fs
-          .writeFileString(
-            path.join(outDir, "index.json"),
-            `${JSON.stringify(indexValue, null, 2)}\n`,
-          )
+          .writeFileString(path.join(outDir, "index.json"), `${indexText}\n`)
           .pipe(Effect.mapError((error) => toIoError(path.join(outDir, "index.json"), error)));
         const writeDef = Effect.fn("EntryIo.writeDef")(function* (def: AnimDef, i: number) {
           const fileName = files[i]!;
           const filePath = path.join(outDir, fileName);
-          const value = yield* json.encodeDef(def);
+          const text = yield* json.encodeDef(def);
           yield* fs
-            .writeFileString(filePath, `${JSON.stringify(value, null, 2)}\n`)
+            .writeFileString(filePath, `${text}\n`)
             .pipe(Effect.mapError((error) => toIoError(filePath, error)));
         });
         yield* Effect.forEach(defs, writeDef);

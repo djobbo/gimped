@@ -1,4 +1,4 @@
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import * as swz from "./index.ts";
 import { TestLive } from "./layers.ts";
@@ -6,7 +6,7 @@ import { runWith } from "./test-utils.ts";
 import { compileFile, decompileFile } from "./pipeline.ts";
 import { compile, seedFromHeader } from "./SwzCodec.ts";
 import { xmlToJson } from "./xmlCodec.ts";
-import { REGISTRY_FILENAME } from "./registry.ts";
+import { REGISTRY_FILENAME, RegistryText } from "./registry.ts";
 import { entryFileName } from "./EntryIo.ts";
 
 const entries = [{ content: "<HeroTypes><x/></HeroTypes>" }, { content: "MyTable\na,b\n1,2\n" }];
@@ -106,7 +106,7 @@ describe("file pipeline", () => {
           version: "latest",
           json,
         });
-        const registry = JSON.parse(
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
           yield* fs.readFileString(path.join(firstDir, REGISTRY_FILENAME)),
         );
         yield* compileFile({

@@ -1,8 +1,7 @@
 import { MalformedJson, runWith } from "@gimped/common";
-import { Effect, Layer } from "effect";
+import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
-import { AnimDefJson, AnimDefJsonService, type AnimDef } from "./AnimDefJson.ts";
-import { Schema } from "effect";
+import { AnimDefJsonService, AnimDefJsonText, type AnimDef } from "./AnimDefJson.ts";
 
 const Live = AnimDefJsonService.layer;
 const run = runWith(Live);
@@ -45,8 +44,7 @@ const minimal = (): AnimDef => ({
 
 describe("AnimDefJson", () => {
   it("omits optional bone name, fireSocket, and platform when unset", () => {
-    const encoded = Schema.encodeUnknownSync(AnimDefJson)(minimal());
-    const json = JSON.stringify(encoded);
+    const json = Schema.encodeUnknownSync(AnimDefJsonText)(minimal());
     expect(json).not.toContain('"name":"a_Torso1"');
     expect(json).not.toContain("fireSocket");
     expect(json).not.toContain("platform");
@@ -56,7 +54,10 @@ describe("AnimDefJson", () => {
     const def = await run(
       Effect.gen(function* () {
         const json = yield* AnimDefJsonService;
-        return yield* json.decodeDef(JSON.stringify(minimal()), "x.json");
+        return yield* json.decodeDef(
+          Schema.encodeUnknownSync(AnimDefJsonText)(minimal()),
+          "x.json",
+        );
       }),
     );
     expect(def.key).toBe("anims/Foo.swf/a__Foo");
@@ -78,7 +79,12 @@ describe("AnimDefJson", () => {
     const error = await run(
       Effect.gen(function* () {
         const json = yield* AnimDefJsonService;
-        return yield* Effect.flip(json.decodeDef(JSON.stringify(input), "bad-gfx-frame.json"));
+        return yield* Effect.flip(
+          json.decodeDef(
+            Schema.encodeUnknownSync(Schema.UnknownFromJsonString)(input),
+            "bad-gfx-frame.json",
+          ),
+        );
       }),
     );
 

@@ -6,6 +6,8 @@ import {
   UnknownVersion,
   VersionKeys,
   XmlCodec,
+  type XmlNode,
+  type XmlValue,
 } from "@gimped/swz";
 import {
   Array as Arr,
@@ -22,13 +24,10 @@ import {
 import type { AnimDef, BoneValue } from "./AnimDefJson.ts";
 import { GameDataError } from "./errors.ts";
 
-const asArray = <A>(value: A | ReadonlyArray<A> | undefined): ReadonlyArray<A> => {
-  if (Predicate.isUndefined(value)) return Arr.empty();
-  return Arr.Array.isArray(value) ? value : Arr.of(value);
-};
-
-const textValue = (node: unknown): string | undefined => {
+const textValue = (node: XmlValue | undefined): string | undefined => {
+  if (Predicate.isUndefined(node)) return undefined;
   if (Predicate.isString(node) || Predicate.isNumber(node)) return String(node);
+  if (Arr.Array.isArray(node) || Predicate.isBoolean(node)) return undefined;
   if (Predicate.hasProperty(node, "#text")) {
     const text = node["#text"];
     if (Predicate.isString(text) || Predicate.isNumber(text)) return String(text);
@@ -36,44 +35,52 @@ const textValue = (node: unknown): string | undefined => {
   return undefined;
 };
 
-const childTexts = (root: Readonly<Record<string, unknown>>): readonly string[] => {
+const childTexts = (root: XmlNode): readonly string[] => {
   const boneTypes = root["BoneTypes"];
   if (
-    !Predicate.isObject(boneTypes) ||
-    Predicate.isNull(boneTypes) ||
+    Predicate.isUndefined(boneTypes) ||
+    Predicate.isString(boneTypes) ||
+    Predicate.isNumber(boneTypes) ||
+    Predicate.isBoolean(boneTypes) ||
     Arr.Array.isArray(boneTypes)
   ) {
     return [];
   }
   const names: string[] = [];
-  for (const [key, value] of Rec.toEntries(boneTypes as Record<string, unknown>)) {
+  for (const [key, value] of Rec.toEntries(boneTypes)) {
     if (key.startsWith("@_")) continue;
-    for (const item of asArray(value as string | ReadonlyArray<unknown> | undefined)) {
-      const text = textValue(item);
-      if (text !== undefined) names.push(text);
+    if (value === undefined) continue;
+    if (Arr.Array.isArray(value)) {
+      for (const item of value) {
+        const text = textValue(item);
+        if (text !== undefined) names.push(text);
+      }
+      continue;
     }
+    const text = textValue(value);
+    if (text !== undefined) names.push(text);
   }
   return names;
 };
 
 const looksLikeXml = (content: string): boolean => content.trimStart().startsWith("<");
 
-const toGameDataError = (dataPath: string, error: unknown): GameDataError => {
-  if (Schema.is(UnknownVersion)(error)) {
-    return new GameDataError({ path: dataPath, message: `unknown version: ${error.version}` });
+const toGameDataError = (dataPath: string, cause: unknown): GameDataError => {
+  if (Schema.is(UnknownVersion)(cause)) {
+    return new GameDataError({ path: dataPath, message: `unknown version: ${cause.version}` });
   }
-  if (Schema.is(InvalidSwz)(error)) {
-    return new GameDataError({ path: dataPath, message: error.reason });
+  if (Schema.is(InvalidSwz)(cause)) {
+    return new GameDataError({ path: dataPath, message: cause.reason });
   }
-  if (Schema.is(SwzChecksumMismatch)(error)) {
+  if (Schema.is(SwzChecksumMismatch)(cause)) {
     return new GameDataError({
       path: dataPath,
-      message: `checksum mismatch (${error.where}): expected ${error.expected}, got ${error.actual}`,
+      message: `checksum mismatch (${cause.where}): expected ${cause.expected}, got ${cause.actual}`,
     });
   }
   return new GameDataError({
     path: dataPath,
-    message: error instanceof Error ? error.message : String(error),
+    message: cause instanceof Error ? cause.message : String(cause),
   });
 };
 

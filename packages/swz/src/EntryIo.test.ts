@@ -1,9 +1,10 @@
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { IoError } from "./errors.ts";
 import { detectFiletype, entryFileName, readNativeDir, writeNativeDir } from "./EntryIo.ts";
 import * as swz from "./index.ts";
 import { EntryIoLive } from "./layers.ts";
+import { RegistryText } from "./registry.ts";
 import { runWith } from "./test-utils.ts";
 
 const run = runWith(EntryIoLive);
@@ -62,7 +63,9 @@ describe("EntryIo", () => {
         yield* writeNativeDir(entries, dir);
         yield* fs.writeFileString(path.join(dir, "ignored.txt"), "ignored");
         const back = yield* readNativeDir(dir);
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return {
           contents: back.entries.map((entry) => entry.content),
           seed: back.seed,
@@ -89,7 +92,9 @@ describe("EntryIo", () => {
           ],
           dir,
         );
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return Object.keys(registry.files);
       }),
     );
@@ -145,7 +150,9 @@ describe("EntryIo", () => {
         ];
         yield* writeNativeDir(entries, dir, { seed: 481516234 });
         const back = yield* readNativeDir(dir);
-        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        const registry = yield* Schema.decodeUnknownEffect(RegistryText)(
+          yield* fs.readFileString(path.join(dir, "registry.json")),
+        );
         return { back, registry };
       }),
     );

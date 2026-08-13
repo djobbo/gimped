@@ -13,6 +13,7 @@ export const Registry = Schema.Struct({
   seed: Schema.optionalKey(Schema.Number),
   files: Schema.Record(Schema.String, RegistryEntry),
 });
+export const RegistryText = Schema.fromJsonString(Registry, { space: 2 });
 export type Registry = typeof Registry.Type;
 
 export type DirWriteOptions = {
@@ -42,8 +43,9 @@ export const writeRegistry = Effect.fn("writeRegistry")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const filePath = path.join(dir, REGISTRY_FILENAME);
+  const text = yield* Schema.encodeUnknownEffect(RegistryText)(registry).pipe(Effect.orDie);
   yield* fs
-    .writeFileString(filePath, `${JSON.stringify(registry, null, 2)}\n`)
+    .writeFileString(filePath, `${text}\n`)
     .pipe(Effect.mapError((error) => toIoError(filePath, error)));
 });
 
@@ -67,7 +69,7 @@ export const readRegistry = Effect.fn("readRegistry")(function* (
     return yield* Effect.fail(toIoError(filePath, error));
   }
 
-  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Registry))(result.success).pipe(
+  return yield* Schema.decodeUnknownEffect(RegistryText)(result.success).pipe(
     Effect.mapError((error) => toIoError(filePath, error)),
   );
 });

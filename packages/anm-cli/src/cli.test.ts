@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
-import { layer } from "@gimped/anm";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { AnimDefJsonText, IndexJsonText, layer } from "@gimped/anm";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import { describe, expect, it } from "vite-plus/test";
 import { root } from "./cli.ts";
@@ -10,6 +10,7 @@ const runCli = (args: ReadonlyArray<string>) =>
   Command.runWith(root, { version: "0.0.0" })(args).pipe(Effect.provide(AppLive));
 
 const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
+  // SAFETY: AppLive is the CLI test environment; leftover R is only from generics TS cannot prove empty.
   Effect.runPromise(Effect.provide(effect, AppLive) as Effect.Effect<A, E>);
 
 const minimalDir = {
@@ -60,11 +61,11 @@ describe("anm CLI", () => {
         yield* fs.makeDirectory(dirIn);
         yield* fs.writeFileString(
           path.join(dirIn, "index.json"),
-          `${JSON.stringify(minimalDir.index, null, 2)}\n`,
+          `${Schema.encodeUnknownSync(IndexJsonText)(minimalDir.index)}\n`,
         );
         yield* fs.writeFileString(
           path.join(dirIn, "anims__Foo.swf__a__Foo.json"),
-          `${JSON.stringify(minimalDir.def, null, 2)}\n`,
+          `${Schema.encodeUnknownSync(AnimDefJsonText)(minimalDir.def)}\n`,
         );
         yield* runCli(["compile", "--in", dirIn, "--out", anmPath]);
         yield* runCli(["decompile", "--in", anmPath, "--out", dirOut]);
@@ -72,7 +73,10 @@ describe("anm CLI", () => {
         const secondText = yield* fs.readFileString(
           path.join(dirOut, "anims__Foo.swf__a__Foo.json"),
         );
-        return { first: JSON.parse(firstText), second: JSON.parse(secondText) };
+        return {
+          first: yield* Schema.decodeUnknownEffect(AnimDefJsonText)(firstText),
+          second: yield* Schema.decodeUnknownEffect(AnimDefJsonText)(secondText),
+        };
       }),
     );
     expect(second).toEqual(first);

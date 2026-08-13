@@ -110,29 +110,34 @@ function readBone(reader: ByteReader, prev: BoneValue | undefined): BoneValue {
   let b: number;
   let c: number;
   let d: number;
-  if (reader.readBool()) {
+  const copyMatrix = reader.readBool();
+  if (copyMatrix) {
     if (prev === undefined) throw invalid("copy-matrix without previous bone");
     a = prev.a;
     b = prev.b;
     c = prev.c;
     d = prev.d;
-  } else if (reader.readBool()) {
-    if (reader.readBool()) {
-      a = 1;
-      b = 0;
-      c = 0;
-      d = 1;
+  } else {
+    const compactMatrix = reader.readBool();
+    if (compactMatrix) {
+      const identity = reader.readBool();
+      if (identity) {
+        a = 1;
+        b = 0;
+        c = 0;
+        d = 1;
+      } else {
+        a = reader.readF32LE();
+        b = reader.readF32LE();
+        c = b;
+        d = -a;
+      }
     } else {
       a = reader.readF32LE();
       b = reader.readF32LE();
-      c = b;
-      d = -a;
+      c = reader.readF32LE();
+      d = reader.readF32LE();
     }
-  } else {
-    a = reader.readF32LE();
-    b = reader.readF32LE();
-    c = reader.readF32LE();
-    d = reader.readF32LE();
   }
   let tx: number;
   let ty: number;
@@ -212,14 +217,9 @@ function readFrame(reader: ByteReader, prevFrame: FrameValue | undefined): Frame
       bones.push(readBone(reader, i > 0 ? bones[i - 1] : undefined));
     }
   }
-  return fireSocket === undefined && platform === undefined
-    ? { index, bones }
-    : {
-        index,
-        bones,
-        ...(fireSocket === undefined ? {} : { fireSocket }),
-        ...(platform === undefined ? {} : { platform }),
-      };
+  const frame: FrameValue = { index, bones };
+  const withFire = fireSocket === undefined ? frame : { ...frame, fireSocket };
+  return platform === undefined ? withFire : { ...withFire, platform };
 }
 
 function writeFrame(

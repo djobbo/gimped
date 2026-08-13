@@ -4,7 +4,7 @@ import { Envelope } from "./Envelope.ts";
 import { ChecksumMismatch, GameDataError, InvalidReplay } from "./errors.ts";
 import { GameData } from "./GameData.ts";
 import { ReplayCodec } from "./ReplayCodec.ts";
-import { ReplayJson } from "./ReplayJson.ts";
+import { ReplayJsonText } from "./ReplayJson.ts";
 
 export type DecompileFileOptions = {
   readonly inPath: string;
@@ -48,10 +48,11 @@ export class Pipeline extends Context.Service<
         const opened = yield* envelope.open(bytes);
         const replay = yield* codec.decode(opened);
         const annotated = yield* gameData.annotate(replay, options.dataPath);
-        const value = yield* Schema.encodeUnknownEffect(ReplayJson)(annotated).pipe(Effect.orDie);
-        const text = JSON.stringify(value, null, 2) + "\n";
+        const text = yield* Schema.encodeUnknownEffect(ReplayJsonText)(annotated).pipe(
+          Effect.orDie,
+        );
         yield* fs
-          .writeFileString(options.outPath, text)
+          .writeFileString(options.outPath, `${text}\n`)
           .pipe(Effect.mapError((error) => toIoError(options.outPath, error)));
       });
 
@@ -61,9 +62,9 @@ export class Pipeline extends Context.Service<
         const text = yield* fs
           .readFileString(options.inPath)
           .pipe(Effect.mapError((error) => toIoError(options.inPath, error)));
-        const replay = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(ReplayJson))(
-          text,
-        ).pipe(Effect.mapError((error) => toMalformedJson(options.inPath, error)));
+        const replay = yield* Schema.decodeUnknownEffect(ReplayJsonText)(text).pipe(
+          Effect.mapError((error) => toMalformedJson(options.inPath, error)),
+        );
         const encoded = yield* codec.encode(replay);
         const sealed = yield* envelope.seal(encoded);
         yield* fs
