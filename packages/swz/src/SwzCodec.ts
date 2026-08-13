@@ -157,6 +157,11 @@ export class SwzCodec extends Context.Service<
   static readonly Default = this.layer.pipe(Layer.provide(Well512.layer));
 }
 
+export const seedFromHeader = (bytes: Uint8Array, key: number): number => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return (view.getUint32(4) ^ key) >>> 0;
+};
+
 export const compile = Effect.fn("compile")(function* (
   entries: readonly SwzEntry[],
   key: number,

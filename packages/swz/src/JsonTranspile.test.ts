@@ -32,7 +32,7 @@ describe("JsonTranspile", () => {
           hero: JSON.parse(yield* fs.readFileString(path.join(dir, "HeroTypes.json"))),
           table: JSON.parse(yield* fs.readFileString(path.join(dir, "MyTable.json"))),
           registry: JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json"))),
-          back: (yield* readJsonDir(dir)).map((entry) => entry.content),
+          back: (yield* readJsonDir(dir)).entries.map((entry) => entry.content),
         };
       }),
     );
@@ -167,5 +167,31 @@ describe("JsonTranspile", () => {
       expect(result.failure).toBeInstanceOf(MissingRegistry);
       expect(result.failure.path).toBe(registryPath);
     }
+  });
+
+  it("preserves seed and non-alphabetical order via registry.json", async () => {
+    const snapshot = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* fs.makeTempDirectory({ prefix: "swz-json-" });
+        const entries = [
+          { content: "<ZooTypes><z/></ZooTypes>" },
+          { content: "<AppleTypes><a/></AppleTypes>" },
+        ];
+        yield* writeJsonDir(entries, dir, { seed: 481516234 });
+        const back = yield* readJsonDir(dir);
+        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        return { back, registry };
+      }),
+    );
+
+    expect(snapshot.registry.seed).toBe(481516234);
+    expect(Object.keys(snapshot.registry.files)).toEqual(["ZooTypes.json", "AppleTypes.json"]);
+    expect(snapshot.back.seed).toBe(481516234);
+    expect(snapshot.back.entries.map((entry) => entry.content.startsWith("<ZooTypes"))).toEqual([
+      true,
+      false,
+    ]);
   });
 });
