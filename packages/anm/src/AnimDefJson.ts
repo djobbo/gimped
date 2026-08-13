@@ -1,13 +1,17 @@
 import { MalformedJson, toMalformedJson } from "@gimped/common";
 import { Context, Effect, Layer, Schema } from "effect";
 
+const i16 = Schema.Int.check(Schema.isBetween({ minimum: -32768, maximum: 32767 }));
+const i8 = Schema.Int.check(Schema.isBetween({ minimum: -128, maximum: 127 }));
+const u32 = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 4294967295 }));
+
 export const Point = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,
 });
 
 export const Bone = Schema.Struct({
-  id: Schema.Int,
+  id: i16,
   name: Schema.optionalKey(Schema.String),
   a: Schema.Number,
   b: Schema.Number,
@@ -16,11 +20,11 @@ export const Bone = Schema.Struct({
   tx: Schema.Number,
   ty: Schema.Number,
   alpha: Schema.Number,
-  gfxFrame: Schema.Int,
+  gfxFrame: i8,
 });
 
 export const Frame = Schema.Struct({
-  index: Schema.Int,
+  index: i16,
   fireSocket: Schema.optionalKey(Point),
   platform: Schema.optionalKey(Point),
   bones: Schema.Array(Bone),
@@ -28,13 +32,13 @@ export const Frame = Schema.Struct({
 
 export const Move = Schema.Struct({
   name: Schema.String,
-  startFrame: Schema.Number,
-  duration: Schema.Number,
-  loop: Schema.Number,
-  recover: Schema.Number,
-  free: Schema.Number,
-  iconUI: Schema.Number,
-  runEnds: Schema.Array(Schema.Number),
+  startFrame: u32,
+  duration: u32,
+  loop: u32,
+  recover: u32,
+  free: u32,
+  iconUI: u32,
+  runEnds: Schema.Array(u32),
   frames: Schema.Array(Frame),
 });
 
