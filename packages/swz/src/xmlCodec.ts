@@ -2,8 +2,14 @@ import { Context, Effect, Layer } from "effect";
 import { XMLBuilder, XMLParser, XMLValidator } from "fast-xml-parser";
 import { MalformedXml } from "./errors.ts";
 
+export type XmlValue = string | number | boolean | XmlNode | ReadonlyArray<XmlValue>;
+
+export type XmlNode = {
+  readonly [key: string]: XmlValue | undefined;
+};
+
 export type XmlJsonData = {
-  readonly root: Readonly<Record<string, unknown>>;
+  readonly root: XmlNode;
 };
 
 const sharedOptions = {
@@ -26,20 +32,21 @@ const builder = new XMLBuilder({ ...sharedOptions, suppressBooleanAttributes: fa
 const malformed = (path: string, message: string): MalformedXml =>
   new MalformedXml({ path, message });
 
-const validateSingleRootObject = (
-  value: unknown,
-  context: string,
-): Readonly<Record<string, unknown>> => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${context} must be a non-null object`);
-  }
-
-  const keys = Object.keys(value);
-  if (keys.length !== 1) {
+const requireSingleRootKey = (root: XmlNode, context: string): XmlNode => {
+  if (Object.keys(root).length !== 1) {
     throw new Error(`${context} must contain exactly one root key`);
   }
+  return root;
+};
 
-  return value as Readonly<Record<string, unknown>>;
+const parsedXmlRoot = (
+  value: XmlNode | null | ReadonlyArray<XmlValue>,
+  context: string,
+): XmlNode => {
+  if (value === null || Array.isArray(value)) {
+    throw new Error(`${context} must be a non-null object`);
+  }
+  return requireSingleRootKey(value, context);
 };
 
 export class XmlCodec extends Context.Service<
@@ -58,9 +65,8 @@ export class XmlCodec extends Context.Service<
             throw new Error(validation.err.msg);
           }
 
-          const parsed = parser.parse(content);
-          const root = validateSingleRootObject(parsed, "Parsed XML");
-          return { root };
+          const parsed: XmlNode | null | ReadonlyArray<XmlValue> = parser.parse(content);
+          return { root: parsedXmlRoot(parsed, "Parsed XML") };
         },
         catch: (error) =>
           malformed(path, error instanceof Error ? error.message : "Failed to parse XML content"),
@@ -70,8 +76,7 @@ export class XmlCodec extends Context.Service<
     const jsonToXml = Effect.fn("XmlCodec.jsonToXml")(function* (data: XmlJsonData, path: string) {
       return yield* Effect.try({
         try: () => {
-          const root = validateSingleRootObject(data.root, "XML root");
-          return builder.build(root);
+          return builder.build(requireSingleRootKey(data.root, "XML root"));
         },
         catch: (error) =>
           malformed(path, error instanceof Error ? error.message : "Failed to build XML content"),

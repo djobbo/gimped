@@ -10,14 +10,14 @@ export class MalformedJson extends Schema.TaggedError<MalformedJson>()("Malforme
   message: Schema.String,
 }) {}
 
-export const toIoError = (path: string, error: unknown): IoError =>
+export const toIoError = (path: string, cause: unknown): IoError =>
   new IoError({
     path,
-    message: error instanceof Error ? error.message : String(error),
+    message: cause instanceof Error ? cause.message : String(cause),
   });
 
-export const toMalformedJson = (path: string, error: unknown): MalformedJson =>
+export const toMalformedJson = (path: string, cause: unknown): MalformedJson =>
   new MalformedJson({
     path,
-    message: error instanceof Error ? error.message : String(error),
+    message: cause instanceof Error ? cause.message : String(cause),
   });

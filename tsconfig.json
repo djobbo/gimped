@@ -6,15 +6,24 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "allowImportingTsExtensions": true
   },
   "references": [
-    { "path": "./packages/common" },
-    { "path": "./packages/anm" },
-    { "path": "./packages/replay" },
-    { "path": "./packages/swz" },
-    { "path": "./packages/swz-cli" },
-    { "path": "./packages/replay-cli" },
-    { "path": "./packages/anm-cli" }
+    {
+      "path": "./packages/common"
+    },
+    {
+      "path": "./packages/replay"
+    },
+    {
+      "path": "./packages/swz"
+    },
+    {
+      "path": "./packages/swz-cli"
+    },
+    {
+      "path": "./packages/replay-cli"
+    }
   ]
 }
