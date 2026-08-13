@@ -1,8 +1,6 @@
-import { runWith } from "@gimped/common";
-import { describe, expect, it } from "vite-plus/test";
+import { expect, layer } from "@effect/vitest";
+import { Effect } from "effect";
 import { Checksum, playerChecksum, type ChecksumPlayer } from "./checksum.ts";
-
-const run = runWith(Checksum.layer);
 
 const player = (over: Partial<ChecksumPlayer> = {}): ChecksumPlayer => ({
   colorSchemeId: 1,
@@ -20,12 +18,16 @@ const player = (over: Partial<ChecksumPlayer> = {}): ChecksumPlayer => ({
   ...over,
 });
 
-describe("playerChecksum", () => {
-  it("matches colorSchemeId*5 + null handicap 29, mod 173", async () => {
-    expect(await run(playerChecksum([player()], 0, 1))).toBe(34);
-  });
+layer(Checksum.layer)("playerChecksum", (it) => {
+  it.effect("matches colorSchemeId*5 + null handicap 29, mod 173", () =>
+    Effect.gen(function* () {
+      expect(yield* playerChecksum([player()], 0, 1)).toBe(34);
+    }),
+  );
 
-  it("includes levelId * 47", async () => {
-    expect(await run(playerChecksum([player()], 2, 1))).toBe((34 + 94) % 173);
-  });
+  it.effect("includes levelId * 47", () =>
+    Effect.gen(function* () {
+      expect(yield* playerChecksum([player()], 2, 1)).toBe((34 + 94) % 173);
+    }),
+  );
 });
