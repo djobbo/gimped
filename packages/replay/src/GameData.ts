@@ -5,6 +5,8 @@ import {
   UnknownVersion,
   VersionKeys,
   XmlCodec,
+  type XmlNode,
+  type XmlValue,
 } from "@gimped/swz";
 import {
   Array as Arr,
@@ -39,13 +41,10 @@ const emptyTables = (): Tables => ({
   colors: MutableHashMap.empty(),
 });
 
-const asArray = <A>(value: A | ReadonlyArray<A> | undefined): ReadonlyArray<A> => {
-  if (Predicate.isUndefined(value)) return Arr.empty();
-  return Arr.Array.isArray(value) ? value : Arr.of(value);
-};
-
-const textValue = (node: unknown): string | undefined => {
+const textValue = (node: XmlValue | undefined): string | undefined => {
+  if (Predicate.isUndefined(node)) return undefined;
   if (Predicate.isString(node) || Predicate.isNumber(node)) return String(node);
+  if (Arr.Array.isArray(node) || Predicate.isBoolean(node)) return undefined;
   if (Predicate.hasProperty(node, "#text")) {
     const text = node["#text"];
     if (Predicate.isString(text) || Predicate.isNumber(text)) return String(text);
@@ -53,15 +52,14 @@ const textValue = (node: unknown): string | undefined => {
   return undefined;
 };
 
-const attr = (node: Record<string, unknown>, name: string): string | undefined => {
+const attr = (node: XmlNode, name: string): string | undefined => {
   const value = node[`@_${name}`];
   return Predicate.isString(value) || Predicate.isNumber(value) ? String(value) : undefined;
 };
 
-const childText = (node: Record<string, unknown>, name: string): string | undefined =>
-  textValue(node[name]);
+const childText = (node: XmlNode, name: string): string | undefined => textValue(node[name]);
 
-const field = (node: Record<string, unknown>, name: string): string | undefined =>
+const field = (node: XmlNode, name: string): string | undefined =>
   attr(node, name) ?? childText(node, name);
 
 const parseId = (value: string | undefined): number | undefined => {
@@ -78,7 +76,7 @@ const setIfNamed = (
   if (id !== undefined && name !== undefined) MutableHashMap.set(map, id, name);
 };
 
-const ingestNode = (tables: Tables, node: Record<string, unknown>): void => {
+const ingestNode = (tables: Tables, node: XmlNode): void => {
   setIfNamed(
     tables.heroes,
     parseId(field(node, "HeroID")),
@@ -102,40 +100,36 @@ const ingestNode = (tables: Tables, node: Record<string, unknown>): void => {
   );
 };
 
-const walk = (tables: Tables, node: unknown): void => {
-  for (const item of asArray(
-    node as Record<string, unknown> | ReadonlyArray<unknown> | undefined,
-  )) {
-    if (Predicate.isNull(item) || Predicate.isUndefined(item) || !Predicate.isObject(item))
-      continue;
-    if (Arr.Array.isArray(item)) {
-      walk(tables, item);
-      continue;
-    }
-    const obj = item as Record<string, unknown>;
-    ingestNode(tables, obj);
-    for (const value of Rec.values(obj)) walk(tables, value);
+const walk = (tables: Tables, node: XmlValue): void => {
+  if (Predicate.isString(node) || Predicate.isNumber(node) || Predicate.isBoolean(node)) return;
+  if (Arr.Array.isArray(node)) {
+    for (const item of node) walk(tables, item);
+    return;
+  }
+  ingestNode(tables, node);
+  for (const value of Rec.values(node)) {
+    if (value !== undefined) walk(tables, value);
   }
 };
 
 const looksLikeXml = (content: string): boolean => content.trimStart().startsWith("<");
 
-const toGameDataError = (dataPath: string, error: unknown): GameDataError => {
-  if (Schema.is(UnknownVersion)(error)) {
-    return new GameDataError({ path: dataPath, message: `unknown version: ${error.version}` });
+const toGameDataError = (dataPath: string, cause: unknown): GameDataError => {
+  if (Schema.is(UnknownVersion)(cause)) {
+    return new GameDataError({ path: dataPath, message: `unknown version: ${cause.version}` });
   }
-  if (Schema.is(InvalidSwz)(error)) {
-    return new GameDataError({ path: dataPath, message: error.reason });
+  if (Schema.is(InvalidSwz)(cause)) {
+    return new GameDataError({ path: dataPath, message: cause.reason });
   }
-  if (Schema.is(SwzChecksumMismatch)(error)) {
+  if (Schema.is(SwzChecksumMismatch)(cause)) {
     return new GameDataError({
       path: dataPath,
-      message: `checksum mismatch (${error.where}): expected ${error.expected}, got ${error.actual}`,
+      message: `checksum mismatch (${cause.where}): expected ${cause.expected}, got ${cause.actual}`,
     });
   }
   return new GameDataError({
     path: dataPath,
-    message: error instanceof Error ? error.message : String(error),
+    message: cause instanceof Error ? cause.message : String(cause),
   });
 };
 
@@ -158,17 +152,15 @@ const applyTables = (replay: Replay, tables: Tables): Replay => ({
   })(),
   players: Arr.map(replay.players, (player) => {
     const colorSchemeName = named(tables.colors, player.colorSchemeId);
+    const withColor =
+      colorSchemeName === undefined ? { ...player } : { ...player, colorSchemeName };
     return {
-      ...player,
-      ...(colorSchemeName === undefined ? {} : { colorSchemeName }),
+      ...withColor,
       heroes: Arr.map(player.heroes, (hero) => {
         const heroName = named(tables.heroes, hero.heroId);
         const costumeName = named(tables.costumes, hero.costumeId);
-        return {
-          ...hero,
-          ...(heroName === undefined ? {} : { heroName }),
-          ...(costumeName === undefined ? {} : { costumeName }),
-        };
+        const withHero = heroName === undefined ? { ...hero } : { ...hero, heroName };
+        return costumeName === undefined ? withHero : { ...withHero, costumeName };
       }),
     };
   }),

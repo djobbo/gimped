@@ -11,6 +11,7 @@ const runCli = (args: ReadonlyArray<string>) =>
   Command.runWith(root, { version: "0.0.0" })(args).pipe(Effect.provide(AppLive));
 
 const run = <A, E, R>(effect: Effect.Effect<A, E, R>): Promise<A> =>
+  // SAFETY: AppLive is the CLI test environment; leftover R is only from generics TS cannot prove empty.
   Effect.runPromise(Effect.provide(effect, AppLive) as Effect.Effect<A, E>);
 
 describe("swz CLI", () => {
