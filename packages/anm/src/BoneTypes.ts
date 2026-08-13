@@ -2,6 +2,7 @@ import {
   ChecksumMismatch as SwzChecksumMismatch,
   InvalidSwz,
   SwzCodec,
+  type SwzEntry,
   UnknownVersion,
   VersionKeys,
   XmlCodec,
@@ -126,43 +127,44 @@ export class BoneTypes extends Context.Service<
 
       const ingestXml = Effect.fn("BoneTypes.ingestXml")(function* (
         names: string[],
+        found: { value: boolean },
         content: string,
         filePath: string,
       ) {
         yield* xml.xmlToJson(content, filePath).pipe(
           Effect.map((data) => {
             if (!("BoneTypes" in data.root)) return;
+            found.value = true;
             names.push(...childTexts(data.root));
           }),
           Effect.orElseSucceed(() => undefined),
         );
       });
 
-      const ingestDirectoryFile = Effect.fn("BoneTypes.ingestDirectoryFile")(function* (
-        names: string[],
-        dataPath: string,
-        name: string,
-      ) {
-        const filePath = path.join(dataPath, name);
-        const content = yield* fs
-          .readFileString(filePath)
-          .pipe(Effect.orElseSucceed(() => undefined));
-        if (content === undefined || !looksLikeXml(content)) return;
-        yield* ingestXml(names, content, filePath);
-      });
-
       const ingestDirectory = Effect.fn("BoneTypes.ingestDirectory")(function* (
         names: string[],
+        found: { value: boolean },
         dataPath: string,
       ) {
         const fileNames = yield* fs
           .readDirectory(dataPath)
           .pipe(Effect.mapError((error) => toGameDataError(dataPath, error)));
-        yield* Effect.forEach(fileNames, (name) => ingestDirectoryFile(names, dataPath, name));
+        const ingestDirectoryFile = Effect.fn("BoneTypes.ingestDirectoryFile")(function* (
+          name: string,
+        ) {
+          const filePath = path.join(dataPath, name);
+          const content = yield* fs
+            .readFileString(filePath)
+            .pipe(Effect.orElseSucceed(() => undefined));
+          if (content === undefined || !looksLikeXml(content)) return;
+          yield* ingestXml(names, found, content, filePath);
+        });
+        yield* Effect.forEach(fileNames, ingestDirectoryFile);
       });
 
       const ingestSwz = Effect.fn("BoneTypes.ingestSwz")(function* (
         names: string[],
+        found: { value: boolean },
         dataPath: string,
       ) {
         const bytes = yield* fs
@@ -174,10 +176,14 @@ export class BoneTypes extends Context.Service<
         const entries = yield* codec
           .decompile(bytes, key)
           .pipe(Effect.mapError((error) => toGameDataError(dataPath, error)));
-        yield* Effect.forEach(entries, (entry, index) => {
-          if (!looksLikeXml(entry.content)) return Effect.void;
-          return ingestXml(names, entry.content, `${dataPath}#${index}`);
+        const ingestSwzEntry = Effect.fn("BoneTypes.ingestSwzEntry")(function* (
+          entry: SwzEntry,
+          index: number,
+        ) {
+          if (!looksLikeXml(entry.content)) return;
+          yield* ingestXml(names, found, entry.content, `${dataPath}#${index}`);
         });
+        yield* Effect.forEach(entries, ingestSwzEntry);
       });
 
       const annotate = Effect.fn("BoneTypes.annotate")(function* (
@@ -186,9 +192,12 @@ export class BoneTypes extends Context.Service<
       ) {
         if (dataPath === undefined) return defs;
         yield* fs.stat(dataPath).pipe(Effect.mapError((error) => toGameDataError(dataPath, error)));
-        const names: string[] = ["UNKNOWN"];
-        yield* isSwzPath(dataPath) ? ingestSwz(names, dataPath) : ingestDirectory(names, dataPath);
-        return applyNames(defs, names);
+        const names: string[] = [];
+        const found = { value: false };
+        yield* isSwzPath(dataPath)
+          ? ingestSwz(names, found, dataPath)
+          : ingestDirectory(names, found, dataPath);
+        return applyNames(defs, found.value ? ["UNKNOWN", ...names] : []);
       });
 
       return BoneTypes.of({ annotate });

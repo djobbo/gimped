@@ -62,6 +62,21 @@ describe("BoneTypes", () => {
     expect(names).toEqual(["UNKNOWN", "a_Torso1", undefined]);
   });
 
+  it("omits names when --data has no BoneTypes table", async () => {
+    const annotated = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const bones = yield* BoneTypes;
+        const dir = yield* fs.makeTempDirectory({ prefix: "anm-nobones-" });
+        yield* fs.writeFileString(path.join(dir, "Other.xml"), "<Other><x>1</x></Other>\n");
+        return yield* bones.annotate([defWithIds(0, 1)], dir);
+      }),
+    );
+    const names = annotated[0]?.moves[0]?.frames[0]?.bones.map((bone) => bone.name);
+    expect(names).toEqual([undefined, undefined]);
+  });
+
   it("leaves names unset without --data", async () => {
     const annotated = await run(
       Effect.gen(function* () {
