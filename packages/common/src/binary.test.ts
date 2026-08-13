@@ -67,6 +67,15 @@ describe("ByteReader / ByteWriter", () => {
     expect(reader.offset).toBe(bytes.length);
   });
 
+  it("reads floats from a Buffer with a non-zero byte offset", () => {
+    const backing = Buffer.alloc(16);
+    backing.writeFloatLE(1.5, 4);
+    backing.writeDoubleLE(-2.5, 8);
+    const reader = new ByteReader(backing.subarray(4));
+    expect(reader.readF32LE()).toBe(1.5);
+    expect(reader.readF64LE()).toBe(-2.5);
+  });
+
   it("throws RangeError when UTFLE payload exceeds 65535 bytes", () => {
     const writer = new ByteWriter();
     expect(() => writer.writeUTFLE("a".repeat(65536))).toThrow(RangeError);

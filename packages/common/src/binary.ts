@@ -52,12 +52,14 @@ export class ByteReader {
   }
 
   readF32LE(): number {
-    const view = new DataView(this.readBytes(4).buffer);
+    const bytes = this.readBytes(4);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     return view.getFloat32(0, true);
   }
 
   readF64LE(): number {
-    const view = new DataView(this.readBytes(8).buffer);
+    const bytes = this.readBytes(8);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     return view.getFloat64(0, true);
   }
 

@@ -14,6 +14,7 @@
     { "path": "./packages/replay" },
     { "path": "./packages/swz" },
     { "path": "./packages/swz-cli" },
-    { "path": "./packages/replay-cli" }
+    { "path": "./packages/replay-cli" },
+    { "path": "./packages/anm-cli" }
   ]
 }
