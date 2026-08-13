@@ -58,6 +58,27 @@ describe("JsonTranspile", () => {
     expect(xmlAgain.root).toEqual(snapshot.hero.root);
   });
 
+  it("writes shared-root XML entries as distinct JSON files", async () => {
+    const names = await run(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* fs.makeTempDirectory({ prefix: "swz-json-" });
+        yield* writeJsonDir(
+          [
+            { content: '<LevelDesc LevelName="Atlas_2v2"><x/></LevelDesc>' },
+            { content: '<LevelDesc LevelName="Batavia"><y/></LevelDesc>' },
+          ],
+          dir,
+        );
+        const registry = JSON.parse(yield* fs.readFileString(path.join(dir, "registry.json")));
+        return Object.keys(registry.files);
+      }),
+    );
+
+    expect(names).toEqual(["LevelDesc_Atlas_2v2.json", "LevelDesc_Batavia.json"]);
+  });
+
   it("rejects entries that resolve to the same JSON filename", async () => {
     const { result, expectedPath } = await run(
       Effect.gen(function* () {
