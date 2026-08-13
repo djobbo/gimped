@@ -79,7 +79,9 @@ export class EntryIo extends Context.Service<
 
       const readDir = Effect.fn("EntryIo.readDir")(function* (inDir: string) {
         const indexPath = path.join(inDir, "index.json");
-        const exists = yield* fs.exists(indexPath);
+        const exists = yield* fs
+          .exists(indexPath)
+          .pipe(Effect.mapError((error) => toIoError(indexPath, error)));
         if (!exists) return yield* new MissingIndex({ path: indexPath });
         const text = yield* fs
           .readFileString(indexPath)

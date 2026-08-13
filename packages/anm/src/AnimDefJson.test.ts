@@ -70,4 +70,19 @@ describe("AnimDefJson", () => {
     expect(error._tag).toBe("MalformedJson");
     expect(error.path).toBe("bad.json");
   });
+
+  it("rejects an out-of-range gfxFrame", async () => {
+    const input = minimal();
+    input.moves[0]!.frames[0]!.bones[0]!.gfxFrame = 300;
+
+    const error = await run(
+      Effect.gen(function* () {
+        const json = yield* AnimDefJsonService;
+        return yield* Effect.flip(json.decodeDef(JSON.stringify(input), "bad-gfx-frame.json"));
+      }),
+    );
+
+    expect(error).toBeInstanceOf(MalformedJson);
+    expect(error.path).toBe("bad-gfx-frame.json");
+  });
 });
