@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { RpcSerialization } from "effect/unstable/rpc";
-import { PatchEvent } from "@gimped/patch";
+import { PatchEvent } from "@gimped/patch/schemas";
 import { ClientRpcs } from "./client-rpc.ts";
 
 describe("ClientRpcs contract", () => {

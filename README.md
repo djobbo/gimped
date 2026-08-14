@@ -15,7 +15,7 @@ Specs live in [`docs/superpowers/specs`](docs/superpowers/specs).
 
 ## CLI usage
 
-Bins: `swz`, `replay`, `anm`, `patch`. From this repo (Node `>= 22.18`):
+Bins: `swz`, `replay`, `anm`, `patch`. From this repo (Node `>= 24`):
 
 ```sh
 vp i
@@ -165,4 +165,4 @@ vp test
 vp run --filter @gimped/client start
 ```
 
-`vp` is the workspace toolchain (pnpm under the hood). Node `>= 22.18`. The client is repo-run only (electron-vite); there is no installer. Save Steam credentials in Settings before Fetch — the app does not read `STEAM_*`.
+`vp` is the workspace toolchain (pnpm under the hood). Node `>= 24`. The client is repo-run only (electron-vite); there is no installer. Save Steam credentials in Settings before Fetch — the app does not read `STEAM_*`.

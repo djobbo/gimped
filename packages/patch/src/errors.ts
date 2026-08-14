@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export { IoError, MalformedJson } from "@gimped/common";
+export { IoError, MalformedJson } from "@gimped/common/errors";
 
 export class MissingSteamCredentials extends Schema.TaggedError<MissingSteamCredentials>()(
   "MissingSteamCredentials",
