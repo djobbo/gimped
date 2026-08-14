@@ -4,8 +4,7 @@ dist
 .vp
 *.log
 .DS_Store
-dumps/
-obf/
+brawlhalla-src/
 .repos/
 .tmp/
 .worktrees/
