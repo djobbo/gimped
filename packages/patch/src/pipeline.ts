@@ -1,5 +1,16 @@
 import { toIoError, type IoError, type MalformedJson } from "@gimped/common";
-import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stdio } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  PlatformError,
+  Queue,
+  Ref,
+  Stdio,
+  Stream,
+} from "effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { CachePaths } from "./CachePaths.ts";
@@ -19,7 +30,8 @@ import {
 import { Ffdec } from "./Ffdec.ts";
 import { GithubRelease } from "./GithubRelease.ts";
 import { KeyExtractor } from "./KeyExtractor.ts";
-import type { PatchRegistry } from "./schemas.ts";
+import { PatchReporter } from "./PatchReporter.ts";
+import type { PatchEvent, PatchRegistry, PatchStep } from "./schemas.ts";
 import { SteamCredentials } from "./SteamCredentials.ts";
 import { ToolCache } from "./ToolCache.ts";
 import { ToolPlatform } from "./ToolPlatform.ts";
@@ -29,6 +41,7 @@ export type FetchOptions = {
   readonly cacheDir?: string;
   readonly manifestId?: string;
   readonly full: boolean;
+  readonly force: boolean;
   readonly versionKeysPath?: string;
 };
 
@@ -50,10 +63,19 @@ const isNotFound = (error: PlatformError.PlatformError): boolean =>
 
 const emptyNames: ReadonlyArray<string> = [];
 
+const registrySkipSteps: ReadonlyArray<PatchStep> = [
+  "DownloadDepot",
+  "ExportScripts",
+  "ExtractKeys",
+  "WriteRegistry",
+];
+
 export class Pipeline extends Context.Service<
   Pipeline,
   {
     readonly fetch: (options: FetchOptions) => Effect.Effect<PatchRegistry, PatchError>;
+    readonly fetchStream: (options: FetchOptions) => Stream.Stream<PatchEvent, PatchError>;
+    readonly clearPatch: (root: string, manifestId: string) => Effect.Effect<void, IoError>;
   }
 >()("@gimped/patch/Pipeline") {
   static readonly layer: Layer.Layer<
@@ -125,6 +147,20 @@ export class Pipeline extends Context.Service<
         );
       });
 
+      const removePatchDir = Effect.fn("Pipeline.removePatchDir")(function* (
+        root: string,
+        manifestId: string,
+      ) {
+        const dir = paths.patchDir(root, manifestId);
+        yield* fs
+          .remove(dir, { recursive: true })
+          .pipe(
+            Effect.catch((error: PlatformError.PlatformError) =>
+              isNotFound(error) ? Effect.void : Effect.fail(toIoError(dir, error)),
+            ),
+          );
+      });
+
       const writeExtracted = Effect.fn("Pipeline.writeExtracted")(function* (
         options: FetchOptions,
         root: string,
@@ -134,6 +170,8 @@ export class Pipeline extends Context.Service<
         swf: string,
         publicLatest: boolean,
       ) {
+        const reporter = yield* PatchReporter;
+        yield* reporter.emit({ _tag: "StepStarted", step: "ExtractKeys" });
         const extracted = yield* extractor.extract(scriptsDir);
         const media = yield* listDepotMedia(depotDir);
         const files = media.length === 0 ? [swf] : media;
@@ -147,24 +185,40 @@ export class Pipeline extends Context.Service<
           swf,
           files,
         };
+        yield* reporter.emit({ _tag: "StepStarted", step: "WriteRegistry" });
         yield* versions.writePatch(root, registry, publicLatest);
         yield* maybeMergeKeys(options, extracted.clientBuild, extracted.swzKey, publicLatest);
         return registry;
       });
 
-      const fetch = Effect.fn("Pipeline.fetch")(function* (options: FetchOptions) {
+      const runFetch = Effect.fn("Pipeline.runFetch")(function* (
+        options: FetchOptions,
+        manifestRef: Ref.Ref<string | undefined>,
+      ) {
+        const reporter = yield* PatchReporter;
         const root = yield* paths.resolveRoot(options.cacheDir);
+        yield* reporter.emit({ _tag: "StepStarted", step: "EnsureDepotDownloader" });
         yield* tools.ensureDepotDownloader(root);
+        yield* reporter.emit({ _tag: "StepStarted", step: "EnsureJpexs" });
         yield* tools.ensureJpexs(root);
 
+        yield* reporter.emit({ _tag: "StepStarted", step: "ResolveManifest" });
         const publicLatest = options.manifestId === undefined;
         const manifestId =
           options.manifestId === undefined
             ? yield* depot.resolvePublicManifest(root)
             : options.manifestId;
+        yield* Ref.set(manifestRef, manifestId);
 
         const existing = yield* versions.readPatch(root, manifestId);
-        if (existing !== undefined) {
+        if (!options.force && existing !== undefined) {
+          for (const step of registrySkipSteps) {
+            yield* reporter.emit({
+              _tag: "StepSkipped",
+              step,
+              reason: "registry exists",
+            });
+          }
           if (publicLatest) {
             yield* versions.writePatch(root, existing, true);
           }
@@ -178,7 +232,17 @@ export class Pipeline extends Context.Service<
         const hasSwf = media.some((entry) => entry.toLowerCase().endsWith(".swf"));
         const hasAs = yield* hasAsScripts(scriptsDir);
 
-        if (hasSwf && hasAs) {
+        if (!options.force && hasSwf && hasAs) {
+          yield* reporter.emit({
+            _tag: "StepSkipped",
+            step: "DownloadDepot",
+            reason: "depot already present",
+          });
+          yield* reporter.emit({
+            _tag: "StepSkipped",
+            step: "ExportScripts",
+            reason: "scripts already present",
+          });
           const swfPath = yield* ffdec.findSwf(depotDir);
           return yield* writeExtracted(
             options,
@@ -191,10 +255,18 @@ export class Pipeline extends Context.Service<
           );
         }
 
-        if (!hasSwf) {
+        if (options.force || !hasSwf) {
+          yield* reporter.emit({ _tag: "StepStarted", step: "DownloadDepot" });
           yield* depot.download(root, manifestId, options.full);
+        } else {
+          yield* reporter.emit({
+            _tag: "StepSkipped",
+            step: "DownloadDepot",
+            reason: "depot already present",
+          });
         }
 
+        yield* reporter.emit({ _tag: "StepStarted", step: "ExportScripts" });
         const swf = yield* ffdec.exportScripts(root, depotDir, scriptsDir);
         return yield* writeExtracted(
           options,
@@ -207,7 +279,63 @@ export class Pipeline extends Context.Service<
         );
       });
 
-      return Pipeline.of({ fetch });
+      const maybeDeleteIncomplete = Effect.fn("Pipeline.maybeDeleteIncomplete")(function* (
+        options: FetchOptions,
+        manifestRef: Ref.Ref<string | undefined>,
+      ) {
+        const id = options.manifestId ?? (yield* Ref.get(manifestRef));
+        if (id === undefined) {
+          return;
+        }
+        const root = yield* paths.resolveRoot(options.cacheDir);
+        const existing = yield* versions
+          .readPatch(root, id)
+          .pipe(Effect.catchTag("MalformedJson", () => Effect.succeed(undefined)));
+        if (existing !== undefined) {
+          return;
+        }
+        yield* removePatchDir(root, id);
+      });
+
+      const fetchStream = (options: FetchOptions): Stream.Stream<PatchEvent, PatchError> =>
+        Stream.callback<PatchEvent, PatchError>((queue) =>
+          Effect.gen(function* () {
+            const manifestRef = yield* Ref.make<string | undefined>(options.manifestId);
+            const reporter = PatchReporter.of({
+              emit: (event) => Queue.offer(queue, event).pipe(Effect.asVoid),
+            });
+            const registry = yield* runFetch(options, manifestRef).pipe(
+              Effect.provideService(PatchReporter, reporter),
+              Effect.onInterrupt(() =>
+                Effect.uninterruptible(maybeDeleteIncomplete(options, manifestRef)),
+              ),
+            );
+            yield* Queue.offer(queue, { _tag: "Completed", registry });
+            yield* Queue.end(queue);
+          }),
+        );
+
+      const fetch = Effect.fn("Pipeline.fetch")(function* (options: FetchOptions) {
+        const events = yield* Stream.runCollect(fetchStream(options));
+        const completed = events.find((event) => event._tag === "Completed");
+        if (completed === undefined || completed._tag !== "Completed") {
+          return yield* Effect.die("Pipeline.fetch: stream ended without Completed");
+        }
+        return completed.registry;
+      });
+
+      const clearPatch = Effect.fn("Pipeline.clearPatch")(function* (
+        root: string,
+        manifestId: string,
+      ) {
+        yield* removePatchDir(root, manifestId);
+      });
+
+      return Pipeline.of({
+        fetch,
+        fetchStream,
+        clearPatch,
+      });
     }),
   );
 
@@ -243,4 +371,14 @@ export class Pipeline extends Context.Service<
 export const fetch = Effect.fn("fetch")(function* (options: FetchOptions) {
   const pipeline = yield* Pipeline;
   return yield* pipeline.fetch(options);
+});
+
+export const fetchStream = Effect.fn("fetchStream")(function* (options: FetchOptions) {
+  const pipeline = yield* Pipeline;
+  return pipeline.fetchStream(options);
+});
+
+export const clearPatch = Effect.fn("clearPatch")(function* (root: string, manifestId: string) {
+  const pipeline = yield* Pipeline;
+  return yield* pipeline.clearPatch(root, manifestId);
 });
