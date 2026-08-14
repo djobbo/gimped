@@ -43,6 +43,7 @@ const withClient = <A, E, R>(
   use: (
     client: Effect.Effect.Success<ReturnType<typeof RpcTest.makeClient<typeof ClientRpcs>>>,
   ) => Effect.Effect<A, E, R>,
+  storage: (userData: string) => SafeStorage["Service"] = identityStorage,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -51,7 +52,7 @@ const withClient = <A, E, R>(
       Effect.provide(HandlersLive),
       Effect.provide(SteamGuardLive),
       Effect.provide(pipeline),
-      Effect.provide(Layer.succeed(SafeStorage, identityStorage(userData))),
+      Effect.provide(Layer.succeed(SafeStorage, storage(userData))),
       Effect.provide(CachePaths.layer),
       Effect.provide(SteamGuardSlotLive),
     );
@@ -68,6 +69,65 @@ describe("ClientRpcs handlers", () => {
       }),
     ),
   );
+
+  it.effect("PatchFetch after a failed setup is not FetchInProgress", () => {
+    let failDecrypt = true;
+    return withClient(
+      mockPipeline({}),
+      (client) =>
+        Effect.gen(function* () {
+          yield* client.SettingsSet({ username: "alice", password: "s3cret" });
+          const error = yield* Effect.flip(
+            Stream.runDrain(client.PatchFetch({ full: false, force: false })),
+          );
+          expect(error._tag).toBe("MissingSteamCredentials");
+          const events = yield* Stream.runCollect(client.PatchFetch({ full: false, force: false }));
+          expect(events).toEqual([completed]);
+        }),
+      (userData) => ({
+        ...identityStorage(userData),
+        decryptString: (bytes) => {
+          if (failDecrypt) {
+            failDecrypt = false;
+            throw new Error("decrypt boom");
+          }
+          return new TextDecoder().decode(bytes);
+        },
+      }),
+    );
+  });
+
+  it.effect("PatchFetch after interrupt is not FetchInProgress", () => {
+    let first = true;
+    return withClient(
+      mockPipeline({
+        fetchStream: () => {
+          if (first) {
+            first = false;
+            return Stream.make({
+              _tag: "StepStarted" as const,
+              step: "DownloadDepot" as const,
+            }).pipe(Stream.concat(Stream.never));
+          }
+          return Stream.make(completed);
+        },
+      }),
+      (client) =>
+        Effect.gen(function* () {
+          yield* client.SettingsSet({ username: "alice", password: "s3cret" });
+          const started = yield* Deferred.make<void>();
+          const fiber = yield* Stream.runDrain(
+            Stream.tap(client.PatchFetch({ full: false, force: false }), () =>
+              Deferred.succeed(started, undefined),
+            ),
+          ).pipe(Effect.forkChild({ startImmediately: true }));
+          yield* Deferred.await(started);
+          yield* Fiber.interrupt(fiber);
+          const events = yield* Stream.runCollect(client.PatchFetch({ full: false, force: false }));
+          expect(events).toEqual([completed]);
+        }),
+    );
+  });
 
   it.effect("second PatchFetch fails with FetchInProgress", () =>
     withClient(
