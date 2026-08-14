@@ -2,15 +2,24 @@ packages:
   - packages/*
   - tools/*
 
+allowBuilds:
+  msgpackr-extract: false
+
 catalog:
-  "@effect/platform-node": 4.0.0-beta.107
-  "@effect/vitest": 4.0.0-beta.107
+  "@effect/platform-node": 4.0.0-rc.109
+  "@effect/vitest": 4.0.0-rc.109
   "@oxlint/plugins": ^1.78.0
   "@types/node": ^24.0.0
-  effect: 4.0.0-beta.107
+  effect: 4.0.0-rc.109
   fast-xml-parser: ^5.10.1
   typescript: ^5.9.0
   vite-plus: ^0.2.9
   vitest: ^4.1.10
 
 catalogMode: prefer
+
+minimumReleaseAgeExclude:
+  - "@effect/platform-node-shared@4.0.0-rc.109"
+  - "@effect/platform-node@4.0.0-rc.109"
+  - "@effect/vitest@4.0.0-rc.109"
+  - effect@4.0.0-rc.109
