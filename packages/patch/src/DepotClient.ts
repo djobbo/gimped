@@ -1,5 +1,5 @@
 import { toIoError, type IoError } from "@gimped/common";
-import { Config, Context, Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
+import { Config, Context, Effect, FileSystem, Layer, Option, Path, Stdio, Stream } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { CachePaths } from "./CachePaths.ts";
@@ -83,7 +83,7 @@ export class DepotClient extends Context.Service<
   static readonly layer: Layer.Layer<
     DepotClient,
     never,
-    ToolCache | CachePaths | FileSystem.FileSystem | Path.Path | ChildProcessSpawner
+    ToolCache | CachePaths | FileSystem.FileSystem | Path.Path | ChildProcessSpawner | Stdio.Stdio
   > = Layer.effect(
     DepotClient,
     Effect.gen(function* () {
@@ -92,6 +92,7 @@ export class DepotClient extends Context.Service<
       const paths = yield* CachePaths;
       const tools = yield* ToolCache;
       const spawner = yield* ChildProcessSpawner;
+      const stdio = yield* Stdio.Stdio;
 
       const parseManifestId = Effect.fn("DepotClient.parseManifestId")(function* (output: string) {
         const manifest = output.match(/Manifest (\d+) \(/);
@@ -122,10 +123,22 @@ export class DepotClient extends Context.Service<
               stderr: "pipe",
             });
             const chunks: Array<Uint8Array> = [];
-            yield* Stream.runForEach(handle.all, (chunk) =>
+            const capture = (chunk: Uint8Array) =>
               Effect.sync(() => {
                 chunks.push(chunk);
-              }),
+              });
+            yield* Effect.all(
+              [
+                handle.stdout.pipe(
+                  Stream.tap(capture),
+                  Stream.run(stdio.stdout({ endOnDone: false })),
+                ),
+                handle.stderr.pipe(
+                  Stream.tap(capture),
+                  Stream.run(stdio.stderr({ endOnDone: false })),
+                ),
+              ],
+              { concurrency: 2 },
             );
             const code = yield* handle.exitCode;
             return { code, chunks };

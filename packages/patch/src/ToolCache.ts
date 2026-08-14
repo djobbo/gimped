@@ -8,33 +8,13 @@ import { ToolPlatform } from "./ToolPlatform.ts";
 
 export type JpexsLaunch =
   | { readonly kind: "cli"; readonly path: string }
-  | { readonly kind: "script"; readonly path: string }
   | { readonly kind: "jar"; readonly path: string };
 
 const isNotFound = (error: PlatformError.PlatformError): boolean =>
   error.reason._tag === "NotFound";
 
-const depotBinaryName = (os: ToolPlatform["Service"]["os"]): string =>
-  os === "win32" ? "DepotDownloader.exe" : "DepotDownloader";
-
-const depotZipName = (
-  os: ToolPlatform["Service"]["os"],
-  arch: ToolPlatform["Service"]["arch"],
-): string | undefined => {
-  if (os === "win32" && arch === "x64") {
-    return "DepotDownloader-windows-x64.zip";
-  }
-  if (os === "linux" && arch === "x64") {
-    return "DepotDownloader-linux-x64.zip";
-  }
-  if (os === "darwin" && arch === "arm64") {
-    return "DepotDownloader-macos-arm64.zip";
-  }
-  if (os === "darwin" && arch === "x64") {
-    return "DepotDownloader-macos-x64.zip";
-  }
-  return undefined;
-};
+const DEPOT_BINARY = "DepotDownloader.exe";
+const DEPOT_ZIP = "DepotDownloader-windows-x64.zip";
 
 const jpexsZipPick = (name: string): boolean => /^ffdec_\d+\.\d+\.\d+\.zip$/.test(name);
 
@@ -80,22 +60,20 @@ export class ToolCache extends Context.Service<
         root: string,
       ) {
         const toolDir = paths.depotToolDir(root);
-        const binaryName = depotBinaryName(platform.os);
-        const existing = yield* findByBasename(toolDir, binaryName);
+        const existing = yield* findByBasename(toolDir, DEPOT_BINARY);
         if (existing !== undefined) {
           return existing;
         }
 
-        const zipName = depotZipName(platform.os, platform.arch);
-        if (zipName === undefined) {
+        if (platform.os !== "win32" || platform.arch !== "x64") {
           return yield* new ToolDownloadFailed({
-            message: `Unsupported platform for DepotDownloader: ${platform.os}-${platform.arch}`,
+            message: `Unsupported platform for DepotDownloader: ${platform.os}-${platform.arch} (Windows x64 only)`,
           });
         }
 
-        yield* github.downloadLatestAsset(DEPOT_REPO, toolDir, (name) => name === zipName);
+        yield* github.downloadLatestAsset(DEPOT_REPO, toolDir, (name) => name === DEPOT_ZIP);
 
-        const downloaded = yield* findByBasename(toolDir, binaryName);
+        const downloaded = yield* findByBasename(toolDir, DEPOT_BINARY);
         if (downloaded === undefined) {
           return yield* new ToolDownloadFailed({
             message: `DepotDownloader binary not found after download in ${toolDir}`,
@@ -109,12 +87,6 @@ export class ToolCache extends Context.Service<
           const cli = yield* findByBasename(toolDir, "ffdec-cli.exe");
           if (cli !== undefined) {
             return { kind: "cli" as const, path: cli };
-          }
-
-          const scriptName = platform.os === "win32" ? "ffdec.bat" : "ffdec.sh";
-          const script = yield* findByBasename(toolDir, scriptName);
-          if (script !== undefined) {
-            return { kind: "script" as const, path: script };
           }
 
           const jar = yield* findByBasename(toolDir, "ffdec.jar");
