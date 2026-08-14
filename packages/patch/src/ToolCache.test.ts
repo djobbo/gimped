@@ -4,6 +4,7 @@ import { Effect, FileSystem, Layer, Path } from "effect";
 import { CachePaths } from "./CachePaths.ts";
 import { DEPOT_REPO, JPEXS_REPO } from "./constants.ts";
 import { GithubRelease } from "./GithubRelease.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 import { ToolCache } from "./ToolCache.ts";
 import { ToolPlatform } from "./ToolPlatform.ts";
 
@@ -31,6 +32,7 @@ const AppLive = ToolCache.layer.pipe(
   Layer.provide(MockGithub),
   Layer.provide(MockPlatform),
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(PatchReporter.noop),
 );
 
 layer(AppLive)("ToolCache", (it) => {

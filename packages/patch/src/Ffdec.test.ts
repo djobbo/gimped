@@ -4,6 +4,7 @@ import { Effect, FileSystem, Layer, Path } from "effect";
 import { FFDEC_DEFAULT_MEMORY } from "./constants.ts";
 import { MissingSwf } from "./errors.ts";
 import { Ffdec, ffdecSpawn } from "./Ffdec.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 const MockToolCache = Layer.succeed(ToolCache, {
@@ -14,6 +15,7 @@ const MockToolCache = Layer.succeed(ToolCache, {
 const AppLive = Ffdec.layer.pipe(
   Layer.provide(MockToolCache),
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(PatchReporter.noop),
 );
 
 it("caps the jar JVM heap so Launch4j cannot request all of RAM", () => {

@@ -6,6 +6,8 @@ import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { USER_AGENT } from "./constants.ts";
 import { ToolDownloadFailed } from "./errors.ts";
+import { PatchReporter } from "./PatchReporter.ts";
+import type { PatchStep } from "./schemas.ts";
 import { ToolPlatform } from "./ToolPlatform.ts";
 
 const GithubAsset = Schema.Struct({
@@ -43,6 +45,7 @@ export class GithubRelease extends Context.Service<
       repo: string,
       destDir: string,
       pickAsset: (name: string) => boolean,
+      step?: PatchStep,
     ) => Effect.Effect<void, ToolDownloadFailed | IoError>;
   }
 >()("@gimped/patch/GithubRelease") {
@@ -63,6 +66,7 @@ export class GithubRelease extends Context.Service<
         repo: string,
         destDir: string,
         pickAsset: (name: string) => boolean,
+        step: PatchStep = "EnsureDepotDownloader",
       ) {
         const releaseResponse = yield* http
           .get(`https://api.github.com/repos/${repo}/releases/latest`, {
@@ -94,7 +98,31 @@ export class GithubRelease extends Context.Service<
             Effect.mapError(toToolDownloadFailed),
           );
 
-        const buffer = yield* zipResponse.arrayBuffer.pipe(Effect.mapError(toToolDownloadFailed));
+        const reporter = yield* PatchReporter;
+        const totalHeader = zipResponse.headers["content-length"];
+        const total = totalHeader === undefined ? undefined : Number(totalHeader);
+        let received = 0;
+        const bodyChunks: Array<Uint8Array> = [];
+        yield* Stream.runForEach(zipResponse.stream, (chunk) =>
+          Effect.gen(function* () {
+            bodyChunks.push(chunk);
+            received += chunk.length;
+            const event = {
+              _tag: "StepProgress" as const,
+              step,
+              detail:
+                total === undefined || !Number.isFinite(total)
+                  ? `${String(received)} bytes`
+                  : `${String(received)}/${String(total)}`,
+            };
+            if (total !== undefined && Number.isFinite(total) && total > 0) {
+              yield* reporter.emit({ ...event, fraction: Math.min(1, received / total) });
+            } else {
+              yield* reporter.emit(event);
+            }
+          }),
+        ).pipe(Effect.mapError(toToolDownloadFailed));
+        const buffer = concatChunks(bodyChunks);
 
         yield* fs
           .makeDirectory(destDir, { recursive: true })
@@ -102,7 +130,7 @@ export class GithubRelease extends Context.Service<
 
         const zipPath = path.join(destDir, asset.name);
         yield* fs
-          .writeFile(zipPath, new Uint8Array(buffer))
+          .writeFile(zipPath, buffer)
           .pipe(Effect.mapError((error) => toIoError(zipPath, error)));
 
         // Windows bsdtar unpacks zip; this pipeline is Windows-only.

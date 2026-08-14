@@ -1,11 +1,15 @@
 packages:
   - packages/*
+  - apps/*
   - tools/*
 
 allowBuilds:
+  electron: true
+  esbuild: true
   msgpackr-extract: false
 
 catalog:
+  "@effect/platform-browser": 4.0.0-rc.109
   "@effect/platform-node": 4.0.0-rc.109
   "@effect/vitest": 4.0.0-rc.109
   "@oxlint/plugins": ^1.78.0
@@ -19,6 +23,7 @@ catalog:
 catalogMode: prefer
 
 minimumReleaseAgeExclude:
+  - "@effect/platform-browser@4.0.0-rc.109"
   - "@effect/platform-node-shared@4.0.0-rc.109"
   - "@effect/platform-node@4.0.0-rc.109"
   - "@effect/vitest@4.0.0-rc.109"

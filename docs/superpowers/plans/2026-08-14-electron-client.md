@@ -24,24 +24,24 @@
 
 ## File structure
 
-| File | Role |
-| --- | --- |
-| `packages/patch/src/schemas.ts` | Add `PatchStep`, `PatchEvent` variants |
-| `packages/patch/src/progress.ts` | Pure parsers: percent line, Steam Guard prompt |
-| `packages/patch/src/PatchReporter.ts` | Internal emit service |
-| `packages/patch/src/SteamCredentials.ts` | username/password service |
-| `packages/patch/src/SteamGuard.ts` | `requestCode` service |
-| `packages/patch/src/pipeline.ts` | `force`, `fetchStream`, `clearPatch`, interrupt cleanup |
-| `packages/patch/src/DepotClient.ts` | Pipe stdio, emit progress, call SteamGuard |
-| `packages/patch/src/GithubRelease.ts` | Byte progress when Content-Length present |
-| `packages/patch/src/Ffdec.ts` | Optional running detail / file-count progress |
-| `packages/patch/src/KeyExtractor.ts` | Optional file-count progress |
-| `packages/patch/src/layers.ts` | Provide credentials/guard/reporter defaults |
-| `packages/patch-cli/src/bin.ts` | Provide Config credentials + stdin guard |
-| `packages/patch-cli/src/commands/fetch.ts` | Pass `force: false` |
-| `apps/client/**` | Electron app |
-| `pnpm-workspace.yaml` | Add `apps/*` |
-| `tsconfig.json` | Reference `apps/client` |
+| File                                       | Role                                                    |
+| ------------------------------------------ | ------------------------------------------------------- |
+| `packages/patch/src/schemas.ts`            | Add `PatchStep`, `PatchEvent` variants                  |
+| `packages/patch/src/progress.ts`           | Pure parsers: percent line, Steam Guard prompt          |
+| `packages/patch/src/PatchReporter.ts`      | Internal emit service                                   |
+| `packages/patch/src/SteamCredentials.ts`   | username/password service                               |
+| `packages/patch/src/SteamGuard.ts`         | `requestCode` service                                   |
+| `packages/patch/src/pipeline.ts`           | `force`, `fetchStream`, `clearPatch`, interrupt cleanup |
+| `packages/patch/src/DepotClient.ts`        | Pipe stdio, emit progress, call SteamGuard              |
+| `packages/patch/src/GithubRelease.ts`      | Byte progress when Content-Length present               |
+| `packages/patch/src/Ffdec.ts`              | Optional running detail / file-count progress           |
+| `packages/patch/src/KeyExtractor.ts`       | Optional file-count progress                            |
+| `packages/patch/src/layers.ts`             | Provide credentials/guard/reporter defaults             |
+| `packages/patch-cli/src/bin.ts`            | Provide Config credentials + stdin guard                |
+| `packages/patch-cli/src/commands/fetch.ts` | Pass `force: false`                                     |
+| `apps/client/**`                           | Electron app                                            |
+| `pnpm-workspace.yaml`                      | Add `apps/*`                                            |
+| `tsconfig.json`                            | Reference `apps/client`                                 |
 
 `apps/client/src` layout:
 
@@ -92,13 +92,7 @@ renderer/styles.css
 ```ts
 import { expect, it } from "@effect/vitest";
 import { Schema } from "effect";
-import {
-  Completed,
-  PatchEvent,
-  StepProgress,
-  StepStarted,
-  SteamGuardRequired,
-} from "./schemas.ts";
+import { Completed, PatchEvent, StepProgress, StepStarted, SteamGuardRequired } from "./schemas.ts";
 
 it("round-trips StepStarted", () => {
   const event = { _tag: "StepStarted" as const, step: "DownloadDepot" as const };
@@ -244,12 +238,12 @@ it("parses DepotDownloader percent lines", () => {
 
 it("detects Steam Guard prompts", () => {
   expect(isSteamGuardPrompt("This account is protected by Steam Guard.")).toBe(true);
-  expect(isSteamGuardPrompt("Please enter your 2 factor auth code from your authenticator app: ")).toBe(
-    true,
-  );
-  expect(isSteamGuardPrompt("Please enter the authentication code sent to your email address: ")).toBe(
-    true,
-  );
+  expect(
+    isSteamGuardPrompt("Please enter your 2 factor auth code from your authenticator app: "),
+  ).toBe(true);
+  expect(
+    isSteamGuardPrompt("Please enter the authentication code sent to your email address: "),
+  ).toBe(true);
   expect(isSteamGuardPrompt(" 45.00% BrawlhallaAir.swf")).toBe(false);
 });
 ```
@@ -302,9 +296,7 @@ it.effect("collecting reporter records emits", () =>
       emit: (event) => Ref.update(events, (current) => [...current, event]),
     });
     yield* PatchReporter.pipe(
-      Effect.flatMap((reporter) =>
-        reporter.emit({ _tag: "StepStarted", step: "DownloadDepot" }),
-      ),
+      Effect.flatMap((reporter) => reporter.emit({ _tag: "StepStarted", step: "DownloadDepot" })),
       Effect.provide(layer),
     );
     expect(yield* Ref.get(events)).toEqual([{ _tag: "StepStarted", step: "DownloadDepot" }]);
@@ -554,13 +546,15 @@ Expected: FAIL (`force` not on FetchOptions / `fetchStream` missing).
 Also update `packages/patch-cli/src/commands/fetch.ts` so `vp check` on the workspace typechecks:
 
 ```ts
-const registry = yield* fetch({
-  cacheDir: Option.getOrUndefined(config.cacheDir),
-  manifestId: Option.getOrUndefined(config.manifest),
-  full: config.full,
-  force: false,
-  versionKeysPath,
-});
+const registry =
+  yield *
+  fetch({
+    cacheDir: Option.getOrUndefined(config.cacheDir),
+    manifestId: Option.getOrUndefined(config.manifest),
+    full: config.full,
+    force: false,
+    versionKeysPath,
+  });
 ```
 
 Do not add `--force` CLI flag (spec: out of scope).
@@ -599,19 +593,20 @@ git commit -m "feat(patch): stream fetch, force rerun, and clearPatch"
 
 ```ts
 if (isSteamGuardPrompt(line)) {
-  const reporter = yield* PatchReporter;
-  yield* reporter.emit({ _tag: "SteamGuardRequired" });
-  const guard = yield* SteamGuard;
-  const code = yield* guard.requestCode;
-  yield* handle.stdin.write(new TextEncoder().encode(`${code}\n`));
+  const reporter = yield * PatchReporter;
+  yield * reporter.emit({ _tag: "SteamGuardRequired" });
+  const guard = yield * SteamGuard;
+  const code = yield * guard.requestCode;
+  yield * handle.stdin.write(new TextEncoder().encode(`${code}\n`));
 }
 const fraction = parseDepotPercent(line);
-yield* reporter.emit({
-  _tag: "StepProgress",
-  step: currentStep, // ResolveManifest vs DownloadDepot
-  ...(fraction === undefined ? {} : { fraction }),
-  detail: line.trim(),
-});
+yield *
+  reporter.emit({
+    _tag: "StepProgress",
+    step: currentStep, // ResolveManifest vs DownloadDepot
+    ...(fraction === undefined ? {} : { fraction }),
+    detail: line.trim(),
+  });
 ```
 
 `handle.stdin` must exist: `ChildProcess.make(..., { stdin: "pipe", stdout: "pipe", stderr: "pipe" })`. If the Effect ChildProcess stdin API differs, read `.repos/effect/packages/effect/src/unstable/process/ChildProcess.ts` and use that API (do not invent).
@@ -860,9 +855,12 @@ export class SteamGuardNotPending extends Schema.TaggedError<SteamGuardNotPendin
   "SteamGuardNotPending",
   { detail: Schema.String },
 ) {}
-export class SafeStorageFailed extends Schema.TaggedError<SafeStorageFailed>()("SafeStorageFailed", {
-  detail: Schema.String,
-}) {}
+export class SafeStorageFailed extends Schema.TaggedError<SafeStorageFailed>()(
+  "SafeStorageFailed",
+  {
+    detail: Schema.String,
+  },
+) {}
 
 export const SettingsStatus = Schema.Struct({
   username: Schema.String,
@@ -1094,18 +1092,18 @@ git commit -m "docs: document the Electron client and patch stream API"
 
 ## Self-review (spec coverage)
 
-| Spec requirement | Task |
-| --- | --- |
-| `PatchEvent` / `PatchStep` | 1 |
-| `PatchReporter` + parsers | 2 |
-| `SteamCredentials` / `SteamGuard` | 3, 6 |
-| `fetchStream`, unary `fetch`, `force`, `clearPatch`, interrupt delete | 4 |
-| Piped DepotDownloader, percent, Guard stdin | 5 |
-| GitHub byte progress, FFDec/extract counts | 5 |
-| CLI `force: false`, no CLI progress UI | 4, 6 |
-| `apps/*`, electron-vite, Foldkit plugin | 7 |
-| MessagePort RPC v4, MsgPack, port swap | 8 |
-| `ClientRpcs`, safeStorage, workspace version-keys walk | 9 |
-| Foldkit Subscription fetch, sidebar, Settings, Guard UI, Cancel, Force, Clear | 10 |
-| README / success criteria docs | 11 |
-| No installer, no SWZ screens, no fake % | 7, 10 (do not add) |
+| Spec requirement                                                              | Task               |
+| ----------------------------------------------------------------------------- | ------------------ |
+| `PatchEvent` / `PatchStep`                                                    | 1                  |
+| `PatchReporter` + parsers                                                     | 2                  |
+| `SteamCredentials` / `SteamGuard`                                             | 3, 6               |
+| `fetchStream`, unary `fetch`, `force`, `clearPatch`, interrupt delete         | 4                  |
+| Piped DepotDownloader, percent, Guard stdin                                   | 5                  |
+| GitHub byte progress, FFDec/extract counts                                    | 5                  |
+| CLI `force: false`, no CLI progress UI                                        | 4, 6               |
+| `apps/*`, electron-vite, Foldkit plugin                                       | 7                  |
+| MessagePort RPC v4, MsgPack, port swap                                        | 8                  |
+| `ClientRpcs`, safeStorage, workspace version-keys walk                        | 9                  |
+| Foldkit Subscription fetch, sidebar, Settings, Guard UI, Cancel, Force, Clear | 10                 |
+| README / success criteria docs                                                | 11                 |
+| No installer, no SWZ screens, no fake %                                       | 7, 10 (do not add) |

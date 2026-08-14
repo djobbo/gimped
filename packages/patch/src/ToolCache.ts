@@ -71,7 +71,12 @@ export class ToolCache extends Context.Service<
           });
         }
 
-        yield* github.downloadLatestAsset(DEPOT_REPO, toolDir, (name) => name === DEPOT_ZIP);
+        yield* github.downloadLatestAsset(
+          DEPOT_REPO,
+          toolDir,
+          (name) => name === DEPOT_ZIP,
+          "EnsureDepotDownloader",
+        );
 
         const downloaded = yield* findByBasename(toolDir, DEPOT_BINARY);
         if (downloaded === undefined) {
@@ -104,7 +109,7 @@ export class ToolCache extends Context.Service<
           return existing;
         }
 
-        yield* github.downloadLatestAsset(JPEXS_REPO, toolDir, jpexsZipPick);
+        yield* github.downloadLatestAsset(JPEXS_REPO, toolDir, jpexsZipPick, "EnsureJpexs");
 
         const downloaded = yield* findJpexsLaunch(toolDir);
         if (downloaded === undefined) {
