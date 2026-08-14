@@ -27,6 +27,9 @@
     },
     {
       "path": "./packages/patch"
+    },
+    {
+      "path": "./packages/patch-cli"
     }
   ]
 }
