@@ -6,12 +6,14 @@ Steam credentials live in Electron `safeStorage` (`steam-credentials.bin` under 
 
 ## Run
 
-From the repo root (Node `>= 22.18`):
+From the repo root (Node `>= 24`):
 
 ```sh
 vp i
-vp run --filter @gimped/client start
+vp run --filter @gimped/client dev
 ```
+
+Electron 42+ downloads its binary on first launch (not during `vp i`). `dev` / `start` / `prebuild` run `install-electron` first so `electron-vite` can find that binary.
 
 Open **Settings** first and save a non-empty Steam username and password. Then use **Patch** → Fetch.
 

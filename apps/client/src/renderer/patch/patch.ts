@@ -1,4 +1,4 @@
-import { PatchEvent, PatchRegistry, PatchStep } from "@gimped/patch";
+import { PatchEvent, PatchRegistry, PatchStep } from "@gimped/patch/schemas";
 import { Array, Effect, Match as M, Number, Option, Schema as S, String } from "effect";
 import { Command, Submodel, Update } from "foldkit";
 import { Html, HtmlBuilder } from "foldkit/html";
@@ -134,11 +134,17 @@ const freezePayload = (model: Model, force: boolean): typeof PatchFetchPayload.T
   return PatchFetchPayload.make(payload);
 };
 
-const progressRow = (step: PatchStep, detail: string, fraction: number | undefined): StepRow => {
+const rowDetail = (detail: string | undefined): string => detail ?? "";
+
+const progressRow = (
+  step: PatchStep,
+  detail: string | undefined,
+  fraction: number | undefined,
+): StepRow => {
   const row: ProgressFields = {
     step,
     status: "Progress",
-    detail,
+    detail: rowDetail(detail),
   };
   if (fraction !== undefined) {
     row.fraction = fraction;
@@ -405,7 +411,7 @@ const runStatusView = (run: Run, h: HtmlBuilder<Message>): Html =>
 
 const stepProgressView = (row: StepRow, h: HtmlBuilder<Message>): Html => {
   if (row.fraction !== undefined) {
-    return h.progress([h.Value(String(row.fraction)), h.Max("1"), h.Class("step-progress")]);
+    return h.progress([h.Value(`${row.fraction}`), h.Max("1"), h.Class("step-progress")]);
   }
   if (row.status === "Started" || row.status === "Progress") {
     return h.span([h.Class("running")], ["running"]);
@@ -425,7 +431,7 @@ const stepView = (row: StepRow, h: HtmlBuilder<Message>): Html =>
           h.span([h.Class("step-status")], [row.status]),
         ],
       ),
-      String.isEmpty(row.detail) ? h.empty : h.p([h.Class("step-detail")], [row.detail]),
+      String.isEmpty(rowDetail(row.detail)) ? h.empty : h.p([h.Class("step-detail")], [row.detail]),
       stepProgressView(row, h),
     ],
   );

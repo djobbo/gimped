@@ -1,4 +1,4 @@
-import type { IoError } from "@gimped/common";
+import type { IoError } from "@gimped/common/errors";
 import type {
   BuildIdNotFound,
   DepotDownloadFailed,
@@ -9,9 +9,9 @@ import type {
   MissingJava,
   MissingSteamCredentials,
   MissingSwf,
-  PatchEvent,
   ToolDownloadFailed,
-} from "@gimped/patch";
+} from "@gimped/patch/errors";
+import type { PatchEvent } from "@gimped/patch/schemas";
 import { Context, Match, type Effect, type Stream } from "effect";
 import type {
   FetchInProgress,

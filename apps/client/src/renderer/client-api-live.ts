@@ -1,10 +1,10 @@
-import { Effect, Layer, Option, Predicate } from "effect";
+import { Effect, Layer, Predicate } from "effect";
 import { RpcClient } from "effect/unstable/rpc";
 import { ClientRpcs } from "../shared/client-rpc.ts";
 import { type IpcClientPort, layerIpcClient } from "../shared/rpc-client.ts";
 import { ClientApi } from "./client-api.ts";
 
-export const layerClientApi: Layer.Layer<ClientApi, never, RpcClient.Protocol> = Layer.scoped(
+export const layerClientApi: Layer.Layer<ClientApi, never, RpcClient.Protocol> = Layer.effect(
   ClientApi,
   Effect.gen(function* () {
     const client = yield* RpcClient.make(ClientRpcs);
@@ -18,18 +18,26 @@ export const layerClientApi: Layer.Layer<ClientApi, never, RpcClient.Protocol> =
   }),
 );
 
+export const rpcPortFromEvent = <Port>(event: {
+  readonly data: unknown;
+  readonly ports: ArrayLike<Port | null | undefined>;
+}): Port | undefined => {
+  if (event.data !== "rpc-port") {
+    return undefined;
+  }
+  return event.ports[0] ?? undefined;
+};
+
 let resolvePort!: (port: MessagePort) => void;
 const portReady = new Promise<MessagePort>((resolve) => {
   resolvePort = resolve;
 });
 if (Predicate.hasProperty(globalThis, "window")) {
   const onMessage = (event: MessageEvent) => {
-    if (event.data === "rpc-port") {
-      const maybePort = Option.fromNullishOr(event.ports.item(0));
-      if (Option.isSome(maybePort)) {
-        window.removeEventListener("message", onMessage);
-        resolvePort(maybePort.value);
-      }
+    const port = rpcPortFromEvent(event);
+    if (port !== undefined) {
+      window.removeEventListener("message", onMessage);
+      resolvePort(port);
     }
   };
   window.addEventListener("message", onMessage);
@@ -49,7 +57,7 @@ export const toClientPort = (port: MessagePort): IpcClientPort => ({
   close: () => port.close(),
 });
 
-const layerRpcClient: Layer.Layer<RpcClient.Protocol> = Layer.unwrapEffect(
+const layerRpcClient: Layer.Layer<RpcClient.Protocol> = Layer.unwrap(
   Effect.promise(() => portReady).pipe(Effect.map((port) => layerIpcClient(toClientPort(port)))),
 );
 

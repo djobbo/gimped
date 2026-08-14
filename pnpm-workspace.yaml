@@ -12,15 +12,23 @@ catalog:
   "@effect/platform-browser": 4.0.0-rc.109
   "@effect/platform-node": 4.0.0-rc.109
   "@effect/vitest": 4.0.0-rc.109
+  "@foldkit/ui": ^0.144.0
+  "@foldkit/vite-plugin": ^0.13.0
   "@oxlint/plugins": ^1.78.0
-  "@types/node": ^24.0.0
+  "@types/node": ^26.2.0
   effect: 4.0.0-rc.109
+  electron: ^43.4.0
+  electron-vite: 6.0.0-beta.1
   fast-xml-parser: ^5.10.1
+  foldkit: ^0.144.0
+  happy-dom: ^20.11.2
+  oxlint: ^1.78.0
   typescript: ^7.0.2
+  vite: ^8.2.1
   vite-plus: ^0.2.9
   vitest: ^4.1.10
 
-catalogMode: prefer
+catalogMode: strict
 
 minimumReleaseAgeExclude:
   - "@effect/platform-browser@4.0.0-rc.109"
@@ -28,3 +36,4 @@ minimumReleaseAgeExclude:
   - "@effect/platform-node@4.0.0-rc.109"
   - "@effect/vitest@4.0.0-rc.109"
   - effect@4.0.0-rc.109
+  - electron-vite@6.0.0-beta.1

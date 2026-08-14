@@ -1,25 +1,16 @@
 import { foldkit } from "@foldkit/vite-plugin";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
-import { resolve } from "node:path";
+import { defineConfig } from "electron-vite";
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: { input: { index: resolve(__dirname, "src/main/index.ts") } },
+      externalizeDeps: {
+        exclude: ["@gimped/common", "@gimped/patch"],
+      },
     },
   },
-  preload: {
-    plugins: [externalizeDepsPlugin()],
-    build: {
-      rollupOptions: { input: { index: resolve(__dirname, "src/preload/index.ts") } },
-    },
-  },
+  preload: {},
   renderer: {
-    root: resolve(__dirname, "src/renderer"),
     plugins: [foldkit()],
-    build: {
-      rollupOptions: { input: { index: resolve(__dirname, "src/renderer/index.html") } },
-    },
   },
 });

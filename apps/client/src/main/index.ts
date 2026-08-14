@@ -86,7 +86,7 @@ const createWindow = (bind: (port: IpcServerPort) => void): void => {
     width: 960,
     height: 720,
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(import.meta.dirname, "../preload/index.mjs"),
       contextIsolation: true,
       sandbox: false,
     },
@@ -102,7 +102,7 @@ const createWindow = (bind: (port: IpcServerPort) => void): void => {
   if (devServerUrl !== undefined) {
     void window.loadURL(devServerUrl);
   } else {
-    void window.loadFile(join(__dirname, "../renderer/index.html"));
+    void window.loadFile(join(import.meta.dirname, "../renderer/index.html"));
   }
 };
 

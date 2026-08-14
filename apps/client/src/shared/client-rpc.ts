@@ -9,9 +9,9 @@ import {
   MissingJava,
   MissingSteamCredentials,
   MissingSwf,
-  PatchEvent,
   ToolDownloadFailed,
-} from "@gimped/patch";
+} from "@gimped/patch/errors";
+import { PatchEvent } from "@gimped/patch/schemas";
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
 
