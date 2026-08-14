@@ -3,6 +3,7 @@ import { expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { MissingSwf } from "./errors.ts";
 import { Ffdec } from "./Ffdec.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 const MockToolCache = Layer.succeed(ToolCache, {
@@ -13,6 +14,7 @@ const MockToolCache = Layer.succeed(ToolCache, {
 const AppLive = Ffdec.layer.pipe(
   Layer.provide(MockToolCache),
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(PatchReporter.noop),
 );
 
 layer(AppLive)("Ffdec.findSwf", (it) => {
