@@ -5,6 +5,7 @@ import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner
 import { FFDEC_DEFAULT_MEMORY } from "./constants.ts";
 import { FfdecFailed, MissingJava, MissingSwf, ToolDownloadFailed } from "./errors.ts";
 import { ToolCache, type JpexsLaunch } from "./ToolCache.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 
 export type FfdecCommand = {
   readonly bin: string;
@@ -128,6 +129,17 @@ export class Ffdec extends Context.Service<
             message: `FFDec exited ${String(code)}`,
           });
         }
+
+        const names = yield* fs
+          .readDirectory(scriptsDir, { recursive: true })
+          .pipe(Effect.mapError((error) => toIoError(scriptsDir, error)));
+        const asFiles = names.filter((name) => name.toLowerCase().endsWith(".as"));
+        const reporter = yield* PatchReporter;
+        yield* reporter.emit({
+          _tag: "StepProgress",
+          step: "ExportScripts",
+          detail: `${String(asFiles.length)} .as files`,
+        });
 
         return path.basename(swfPath);
       });

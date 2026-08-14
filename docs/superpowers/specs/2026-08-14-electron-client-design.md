@@ -5,7 +5,7 @@ Status: approved (pending user review of this written spec)
 
 prefer effect native modules  
 do not use vanilla js functions, use Effect.gen or Effect.fn  
-make each module an Effect Layer  
+make each module an Effect Layer
 
 Follow `.repos/effect/LLMS.md` and shipped `effect` / `@effect/*` `AGENTS.md`. Foldkit renderer follows `.repos/foldkit/AGENTS.md` (Messages as past-tense facts, Schema models, Commands / Subscriptions / ManagedResource by lifetime). IPC follows `.repos/effect-electron-example` ported to Effect v4 (`effect/unstable/rpc`, `Context.Service`, `ManagedRuntime`).
 
@@ -95,13 +95,13 @@ Pipeline and `DepotClient` read this service, not Config directly.
 
 Tagged Schema union (library + RPC success chunks):
 
-| Tag | Fields |
-| --- | --- |
-| `StepStarted` | `step: PatchStep` |
-| `StepSkipped` | `step: PatchStep`, `reason: string` |
-| `StepProgress` | `step: PatchStep`, `fraction: Option<number>` (0–1 when known), `detail: string` |
-| `SteamGuardRequired` | (no fields) |
-| `Completed` | `registry: PatchRegistry` |
+| Tag                  | Fields                                                                           |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `StepStarted`        | `step: PatchStep`                                                                |
+| `StepSkipped`        | `step: PatchStep`, `reason: string`                                              |
+| `StepProgress`       | `step: PatchStep`, `fraction: Option<number>` (0–1 when known), `detail: string` |
+| `SteamGuardRequired` | (no fields)                                                                      |
+| `Completed`          | `registry: PatchRegistry`                                                        |
 
 Stream failure is `PatchError`, not a `Failed` event.
 
@@ -168,13 +168,13 @@ apps/client/
 
 #### RPC (`ClientRpcs`)
 
-| Procedure | Kind | Payload | Success | Error |
-| --- | --- | --- | --- | --- |
-| `PatchFetch` | stream | renderer fetch fields (below) | `PatchEvent` | `PatchError` \| `FetchInProgress` |
-| `PatchClear` | unary | `{ manifestId?: string, cacheDir?: string }` | `void` | `IoError` \| `NothingToClear` |
-| `SubmitSteamGuard` | unary | `{ code: string }` | `void` | `SteamGuardNotPending` |
-| `SettingsGet` | unary | — | `{ username: string, hasPassword: boolean }` | `SafeStorageFailed` |
-| `SettingsSet` | unary | `{ username: string, password: string }` | `void` | `SafeStorageFailed` |
+| Procedure          | Kind   | Payload                                      | Success                                      | Error                             |
+| ------------------ | ------ | -------------------------------------------- | -------------------------------------------- | --------------------------------- |
+| `PatchFetch`       | stream | renderer fetch fields (below)                | `PatchEvent`                                 | `PatchError` \| `FetchInProgress` |
+| `PatchClear`       | unary  | `{ manifestId?: string, cacheDir?: string }` | `void`                                       | `IoError` \| `NothingToClear`     |
+| `SubmitSteamGuard` | unary  | `{ code: string }`                           | `void`                                       | `SteamGuardNotPending`            |
+| `SettingsGet`      | unary  | —                                            | `{ username: string, hasPassword: boolean }` | `SafeStorageFailed`               |
+| `SettingsSet`      | unary  | `{ username: string, password: string }`     | `void`                                       | `SafeStorageFailed`               |
 
 Renderer payload for fetch: optional `manifestId`, `full`, optional `cacheDir` (empty string means omitted), `force`. Main adds `versionKeysPath` when resolved. `PatchClear` uses the same optional `cacheDir` as the form so Clear hits the cache the user is looking at.
 
@@ -224,11 +224,11 @@ Only one fetch at a time. Fetch and Clear disabled while `Running`; Cancel only 
 
 Existing `PatchError` tags keep their `message` (and other) fields. New tags use `detail` instead of `message` so the field does not shadow `Error.prototype.message` on the RPC boundary.
 
-| Tag | When |
-| --- | --- |
-| `NothingToClear` | Clear with empty manifest and no `latestManifestId` |
-| `SafeStorageFailed` | Encryption unavailable, or encrypt/decrypt/IO failed |
-| `FetchInProgress` | Second `PatchFetch` while one is running |
+| Tag                    | When                                                  |
+| ---------------------- | ----------------------------------------------------- |
+| `NothingToClear`       | Clear with empty manifest and no `latestManifestId`   |
+| `SafeStorageFailed`    | Encryption unavailable, or encrypt/decrypt/IO failed  |
+| `FetchInProgress`      | Second `PatchFetch` while one is running              |
 | `SteamGuardNotPending` | `SubmitSteamGuard` with no in-flight Guard `Deferred` |
 
 `NothingToClear`, `SafeStorageFailed`, `FetchInProgress`, and `SteamGuardNotPending` live in `apps/client/src/shared`. The library does not raise them.

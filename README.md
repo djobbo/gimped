@@ -9,7 +9,7 @@ TypeScript / Effect libraries and CLIs for Brawlhalla archives and related forma
 | `.anm`      | Animation defs                      | Directory of JSON               |
 | Steam patch | Depot + SWF scripts                 | Cached registry + SWZ keys      |
 
-Each format is a library (`@gimped/<name>`) plus a thin CLI (`@gimped/<name>-cli`). `@gimped/common` holds shared IO and binary helpers. `@gimped/patch` fetches a Steam patch, extracts the client build id and SWZ key, and merges them into the SWZ version map.
+Each format is a library (`@gimped/<name>`) plus a thin CLI (`@gimped/<name>-cli`). `@gimped/common` holds shared IO and binary helpers. `@gimped/patch` fetches a Steam patch, extracts the client build id and SWZ key, and merges them into the SWZ version map. `@gimped/client` is a repo-run Electron shell for the same patch pipeline (Settings for Steam credentials, live per-step progress).
 
 Specs live in [`docs/superpowers/specs`](docs/superpowers/specs).
 
@@ -143,17 +143,18 @@ patch fetch --full --cache-dir D:\gimped-cache
 
 ## Packages
 
-| Package                                     | Role                                              |
-| ------------------------------------------- | ------------------------------------------------- |
-| [`@gimped/common`](packages/common)         | Shared errors, binary IO, CLI `.env` loading      |
-| [`@gimped/swz`](packages/swz)               | SWZ codec, version keys, native/JSON directory IO |
-| [`@gimped/swz-cli`](packages/swz-cli)       | `swz` CLI                                         |
-| [`@gimped/replay`](packages/replay)         | Replay envelope, bitstream, JSON Schema           |
-| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI                                      |
-| [`@gimped/anm`](packages/anm)               | ANM envelope, animation codec, JSON directory IO  |
-| [`@gimped/anm-cli`](packages/anm-cli)       | `anm` CLI                                         |
-| [`@gimped/patch`](packages/patch)           | Cached Steam patch pipeline                       |
-| [`@gimped/patch-cli`](packages/patch-cli)   | `patch` CLI                                       |
+| Package                                     | Role                                                |
+| ------------------------------------------- | --------------------------------------------------- |
+| [`@gimped/common`](packages/common)         | Shared errors, binary IO, CLI `.env` loading        |
+| [`@gimped/swz`](packages/swz)               | SWZ codec, version keys, native/JSON directory IO   |
+| [`@gimped/swz-cli`](packages/swz-cli)       | `swz` CLI                                           |
+| [`@gimped/replay`](packages/replay)         | Replay envelope, bitstream, JSON Schema             |
+| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI                                        |
+| [`@gimped/anm`](packages/anm)               | ANM envelope, animation codec, JSON directory IO    |
+| [`@gimped/anm-cli`](packages/anm-cli)       | `anm` CLI                                           |
+| [`@gimped/patch`](packages/patch)           | Cached Steam patch pipeline                         |
+| [`@gimped/patch-cli`](packages/patch-cli)   | `patch` CLI                                         |
+| [`@gimped/client`](apps/client)             | Electron + Foldkit desktop shell (patch + settings) |
 
 ## Development
 
@@ -161,6 +162,7 @@ patch fetch --full --cache-dir D:\gimped-cache
 vp i
 vp check --fix
 vp test
+vp run --filter @gimped/client start
 ```
 
-`vp` is the workspace toolchain (pnpm under the hood). Node `>= 22.18`.
+`vp` is the workspace toolchain (pnpm under the hood). Node `>= 22.18`. The client is repo-run only (electron-vite); there is no installer. Save Steam credentials in Settings before Fetch — the app does not read `STEAM_*`.
