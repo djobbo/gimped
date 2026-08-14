@@ -91,7 +91,7 @@ export class Ffdec extends Context.Service<
         const launch = yield* tools.ensureJpexs(root);
         const swfPath = yield* findSwf(depotDir);
 
-        if (launch.kind === "script" || launch.kind === "jar") {
+        if (launch.kind === "jar") {
           yield* ensureJava();
         }
 

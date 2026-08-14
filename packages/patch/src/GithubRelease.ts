@@ -105,6 +105,7 @@ export class GithubRelease extends Context.Service<
           .writeFile(zipPath, new Uint8Array(buffer))
           .pipe(Effect.mapError((error) => toIoError(zipPath, error)));
 
+        // Windows bsdtar unpacks zip; this pipeline is Windows-only.
         const unpack = yield* Effect.scoped(
           Effect.gen(function* () {
             const handle = yield* ChildProcess.make("tar", ["-xf", zipPath, "-C", destDir]);
