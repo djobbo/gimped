@@ -26,3 +26,39 @@ export const PatchIndex = Schema.Struct({
 });
 export const PatchIndexText = Schema.fromJsonString(PatchIndex, { space: 2 });
 export type PatchIndex = typeof PatchIndex.Type;
+
+export const PatchStep = Schema.Literals([
+  "EnsureDepotDownloader",
+  "EnsureJpexs",
+  "ResolveManifest",
+  "DownloadDepot",
+  "ExportScripts",
+  "ExtractKeys",
+  "WriteRegistry",
+]);
+export type PatchStep = typeof PatchStep.Type;
+
+export const StepStarted = Schema.TaggedStruct("StepStarted", {
+  step: PatchStep,
+});
+export const StepSkipped = Schema.TaggedStruct("StepSkipped", {
+  step: PatchStep,
+  reason: Schema.String,
+});
+export const StepProgress = Schema.TaggedStruct("StepProgress", {
+  step: PatchStep,
+  fraction: Schema.optionalKey(Schema.Number),
+  detail: Schema.String,
+});
+export const SteamGuardRequired = Schema.TaggedStruct("SteamGuardRequired", {});
+export const Completed = Schema.TaggedStruct("Completed", {
+  registry: PatchRegistry,
+});
+export const PatchEvent = Schema.Union([
+  StepStarted,
+  StepSkipped,
+  StepProgress,
+  SteamGuardRequired,
+  Completed,
+]);
+export type PatchEvent = typeof PatchEvent.Type;
