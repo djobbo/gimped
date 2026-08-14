@@ -10,4 +10,4 @@ export const TestLive = Pipeline.Default.pipe(
 
 export const layer = Pipeline.Default;
 
-export { fetch } from "./pipeline.ts";
+export { clearPatch, fetch, fetchStream } from "./pipeline.ts";
