@@ -38,7 +38,7 @@ export class VersionRegistry extends Context.Service<
   static readonly layer: Layer.Layer<
     VersionRegistry,
     never,
-    FileSystem.FileSystem | Path.Path | Clock.Clock | CachePaths
+    FileSystem.FileSystem | Path.Path | CachePaths
   > = Layer.effect(
     VersionRegistry,
     Effect.gen(function* () {

@@ -9,3 +9,5 @@ brawlhalla-src/
 .tmp/
 .worktrees/
 .vite-hooks/_
+.env
+.env.local

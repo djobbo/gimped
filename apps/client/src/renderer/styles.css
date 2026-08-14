@@ -1,0 +1,178 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Segoe UI,
+    system-ui,
+    sans-serif;
+  background: #111318;
+  color: #e8eaed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
+  background: #1a1d24;
+  border-right: 1px solid #2c313c;
+}
+
+.nav-item {
+  text-align: left;
+  border: 0;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: #262b36;
+}
+
+.nav-item-selected {
+  background: #2f6fed;
+  color: #fff;
+}
+
+.nav-item-soon {
+  opacity: 0.55;
+}
+
+.content {
+  padding: 1.5rem 2rem;
+}
+
+.patch,
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 40rem;
+}
+
+.field,
+.guard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.input,
+.button,
+.check-box {
+  font: inherit;
+}
+
+.input {
+  border: 1px solid #3a4150;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  background: #0f1218;
+  color: inherit;
+}
+
+.checks {
+  display: flex;
+  gap: 1rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.check-box {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid #3a4150;
+  border-radius: 0.2rem;
+  background: #0f1218;
+  color: #9fef9f;
+  padding: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.button {
+  border: 0;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  background: #2f6fed;
+  color: #fff;
+  cursor: pointer;
+}
+
+.button[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.status {
+  margin: 0;
+}
+
+.status-ok {
+  color: #8ee39a;
+}
+
+.status-error {
+  color: #ff8a8a;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.step {
+  border: 1px solid #2c313c;
+  border-radius: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  background: #161a22;
+}
+
+.step-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.step-detail,
+.running,
+.hint {
+  margin: 0.35rem 0 0;
+  color: #b4bbc8;
+}
+
+.step-progress {
+  width: 100%;
+  margin-top: 0.4rem;
+}

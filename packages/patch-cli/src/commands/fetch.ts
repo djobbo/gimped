@@ -38,6 +38,7 @@ export const fetchCmd = Command.make(
       cacheDir: Option.getOrUndefined(config.cacheDir),
       manifestId: Option.getOrUndefined(config.manifest),
       full: config.full,
+      force: false,
       versionKeysPath,
     });
 

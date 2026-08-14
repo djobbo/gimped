@@ -1,6 +1,7 @@
 import { toIoError, type IoError } from "@gimped/common";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Ref } from "effect";
 import { BuildIdNotFound, KeyNotFound } from "./errors.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 
 const INIT_RE = /ANE_RawData\.Init\((\d+)\)/g;
 const VS_RE = /vs\s+"(\d+)"/;
@@ -30,13 +31,30 @@ export class KeyExtractor extends Context.Service<
             .pipe(Effect.mapError((error) => toIoError(scriptsDir, error)));
 
           const asFiles = names.filter((name) => name.toLowerCase().endsWith(".as"));
+          const reporter = yield* PatchReporter;
+          const done = yield* Ref.make(0);
+          const total = asFiles.length;
           const texts = yield* Effect.forEach(
             asFiles,
             (relative) => {
               const filePath = path.join(scriptsDir, relative);
-              return fs
-                .readFileString(filePath)
-                .pipe(Effect.mapError((error) => toIoError(filePath, error)));
+              return Effect.gen(function* () {
+                const text = yield* fs
+                  .readFileString(filePath)
+                  .pipe(Effect.mapError((error) => toIoError(filePath, error)));
+                const n = yield* Ref.updateAndGet(done, (current) => current + 1);
+                const event = {
+                  _tag: "StepProgress" as const,
+                  step: "ExtractKeys" as const,
+                  detail: `${String(n)}/${String(total)} .as files`,
+                };
+                if (total > 0) {
+                  yield* reporter.emit({ ...event, fraction: n / total });
+                } else {
+                  yield* reporter.emit(event);
+                }
+                return text;
+              });
             },
             { concurrency: "unbounded" },
           );
