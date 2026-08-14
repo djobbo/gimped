@@ -1,5 +1,6 @@
 export * from "./CachePaths.ts";
 export * from "./constants.ts";
+export * from "./DepotClient.ts";
 export * from "./errors.ts";
 export * from "./GithubRelease.ts";
 export * from "./KeyExtractor.ts";
