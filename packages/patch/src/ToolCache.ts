@@ -84,14 +84,14 @@ export class ToolCache extends Context.Service<
 
       const findJpexsLaunch = (toolDir: string): Effect.Effect<JpexsLaunch | undefined, IoError> =>
         Effect.gen(function* () {
-          const cli = yield* findByBasename(toolDir, "ffdec-cli.exe");
-          if (cli !== undefined) {
-            return { kind: "cli" as const, path: cli };
-          }
-
           const jar = yield* findByBasename(toolDir, "ffdec.jar");
           if (jar !== undefined) {
             return { kind: "jar" as const, path: jar };
+          }
+
+          const cli = yield* findByBasename(toolDir, "ffdec-cli.exe");
+          if (cli !== undefined) {
+            return { kind: "cli" as const, path: cli };
           }
 
           return undefined;
