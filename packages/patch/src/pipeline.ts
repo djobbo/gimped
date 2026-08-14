@@ -1,5 +1,5 @@
 import { toIoError, type IoError, type MalformedJson } from "@gimped/common";
-import { Clock, Context, Effect, FileSystem, Layer, Path, PlatformError } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stdio } from "effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { CachePaths } from "./CachePaths.ts";
@@ -221,7 +221,7 @@ export class Pipeline extends Context.Service<
     | GithubRelease
     | ToolPlatform,
     never,
-    FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ChildProcessSpawner | Clock.Clock
+    FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ChildProcessSpawner | Stdio.Stdio
   > = this.layer.pipe(
     Layer.provideMerge(DepotClient.layer),
     Layer.provideMerge(Ffdec.layer),

@@ -2,6 +2,10 @@
 
 Shared Effect primitives for the other `@gimped/*` libraries. Not a CLI.
 
+## Dotenv
+
+`dotEnvLayer` loads a cwd `.env` into Effect `Config` (missing file is a no-op; process env wins). All CLIs provide this layer at startup.
+
 ## Errors
 
 `Schema.TaggedError` types used across SWZ, replay, ANM, and patch:
