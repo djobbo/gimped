@@ -3,6 +3,7 @@ import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { FfdecFailed, MissingJava, MissingSwf, ToolDownloadFailed } from "./errors.ts";
+import { PatchReporter } from "./PatchReporter.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 type MessageError = { readonly message: string };
@@ -107,6 +108,17 @@ export class Ffdec extends Context.Service<
             message: `FFDec exited ${String(code)}`,
           });
         }
+
+        const names = yield* fs
+          .readDirectory(scriptsDir, { recursive: true })
+          .pipe(Effect.mapError((error) => toIoError(scriptsDir, error)));
+        const asFiles = names.filter((name) => name.toLowerCase().endsWith(".as"));
+        const reporter = yield* PatchReporter;
+        yield* reporter.emit({
+          _tag: "StepProgress",
+          step: "ExportScripts",
+          detail: `${String(asFiles.length)} .as files`,
+        });
 
         return path.basename(swfPath);
       });

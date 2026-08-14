@@ -6,7 +6,9 @@ Effect CLI around [`@gimped/patch`](../patch). Bin: `patch`.
 patch fetch [--manifest <id>] [--full] [--cache-dir <path>] [--version-keys <path>]
 ```
 
-Reads `STEAM_USERNAME`, `STEAM_PASSWORD`, and `GIMPED_CACHE`. Prints the resulting `PatchRegistry` as JSON. If `--version-keys` is omitted and `packages/swz/src/version-keys.json` exists relative to cwd, that path is used.
+Reads `STEAM_USERNAME`, `STEAM_PASSWORD`, and `GIMPED_CACHE` from the process environment and a cwd `.env` file (process env wins). Steam Guard codes are read from stdin. Prints the resulting `PatchRegistry` as JSON. If `--version-keys` is omitted and `packages/swz/src/version-keys.json` exists relative to cwd, that path is used.
+
+The CLI always calls `fetch` with `force: false` (existing cache skip rules). There is no `--force` flag.
 
 Java must be on `PATH` unless the cached FFDec launcher is a self-contained exe.
 

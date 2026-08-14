@@ -4,6 +4,9 @@ import { ConfigProvider, Effect, Layer } from "effect";
 import { CachePaths } from "./CachePaths.ts";
 import { DepotClient } from "./DepotClient.ts";
 import { DepotDownloadFailed, MissingSteamCredentials } from "./errors.ts";
+import { PatchReporter } from "./PatchReporter.ts";
+import { SteamCredentials } from "./SteamCredentials.ts";
+import { SteamGuard } from "./SteamGuard.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 const MockToolCache = Layer.succeed(ToolCache, {
@@ -15,6 +18,9 @@ const AppLive = DepotClient.layer.pipe(
   Layer.provide(MockToolCache),
   Layer.provideMerge(CachePaths.layer),
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(SteamCredentials.layerFromConfig),
+  Layer.provideMerge(SteamGuard.succeed("12345")),
+  Layer.provideMerge(PatchReporter.noop),
 );
 
 layer(AppLive)("DepotClient", (it) => {
