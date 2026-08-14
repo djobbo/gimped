@@ -14,10 +14,10 @@ import { compileFile, decompileFile } from "@gimped/anm";
 
 Provide `Pipeline.Default` plus Node services (`TestLive` for tests).
 
-| Function | Role |
-| --- | --- |
+| Function                                        | Role                    |
+| ----------------------------------------------- | ----------------------- |
 | `decompileFile({ inPath, outPath, dataPath? })` | `.anm` → JSON directory |
-| `compileFile({ inPath, outPath })` | JSON directory → `.anm` |
+| `compileFile({ inPath, outPath })`              | JSON directory → `.anm` |
 
 `index.json` lists `{ file, key }` in compile order. Def filenames slug `/` to `__` (same illegal-character rules as SWZ `EntryIo`). A def’s `key` must match the index entry. Extra JSON files not in the index are ignored.
 
@@ -25,22 +25,22 @@ Provide `Pipeline.Default` plus Node services (`TestLive` for tests).
 
 ## Services
 
-| Module | Role |
-| --- | --- |
-| `Envelope` | size prefix + zlib |
-| `AnmCodec` | payload ↔ domain; expand / re-encode deltas |
-| `BoneTypes` | optional index → name (`none` skips; `layer` loads `--data`) |
-| `EntryIo` | `index.json` + one JSON per def |
-| `AnimDefJson` | `IndexJson` / `AnimDefJson` Schema |
-| `Pipeline` | file decompile / compile |
+| Module        | Role                                                         |
+| ------------- | ------------------------------------------------------------ |
+| `Envelope`    | size prefix + zlib                                           |
+| `AnmCodec`    | payload ↔ domain; expand / re-encode deltas                  |
+| `BoneTypes`   | optional index → name (`none` skips; `layer` loads `--data`) |
+| `EntryIo`     | `index.json` + one JSON per def                              |
+| `AnimDefJson` | `IndexJson` / `AnimDefJson` Schema                           |
+| `Pipeline`    | file decompile / compile                                     |
 
 Move fields (`loop`, `recover`, `free`, `iconUI`) are stored as in the file (already relative to `startFrame`). Platform rotation and SWF “Dupe” labels are not in `.anm` and are omitted from JSON.
 
 ## Errors
 
-| Tag | When |
-| --- | --- |
-| `InvalidAnm` | Bad zlib, truncation, copy-from-prev with no previous bone, frame blob size mismatch, index/def `key` mismatch |
-| `MissingIndex` | Compile directory has no `index.json` |
-| `GameDataError` | `--data` path cannot be loaded |
-| `IoError` / `MalformedJson` | From `@gimped/common` |
+| Tag                         | When                                                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `InvalidAnm`                | Bad zlib, truncation, copy-from-prev with no previous bone, frame blob size mismatch, index/def `key` mismatch |
+| `MissingIndex`              | Compile directory has no `index.json`                                                                          |
+| `GameDataError`             | `--data` path cannot be loaded                                                                                 |
+| `IoError` / `MalformedJson` | From `@gimped/common`                                                                                          |

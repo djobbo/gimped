@@ -20,25 +20,25 @@
 
 ## File structure
 
-| File | Role |
-| --- | --- |
-| `packages/patch/package.json` | `@gimped/patch` |
-| `packages/patch/src/constants.ts` | App/depot ids, GitHub repos, filelist |
-| `packages/patch/src/errors.ts` | Tagged errors |
-| `packages/patch/src/schemas.ts` | `PatchRegistry`, `PatchIndex` |
-| `packages/patch/src/CachePaths.ts` | Cache root + subpaths |
-| `packages/patch/src/KeyExtractor.ts` | Parse Init key + build id from `.as` |
+| File                                    | Role                                          |
+| --------------------------------------- | --------------------------------------------- |
+| `packages/patch/package.json`           | `@gimped/patch`                               |
+| `packages/patch/src/constants.ts`       | App/depot ids, GitHub repos, filelist         |
+| `packages/patch/src/errors.ts`          | Tagged errors                                 |
+| `packages/patch/src/schemas.ts`         | `PatchRegistry`, `PatchIndex`                 |
+| `packages/patch/src/CachePaths.ts`      | Cache root + subpaths                         |
+| `packages/patch/src/KeyExtractor.ts`    | Parse Init key + build id from `.as`          |
 | `packages/patch/src/VersionRegistry.ts` | registry.json, index.json, version-keys merge |
-| `packages/patch/src/GithubRelease.ts` | GitHub latest asset download + tar unpack |
-| `packages/patch/src/ToolPlatform.ts` | Host OS/arch for asset names |
-| `packages/patch/src/ToolCache.ts` | Ensure DepotDownloader / JPEXS binaries |
-| `packages/patch/src/DepotClient.ts` | Resolve manifest + download depot |
-| `packages/patch/src/Ffdec.ts` | Find SWF + export scripts |
-| `packages/patch/src/pipeline.ts` | `fetch` + skip rules |
-| `packages/patch/src/layers.ts` | `TestLive` / `layer` |
-| `packages/patch/src/index.ts` | Re-exports |
-| `packages/patch-cli/src/*` | `patch fetch` CLI |
-| `tsconfig.json` | Add project references |
+| `packages/patch/src/GithubRelease.ts`   | GitHub latest asset download + tar unpack     |
+| `packages/patch/src/ToolPlatform.ts`    | Host OS/arch for asset names                  |
+| `packages/patch/src/ToolCache.ts`       | Ensure DepotDownloader / JPEXS binaries       |
+| `packages/patch/src/DepotClient.ts`     | Resolve manifest + download depot             |
+| `packages/patch/src/Ffdec.ts`           | Find SWF + export scripts                     |
+| `packages/patch/src/pipeline.ts`        | `fetch` + skip rules                          |
+| `packages/patch/src/layers.ts`          | `TestLive` / `layer`                          |
+| `packages/patch/src/index.ts`           | Re-exports                                    |
+| `packages/patch-cli/src/*`              | `patch fetch` CLI                             |
+| `tsconfig.json`                         | Add project references                        |
 
 ---
 
@@ -128,7 +128,9 @@ import {
 
 describe("patch errors", () => {
   it("tags every pipeline error", () => {
-    expect(new MissingSteamCredentials({ message: "missing" })._tag).toBe("MissingSteamCredentials");
+    expect(new MissingSteamCredentials({ message: "missing" })._tag).toBe(
+      "MissingSteamCredentials",
+    );
     expect(new ToolDownloadFailed({ message: "gh" })._tag).toBe("ToolDownloadFailed");
     expect(new MissingJava({ message: "no java" })._tag).toBe("MissingJava");
     expect(new DepotDownloadFailed({ message: "steam" })._tag).toBe("DepotDownloadFailed");
@@ -212,17 +214,23 @@ export class MissingSteamCredentials extends Schema.TaggedError<MissingSteamCred
   { message: Schema.String },
 ) {}
 
-export class ToolDownloadFailed extends Schema.TaggedError<ToolDownloadFailed>()("ToolDownloadFailed", {
-  message: Schema.String,
-}) {}
+export class ToolDownloadFailed extends Schema.TaggedError<ToolDownloadFailed>()(
+  "ToolDownloadFailed",
+  {
+    message: Schema.String,
+  },
+) {}
 
 export class MissingJava extends Schema.TaggedError<MissingJava>()("MissingJava", {
   message: Schema.String,
 }) {}
 
-export class DepotDownloadFailed extends Schema.TaggedError<DepotDownloadFailed>()("DepotDownloadFailed", {
-  message: Schema.String,
-}) {}
+export class DepotDownloadFailed extends Schema.TaggedError<DepotDownloadFailed>()(
+  "DepotDownloadFailed",
+  {
+    message: Schema.String,
+  },
+) {}
 
 export class FfdecFailed extends Schema.TaggedError<FfdecFailed>()("FfdecFailed", {
   message: Schema.String,
@@ -445,11 +453,7 @@ layer(AppLive)("KeyExtractor", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const extractor = yield* KeyExtractor;
       const dir = yield* fs.makeTempDirectory({ prefix: "key-ex-" });
-      yield* writeAs(
-        dir,
-        "class_316.as",
-        "ANE_RawData.Init(762411009);\n",
-      );
+      yield* writeAs(dir, "class_316.as", "ANE_RawData.Init(762411009);\n");
       yield* writeAs(
         dir,
         "class_60.as",
@@ -477,7 +481,11 @@ layer(AppLive)("KeyExtractor", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const extractor = yield* KeyExtractor;
       const dir = yield* fs.makeTempDirectory({ prefix: "key-ex-" });
-      yield* writeAs(dir, "a.as", "ANE_RawData.Init(9);\npublic static var var_10090:String = \"nope\";\n");
+      yield* writeAs(
+        dir,
+        "a.as",
+        'ANE_RawData.Init(9);\npublic static var var_10090:String = "nope";\n',
+      );
       const result = yield* Effect.result(extractor.extract(dir));
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure).toBeInstanceOf(BuildIdNotFound);
@@ -573,7 +581,11 @@ layer(AppLive)("VersionRegistry", (it) => {
         yield* fs.readFileString(path.join(root, "index.json")),
       );
       expect(index.latestManifestId).toBe("123");
-      yield* registry.writePatch(root, { ...sample, steamManifestId: "old", clientBuild: "9" }, false);
+      yield* registry.writePatch(
+        root,
+        { ...sample, steamManifestId: "old", clientBuild: "9" },
+        false,
+      );
       const index2 = yield* Schema.decodeUnknownEffect(PatchIndexText)(
         yield* fs.readFileString(path.join(root, "index.json")),
       );
@@ -589,14 +601,17 @@ layer(AppLive)("VersionRegistry", (it) => {
       const registry = yield* VersionRegistry;
       const dir = yield* fs.makeTempDirectory({ prefix: "keys-" });
       const filePath = path.join(dir, "version-keys.json");
-      yield* fs.writeFileString(filePath, `${JSON.stringify({ keys: { "1": 1 }, aliases: { latest: "1" } }, null, 2)}\n`);
+      yield* fs.writeFileString(
+        filePath,
+        `${JSON.stringify({ keys: { "1": 1 }, aliases: { latest: "1" } }, null, 2)}\n`,
+      );
       yield* registry.mergeVersionKeys(filePath, "10090", 762411009, false);
       const afterHist = yield* fs.readFileString(filePath);
       expect(afterHist).toContain("10090");
-      expect(afterHist).toContain("\"latest\": \"1\"");
+      expect(afterHist).toContain('"latest": "1"');
       yield* registry.mergeVersionKeys(filePath, "10090", 762411009, true);
       const afterPub = yield* fs.readFileString(filePath);
-      expect(afterPub).toContain("\"latest\": \"10090\"");
+      expect(afterPub).toContain('"latest": "10090"');
       const conflict = yield* Effect.result(registry.mergeVersionKeys(filePath, "10090", 99, true));
       expect(conflict._tag).toBe("Failure");
       if (conflict._tag === "Failure") expect(conflict.failure).toBeInstanceOf(KeyConflict);
@@ -786,10 +801,11 @@ Expected: FAIL
 Collect process output:
 
 ```ts
-const handle = yield* ChildProcess.make(bin, args, { stdin: "inherit", stdout: "pipe", stderr: "pipe" });
+const handle =
+  yield * ChildProcess.make(bin, args, { stdin: "inherit", stdout: "pipe", stderr: "pipe" });
 const chunks: Uint8Array[] = [];
-yield* Stream.runForEach(handle.all, (chunk) => Effect.sync(() => chunks.push(chunk)));
-const code = yield* handle.exitCode;
+yield * Stream.runForEach(handle.all, (chunk) => Effect.sync(() => chunks.push(chunk)));
+const code = yield * handle.exitCode;
 const text = new TextDecoder().decode(concat(chunks));
 ```
 
@@ -826,7 +842,7 @@ git commit -m "feat(patch): wrap DepotDownloader manifest resolve and download"
     - `cli`: `[path, "-export", "script", scriptsDir, swfPath]`
     - `script`: `[path, "-export", "script", scriptsDir, swfPath]`
     - `jar`: `["java", "-jar", path, "-export", "script", scriptsDir, swfPath]`
-    Inherit stdio. Non-zero → `FfdecFailed`. `makeDirectory(scriptsDir, { recursive: true })` first.
+      Inherit stdio. Non-zero → `FfdecFailed`. `makeDirectory(scriptsDir, { recursive: true })` first.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1090,19 +1106,19 @@ git commit -m "feat(patch-cli): add patch fetch command"
 
 ## Self-review (spec coverage)
 
-| Spec requirement | Task |
-| --- | --- |
-| Packages `@gimped/patch` + `@gimped/patch-cli` | 1, 10 |
-| Cache root flag / `GIMPED_CACHE` / OS default | 2 |
-| Tool download in-pipeline, no-op if present | 6 |
-| GitHub latest zips + `tar -xf` | 5 |
-| App 291550 / depot 291551 / windows / filelist / `--full` | 7 |
-| Env Steam credentials + `-remember-password` | 7 |
-| Manifest parse + public resolve | 7 |
-| FFDec `-export script`, Java check | 8 |
-| Init + `vs "<id>"` parse | 3 |
-| registry.json + index.json + version-keys merge / `latest` rules / KeyConflict | 4 |
-| Skip rules | 9 |
-| CLI flags + print registry | 10 |
-| Offline tests | 3–10 |
-| Electron out of scope | (none) |
+| Spec requirement                                                               | Task   |
+| ------------------------------------------------------------------------------ | ------ |
+| Packages `@gimped/patch` + `@gimped/patch-cli`                                 | 1, 10  |
+| Cache root flag / `GIMPED_CACHE` / OS default                                  | 2      |
+| Tool download in-pipeline, no-op if present                                    | 6      |
+| GitHub latest zips + `tar -xf`                                                 | 5      |
+| App 291550 / depot 291551 / windows / filelist / `--full`                      | 7      |
+| Env Steam credentials + `-remember-password`                                   | 7      |
+| Manifest parse + public resolve                                                | 7      |
+| FFDec `-export script`, Java check                                             | 8      |
+| Init + `vs "<id>"` parse                                                       | 3      |
+| registry.json + index.json + version-keys merge / `latest` rules / KeyConflict | 4      |
+| Skip rules                                                                     | 9      |
+| CLI flags + print registry                                                     | 10     |
+| Offline tests                                                                  | 3–10   |
+| Electron out of scope                                                          | (none) |

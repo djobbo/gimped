@@ -43,28 +43,28 @@ $CACHE/index.json
 
 ## Services
 
-| Module | Role |
-| --- | --- |
-| `CachePaths` | Cache root and well-known subpaths |
-| `ToolCache` | `ensureDepotDownloader` / `ensureJpexs` |
-| `GithubRelease` | `releases/latest` + asset download |
-| `DepotClient` | Spawn DepotDownloader; resolve public manifest |
-| `Ffdec` | `-export script`; SWF is `BrawlhallaAir.swf` or the sole `*.swf` |
-| `KeyExtractor` | Init key + build id from exported `.as` |
-| `VersionRegistry` | `registry.json`, `index.json`, key-map merge |
-| `Pipeline` | `fetch(options) → PatchRegistry` |
+| Module            | Role                                                             |
+| ----------------- | ---------------------------------------------------------------- |
+| `CachePaths`      | Cache root and well-known subpaths                               |
+| `ToolCache`       | `ensureDepotDownloader` / `ensureJpexs`                          |
+| `GithubRelease`   | `releases/latest` + asset download                               |
+| `DepotClient`     | Spawn DepotDownloader; resolve public manifest                   |
+| `Ffdec`           | `-export script`; SWF is `BrawlhallaAir.swf` or the sole `*.swf` |
+| `KeyExtractor`    | Init key + build id from exported `.as`                          |
+| `VersionRegistry` | `registry.json`, `index.json`, key-map merge                     |
+| `Pipeline`        | `fetch(options) → PatchRegistry`                                 |
 
 ## Errors
 
-| Tag | When |
-| --- | --- |
-| `MissingSteamCredentials` | `STEAM_USERNAME` or `STEAM_PASSWORD` empty |
-| `ToolDownloadFailed` | GitHub / unpack failed |
-| `MissingJava` | `java` not on `PATH` before FFDec |
-| `DepotDownloadFailed` | Non-zero DepotDownloader or no manifest id parsed |
-| `FfdecFailed` | Non-zero FFDec |
-| `MissingSwf` | No usable SWF in `depot/` |
-| `KeyNotFound` | No `Init`, or conflicting Init values |
-| `BuildIdNotFound` | No checksum `vs "<digits>"` (or fallback) |
-| `KeyConflict` | Key map already has a different key for this build |
-| `IoError` / `MalformedJson` | From `@gimped/common` |
+| Tag                         | When                                               |
+| --------------------------- | -------------------------------------------------- |
+| `MissingSteamCredentials`   | `STEAM_USERNAME` or `STEAM_PASSWORD` empty         |
+| `ToolDownloadFailed`        | GitHub / unpack failed                             |
+| `MissingJava`               | `java` not on `PATH` before FFDec                  |
+| `DepotDownloadFailed`       | Non-zero DepotDownloader or no manifest id parsed  |
+| `FfdecFailed`               | Non-zero FFDec                                     |
+| `MissingSwf`                | No usable SWF in `depot/`                          |
+| `KeyNotFound`               | No `Init`, or conflicting Init values              |
+| `BuildIdNotFound`           | No checksum `vs "<digits>"` (or fallback)          |
+| `KeyConflict`               | Key map already has a different key for this build |
+| `IoError` / `MalformedJson` | From `@gimped/common`                              |
