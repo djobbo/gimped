@@ -40,6 +40,7 @@ export const Model = S.Struct({
   cacheDir: S.String,
   force: S.Boolean,
   guardCode: S.String,
+  guardError: S.String,
   isGuardRequired: S.Boolean,
   run: Run,
   steps: S.Array(StepRow),
@@ -155,6 +156,7 @@ const startFetch = (model: Model, force: boolean): UpdateReturn => {
       runId: Number.increment,
       force: () => force,
       isGuardRequired: () => false,
+      guardError: () => "",
       steps: () => [],
       run: () => Running({ runId, payload: freezePayload(model, force) }),
     }),
@@ -228,6 +230,7 @@ export const init = (): UpdateReturn => [
     cacheDir: "",
     force: false,
     guardCode: "",
+    guardError: "",
     isGuardRequired: false,
     run: Idle(),
     steps: [],
@@ -248,7 +251,14 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         if (model.run._tag !== "Running") {
           return [model, []];
         }
-        return [evo(model, { run: () => Cancelled(), isGuardRequired: () => false }), []];
+        return [
+          evo(model, {
+            run: () => Cancelled(),
+            isGuardRequired: () => false,
+            guardError: () => "",
+          }),
+          [],
+        ];
       },
       ClickedClear: () => {
         if (model.run._tag === "Running") {
@@ -262,10 +272,17 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       ToggledForce: ({ isChecked }) => [evo(model, { force: () => isChecked }), []],
       UpdatedGuardCode: ({ value }) => [evo(model, { guardCode: () => value }), []],
       ClickedSubmitGuard: () => {
-        if (!model.isGuardRequired || String.isEmpty(model.guardCode)) {
+        if (
+          model.run._tag !== "Running" ||
+          !model.isGuardRequired ||
+          String.isEmpty(model.guardCode)
+        ) {
           return [model, []];
         }
-        return [model, [SubmitSteamGuard({ code: model.guardCode })]];
+        return [
+          evo(model, { guardError: () => "" }),
+          [SubmitSteamGuard({ code: model.guardCode })],
+        ];
       },
       GotPatchEvent: ({ event }) =>
         M.value(model.run).pipe(
@@ -276,33 +293,39 @@ export const update = (model: Model, message: Message): UpdateReturn =>
               M.tagsExhaustive({
                 StepStarted: ({ step }) => [
                   evo(model, {
-                    steps: upsertStep(
-                      model.steps,
-                      StepRow.make({ step, status: "Started", detail: "" }),
-                    ),
+                    steps: () =>
+                      upsertStep(
+                        model.steps,
+                        StepRow.make({ step, status: "Started", detail: "" }),
+                      ),
                   }),
                   [],
                 ],
                 StepSkipped: ({ step, reason }) => [
                   evo(model, {
-                    steps: upsertStep(
-                      model.steps,
-                      StepRow.make({ step, status: "Skipped", detail: reason, reason }),
-                    ),
+                    steps: () =>
+                      upsertStep(
+                        model.steps,
+                        StepRow.make({ step, status: "Skipped", detail: reason, reason }),
+                      ),
                   }),
                   [],
                 ],
                 StepProgress: ({ step, detail, fraction }) => [
                   evo(model, {
-                    steps: upsertStep(model.steps, progressRow(step, detail, fraction)),
+                    steps: () => upsertStep(model.steps, progressRow(step, detail, fraction)),
                   }),
                   [],
                 ],
-                SteamGuardRequired: () => [evo(model, { isGuardRequired: () => true }), []],
+                SteamGuardRequired: () => [
+                  evo(model, { isGuardRequired: () => true, guardError: () => "" }),
+                  [],
+                ],
                 Completed: ({ registry }) => [
                   evo(model, {
                     run: () => Succeeded({ registry }),
                     isGuardRequired: () => false,
+                    guardError: () => "",
                   }),
                   [],
                 ],
@@ -319,30 +342,48 @@ export const update = (model: Model, message: Message): UpdateReturn =>
           evo(model, {
             run: () => Failed({ tag, detail }),
             isGuardRequired: () => false,
+            guardError: () => "",
           }),
           [],
         ];
       },
-      SucceededClear: () => [
+      SucceededClear: () => {
+        if (model.run._tag === "Running") {
+          return [model, []];
+        }
+        return [
+          evo(model, {
+            run: () => Idle(),
+            steps: () => [],
+          }),
+          [],
+        ];
+      },
+      FailedClear: ({ tag, detail }) => {
+        if (model.run._tag === "Running") {
+          return [model, []];
+        }
+        return [
+          evo(model, {
+            run: () => Failed({ tag, detail }),
+          }),
+          [],
+        ];
+      },
+      CompletedSubmitSteamGuard: () => [
         evo(model, {
-          run: () => Idle(),
-          steps: () => [],
+          guardCode: () => "",
+          guardError: () => "",
+          isGuardRequired: () => false,
         }),
         [],
       ],
-      FailedClear: ({ tag, detail }) => [
-        evo(model, {
-          run: () => Failed({ tag, detail }),
-        }),
-        [],
-      ],
-      CompletedSubmitSteamGuard: () => [evo(model, { guardCode: () => "" }), []],
-      FailedSubmitSteamGuard: ({ tag, detail }) => [
-        evo(model, {
-          run: () => Failed({ tag, detail }),
-        }),
-        [],
-      ],
+      FailedSubmitSteamGuard: ({ tag, detail }) => {
+        if (model.run._tag !== "Running") {
+          return [model, []];
+        }
+        return [evo(model, { guardError: () => `${tag}: ${detail}` }), []];
+      },
     }),
   );
 
@@ -539,6 +580,9 @@ export const view = Submodel.defineView<Model, Message>((model, h): Html => {
                 },
                 h,
               ),
+              String.isEmpty(model.guardError)
+                ? h.empty
+                : h.p([h.Class("status status-error")], [model.guardError]),
             ],
           )
         : h.empty,
