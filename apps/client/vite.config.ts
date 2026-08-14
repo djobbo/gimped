@@ -9,6 +9,12 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
-    passWithNoTests: true,
+    environment: "happy-dom",
+    setupFiles: ["src/renderer/vitest-setup.ts"],
+    server: {
+      deps: {
+        inline: ["foldkit", "@foldkit/ui"],
+      },
+    },
   },
 });
