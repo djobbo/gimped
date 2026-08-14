@@ -33,6 +33,7 @@ import { KeyExtractor } from "./KeyExtractor.ts";
 import { PatchReporter } from "./PatchReporter.ts";
 import type { PatchEvent, PatchRegistry, PatchStep } from "./schemas.ts";
 import { SteamCredentials } from "./SteamCredentials.ts";
+import { SteamGuard } from "./SteamGuard.ts";
 import { ToolCache } from "./ToolCache.ts";
 import { ToolPlatform } from "./ToolPlatform.ts";
 import { VersionRegistry } from "./VersionRegistry.ts";
@@ -356,6 +357,7 @@ export class Pipeline extends Context.Service<
     | ChildProcessSpawner
     | Stdio.Stdio
     | SteamCredentials
+    | SteamGuard
   > = this.layer.pipe(
     Layer.provideMerge(DepotClient.layer),
     Layer.provideMerge(Ffdec.layer),

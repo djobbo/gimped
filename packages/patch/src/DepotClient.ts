@@ -1,11 +1,15 @@
 import { toIoError, type IoError } from "@gimped/common";
-import { Context, Effect, FileSystem, Layer, Path, Stdio, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Ref, Stdio, Stream } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { CachePaths } from "./CachePaths.ts";
 import { FILELIST_BODY, STEAM_APP_ID, STEAM_DEPOT_ID, STEAM_OS } from "./constants.ts";
 import { DepotDownloadFailed, MissingSteamCredentials, ToolDownloadFailed } from "./errors.ts";
+import { PatchReporter } from "./PatchReporter.ts";
+import { isSteamGuardPrompt, onDepotLine } from "./progress.ts";
+import type { PatchStep } from "./schemas.ts";
 import { SteamCredentials } from "./SteamCredentials.ts";
+import { SteamGuard } from "./SteamGuard.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 type MessageError = { readonly message: string };
@@ -73,6 +77,7 @@ export class DepotClient extends Context.Service<
     | ChildProcessSpawner
     | Stdio.Stdio
     | SteamCredentials
+    | SteamGuard
   > = Layer.effect(
     DepotClient,
     Effect.gen(function* () {
@@ -83,6 +88,7 @@ export class DepotClient extends Context.Service<
       const spawner = yield* ChildProcessSpawner;
       const stdio = yield* Stdio.Stdio;
       const steam = yield* SteamCredentials;
+      const guard = yield* SteamGuard;
 
       const parseManifestId = Effect.fn("DepotClient.parseManifestId")(function* (output: string) {
         const manifest = output.match(/Manifest (\d+) \(/);
@@ -102,46 +108,78 @@ export class DepotClient extends Context.Service<
         return yield* steam.get;
       });
 
-      const runPiped = (bin: string, args: ReadonlyArray<string>) =>
+      const runPiped = (bin: string, args: ReadonlyArray<string>, step: PatchStep) =>
         Effect.scoped(
           Effect.gen(function* () {
+            const reporter = yield* PatchReporter;
             const handle = yield* ChildProcess.make(bin, args, {
-              stdin: "inherit",
+              stdin: "pipe",
               stdout: "pipe",
               stderr: "pipe",
             });
             const chunks: Array<Uint8Array> = [];
-            const capture = (chunk: Uint8Array) =>
-              Effect.sync(() => {
-                chunks.push(chunk);
+            const guardSent = yield* Ref.make(false);
+
+            const handleLine = (line: string) =>
+              Effect.gen(function* () {
+                const result = onDepotLine(line, step);
+                if (result.kind === "guard") {
+                  const already = yield* Ref.getAndSet(guardSent, true);
+                  if (!already) {
+                    yield* reporter.emit({ _tag: "SteamGuardRequired" });
+                    const code = yield* guard.requestCode;
+                    yield* Stream.make(new TextEncoder().encode(`${code}\n`)).pipe(
+                      Stream.run(handle.stdin),
+                    );
+                  }
+                  return;
+                }
+                if (result.kind === "progress") {
+                  yield* reporter.emit(result.event);
+                }
               });
+
+            const makeConsumer = () => {
+              const decoder = new TextDecoder();
+              let leftover = "";
+              const consume = (chunk: Uint8Array) =>
+                Effect.gen(function* () {
+                  chunks.push(chunk);
+                  leftover += decoder.decode(chunk, { stream: true });
+                  const parts = leftover.split(/\r\n|\n|\r/);
+                  leftover = parts.pop() ?? "";
+                  for (const line of parts) {
+                    yield* handleLine(line);
+                  }
+                  if (leftover.length > 0 && isSteamGuardPrompt(leftover)) {
+                    yield* handleLine(leftover);
+                    leftover = "";
+                  }
+                });
+              const flush = () =>
+                leftover.length === 0 ? Effect.void : handleLine(leftover).pipe(Effect.asVoid);
+              return { consume, flush };
+            };
+
+            const stdout = makeConsumer();
+            const stderr = makeConsumer();
             yield* Effect.all(
               [
                 handle.stdout.pipe(
-                  Stream.tap(capture),
+                  Stream.tap(stdout.consume),
                   Stream.run(stdio.stdout({ endOnDone: false })),
                 ),
                 handle.stderr.pipe(
-                  Stream.tap(capture),
+                  Stream.tap(stderr.consume),
                   Stream.run(stdio.stderr({ endOnDone: false })),
                 ),
               ],
               { concurrency: 2 },
             );
+            yield* stdout.flush();
+            yield* stderr.flush();
             const code = yield* handle.exitCode;
             return { code, chunks };
-          }).pipe(Effect.provideService(ChildProcessSpawner, spawner)),
-        ).pipe(Effect.mapError(toDepotDownloadFailed));
-
-      const runInherited = (bin: string, args: ReadonlyArray<string>) =>
-        Effect.scoped(
-          Effect.gen(function* () {
-            const handle = yield* ChildProcess.make(bin, args, {
-              stdin: "inherit",
-              stdout: "inherit",
-              stderr: "inherit",
-            });
-            return yield* handle.exitCode;
           }).pipe(Effect.provideService(ChildProcessSpawner, spawner)),
         ).pipe(Effect.mapError(toDepotDownloadFailed));
 
@@ -158,6 +196,7 @@ export class DepotClient extends Context.Service<
         const result = yield* runPiped(
           bin,
           steamArgs(username, password, ["-manifest-only", "-dir", resolveDir]),
+          "ResolveManifest",
         );
         const text = new TextDecoder().decode(concatChunks(result.chunks));
         if (Number(result.code) !== 0) {
@@ -189,10 +228,11 @@ export class DepotClient extends Context.Service<
           extra.push("-filelist", filelistPath);
         }
 
-        const code = yield* runInherited(bin, steamArgs(username, password, extra));
-        if (Number(code) !== 0) {
+        const result = yield* runPiped(bin, steamArgs(username, password, extra), "DownloadDepot");
+        if (Number(result.code) !== 0) {
+          const text = new TextDecoder().decode(concatChunks(result.chunks));
           return yield* new DepotDownloadFailed({
-            message: `DepotDownloader exited ${String(code)}`,
+            message: `DepotDownloader exited ${String(result.code)}: ${text.slice(0, 500)}`,
           });
         }
       });
