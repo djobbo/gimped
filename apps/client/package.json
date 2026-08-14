@@ -25,6 +25,7 @@
     "@foldkit/vite-plugin": "^0.13.0",
     "@types/node": "catalog:",
     "electron-vite": "^2.3.0",
+    "happy-dom": "^20.10.4",
     "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
