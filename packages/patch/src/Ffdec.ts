@@ -1,9 +1,31 @@
 import { toIoError, type IoError } from "@gimped/common";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Config, Context, Effect, FileSystem, Layer, Path } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { FFDEC_DEFAULT_MEMORY } from "./constants.ts";
 import { FfdecFailed, MissingJava, MissingSwf, ToolDownloadFailed } from "./errors.ts";
-import { ToolCache } from "./ToolCache.ts";
+import { ToolCache, type JpexsLaunch } from "./ToolCache.ts";
+
+export type FfdecCommand = {
+  readonly bin: string;
+  readonly args: ReadonlyArray<string>;
+};
+
+export const ffdecSpawn = (
+  launch: JpexsLaunch,
+  scriptsDir: string,
+  swfPath: string,
+  memory: string,
+): FfdecCommand => {
+  const exportArgs = ["-export", "script", scriptsDir, swfPath] as const;
+  if (launch.kind === "jar") {
+    return {
+      bin: "java",
+      args: [`-Xmx${memory}`, "-jar", launch.path, ...exportArgs],
+    };
+  }
+  return { bin: launch.path, args: exportArgs };
+};
 
 type MessageError = { readonly message: string };
 
@@ -95,11 +117,10 @@ export class Ffdec extends Context.Service<
           yield* ensureJava();
         }
 
-        const args =
-          launch.kind === "jar"
-            ? (["-jar", launch.path, "-export", "script", scriptsDir, swfPath] as const)
-            : (["-export", "script", scriptsDir, swfPath] as const);
-        const bin = launch.kind === "jar" ? "java" : launch.path;
+        const memory = yield* Config.string("FFDEC_MEMORY").pipe(
+          Config.withDefault(FFDEC_DEFAULT_MEMORY),
+        );
+        const { bin, args } = ffdecSpawn(launch, scriptsDir, swfPath, memory);
 
         const code = yield* runInherited(bin, args, toFfdecFailed);
         if (Number(code) !== 0) {

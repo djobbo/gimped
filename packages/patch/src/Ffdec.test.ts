@@ -1,8 +1,9 @@
 import { NodeServices } from "@effect/platform-node";
-import { expect, layer } from "@effect/vitest";
+import { expect, it, layer } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
+import { FFDEC_DEFAULT_MEMORY } from "./constants.ts";
 import { MissingSwf } from "./errors.ts";
-import { Ffdec } from "./Ffdec.ts";
+import { Ffdec, ffdecSpawn } from "./Ffdec.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 const MockToolCache = Layer.succeed(ToolCache, {
@@ -14,6 +15,42 @@ const AppLive = Ffdec.layer.pipe(
   Layer.provide(MockToolCache),
   Layer.provideMerge(NodeServices.layer),
 );
+
+it("caps the jar JVM heap so Launch4j cannot request all of RAM", () => {
+  expect(
+    ffdecSpawn(
+      { kind: "jar", path: "ffdec.jar" },
+      "scripts",
+      "BrawlhallaAir.swf",
+      FFDEC_DEFAULT_MEMORY,
+    ),
+  ).toEqual({
+    bin: "java",
+    args: [
+      `-Xmx${FFDEC_DEFAULT_MEMORY}`,
+      "-jar",
+      "ffdec.jar",
+      "-export",
+      "script",
+      "scripts",
+      "BrawlhallaAir.swf",
+    ],
+  });
+});
+
+it("honors FFDEC_MEMORY for the jar heap cap", () => {
+  expect(ffdecSpawn({ kind: "jar", path: "ffdec.jar" }, "scripts", "game.swf", "1024m")).toEqual({
+    bin: "java",
+    args: ["-Xmx1024m", "-jar", "ffdec.jar", "-export", "script", "scripts", "game.swf"],
+  });
+});
+
+it("leaves cli launch args unchanged", () => {
+  expect(ffdecSpawn({ kind: "cli", path: "ffdec-cli.exe" }, "scripts", "game.swf", "4g")).toEqual({
+    bin: "ffdec-cli.exe",
+    args: ["-export", "script", "scripts", "game.swf"],
+  });
+});
 
 layer(AppLive)("Ffdec.findSwf", (it) => {
   it.effect("prefers BrawlhallaAir.swf when multiple swfs exist", () =>

@@ -71,7 +71,29 @@ layer(AppLive)("ToolCache", (it) => {
     }),
   );
 
-  it.effect("prefers ffdec-cli.exe over ffdec.jar", () =>
+  it.effect("prefers ffdec.jar over ffdec-cli.exe", () =>
+    Effect.gen(function* () {
+      calls.length = 0;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const paths = yield* CachePaths;
+      const cache = yield* ToolCache;
+
+      const root = yield* fs.makeTempDirectory({ prefix: "jpexs-jar-pref-" });
+      const toolDir = paths.jpexsToolDir(root);
+      yield* fs.makeDirectory(toolDir, { recursive: true });
+      const jarPath = path.join(toolDir, "ffdec.jar");
+      yield* fs.writeFileString(path.join(toolDir, "ffdec-cli.exe"), "cli");
+      yield* fs.writeFileString(jarPath, "jar");
+      yield* fs.writeFileString(path.join(toolDir, "ffdec.bat"), "bat");
+
+      const result = yield* cache.ensureJpexs(root);
+      expect(result).toEqual({ kind: "jar", path: jarPath });
+      expect(calls).toEqual([]);
+    }),
+  );
+
+  it.effect("uses ffdec-cli.exe when jar is absent", () =>
     Effect.gen(function* () {
       calls.length = 0;
       const fs = yield* FileSystem.FileSystem;
@@ -84,7 +106,6 @@ layer(AppLive)("ToolCache", (it) => {
       yield* fs.makeDirectory(toolDir, { recursive: true });
       const cliPath = path.join(toolDir, "ffdec-cli.exe");
       yield* fs.writeFileString(cliPath, "cli");
-      yield* fs.writeFileString(path.join(toolDir, "ffdec.jar"), "jar");
       yield* fs.writeFileString(path.join(toolDir, "ffdec.bat"), "bat");
 
       const result = yield* cache.ensureJpexs(root);
