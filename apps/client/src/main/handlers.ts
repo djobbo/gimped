@@ -11,7 +11,6 @@ import {
   Context,
   Deferred,
   Effect,
-  Fiber,
   FileSystem,
   Layer,
   Path,
@@ -97,7 +96,7 @@ export const makeHandlersLive = (startPaths: ReadonlyArray<string>) =>
       const paths = yield* CachePaths;
       const fs = yield* FileSystem.FileSystem;
       const guardSlot = yield* SteamGuardSlot;
-      const inFlight = yield* Ref.make<Fiber.Fiber<unknown, unknown> | undefined>(undefined);
+      const inFlight = yield* Ref.make(false);
 
       const readLatestManifestId = Effect.fn("handlers.readLatestManifestId")(function* (
         root: string,
@@ -125,43 +124,47 @@ export const makeHandlersLive = (startPaths: ReadonlyArray<string>) =>
         PatchFetch: (payload) =>
           Stream.unwrap(
             Effect.gen(function* () {
-              const existing = yield* Ref.get(inFlight);
-              if (existing !== undefined) {
+              const acquired = yield* Ref.modify(inFlight, (busy) => [!busy, true] as const);
+              if (!acquired) {
                 return Stream.fail(
                   new FetchInProgress({ detail: "A patch fetch is already in progress" }),
                 );
               }
 
-              const status = yield* get();
+              yield* Effect.acquireRelease(Effect.void, () => Ref.set(inFlight, false));
+
+              const status = yield* get().pipe(
+                Effect.catchTag(
+                  "SafeStorageFailed",
+                  (error: SafeStorageFailed) =>
+                    new MissingSteamCredentials({ message: error.detail }),
+                ),
+              );
               if (!status.hasPassword) {
                 return Stream.fail(
                   new MissingSteamCredentials({ message: "Steam credentials are not set" }),
                 );
               }
 
-              const marker = yield* Effect.never.pipe(Effect.forkChild({ startImmediately: true }));
-              yield* Ref.set(inFlight, marker);
-
-              const workspaceRoot = yield* findWorkspaceRoot(startPaths);
+              const workspaceRoot = yield* findWorkspaceRoot(startPaths).pipe(
+                Effect.mapError((error) => toIoError(startPaths[0] ?? ".", error)),
+              );
               const keys =
-                workspaceRoot === undefined ? undefined : yield* versionKeysPath(workspaceRoot);
+                workspaceRoot === undefined
+                  ? undefined
+                  : yield* versionKeysPath(workspaceRoot).pipe(
+                      Effect.mapError((error) =>
+                        toIoError("packages/swz/src/version-keys.json", error),
+                      ),
+                    );
 
-              return pipeline
-                .fetchStream({
-                  full: payload.full,
-                  force: payload.force,
-                  manifestId: emptyToUndefined(payload.manifestId),
-                  cacheDir: emptyToUndefined(payload.cacheDir),
-                  versionKeysPath: keys,
-                })
-                .pipe(
-                  Stream.onExit(() =>
-                    Effect.gen(function* () {
-                      yield* Ref.set(inFlight, undefined);
-                      yield* Fiber.interrupt(marker);
-                    }),
-                  ),
-                );
+              return pipeline.fetchStream({
+                full: payload.full,
+                force: payload.force,
+                manifestId: emptyToUndefined(payload.manifestId),
+                cacheDir: emptyToUndefined(payload.cacheDir),
+                versionKeysPath: keys,
+              });
             }),
           ),
         PatchClear: ({ manifestId, cacheDir }) =>
