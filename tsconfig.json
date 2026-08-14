@@ -30,6 +30,9 @@
     },
     {
       "path": "./packages/patch-cli"
+    },
+    {
+      "path": "./apps/client"
     }
   ]
 }

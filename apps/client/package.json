@@ -1,0 +1,32 @@
+{
+  "name": "@gimped/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "test": "vp test",
+    "build": "electron-vite build",
+    "check": "vp check",
+    "start": "electron-vite dev"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@foldkit/ui": "^0.144.0",
+    "@gimped/common": "workspace:*",
+    "@gimped/patch": "workspace:*",
+    "effect": "catalog:",
+    "electron": "^41.0.0",
+    "foldkit": "^0.144.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@foldkit/vite-plugin": "^0.13.0",
+    "@types/node": "catalog:",
+    "electron-vite": "^2.3.0",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
