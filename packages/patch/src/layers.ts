@@ -12,9 +12,6 @@ export const TestLive = Pipeline.Default.pipe(
   Layer.provideMerge(PatchReporter.noop),
 );
 
-export const layer = Pipeline.Default.pipe(
-  Layer.provideMerge(SteamGuard.succeed("12345")),
-  Layer.provideMerge(PatchReporter.noop),
-);
+export const layer = Pipeline.Default.pipe(Layer.provideMerge(PatchReporter.noop));
 
 export { clearPatch, fetch, fetchStream } from "./pipeline.ts";
