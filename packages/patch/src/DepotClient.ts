@@ -1,10 +1,11 @@
 import { toIoError, type IoError } from "@gimped/common";
-import { Config, Context, Effect, FileSystem, Layer, Option, Path, Stdio, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Stdio, Stream } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { CachePaths } from "./CachePaths.ts";
 import { FILELIST_BODY, STEAM_APP_ID, STEAM_DEPOT_ID, STEAM_OS } from "./constants.ts";
 import { DepotDownloadFailed, MissingSteamCredentials, ToolDownloadFailed } from "./errors.ts";
+import { SteamCredentials } from "./SteamCredentials.ts";
 import { ToolCache } from "./ToolCache.ts";
 
 type MessageError = { readonly message: string };
@@ -22,24 +23,6 @@ const concatChunks = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 
 const toDepotDownloadFailed = (error: MessageError): DepotDownloadFailed =>
   new DepotDownloadFailed({ message: error.message });
-
-const readSteamCredential = Effect.fn("DepotClient.readSteamCredential")(function* (name: string) {
-  const value = yield* Config.string(name).pipe(
-    Config.option,
-    Effect.mapError(
-      () =>
-        new MissingSteamCredentials({
-          message: `${name} is missing or empty`,
-        }),
-    ),
-  );
-  if (Option.isNone(value) || value.value.trim() === "") {
-    return yield* new MissingSteamCredentials({
-      message: `${name} is missing or empty`,
-    });
-  }
-  return value.value;
-});
 
 const steamArgs = (
   username: string,
@@ -83,7 +66,13 @@ export class DepotClient extends Context.Service<
   static readonly layer: Layer.Layer<
     DepotClient,
     never,
-    ToolCache | CachePaths | FileSystem.FileSystem | Path.Path | ChildProcessSpawner | Stdio.Stdio
+    | ToolCache
+    | CachePaths
+    | FileSystem.FileSystem
+    | Path.Path
+    | ChildProcessSpawner
+    | Stdio.Stdio
+    | SteamCredentials
   > = Layer.effect(
     DepotClient,
     Effect.gen(function* () {
@@ -93,6 +82,7 @@ export class DepotClient extends Context.Service<
       const tools = yield* ToolCache;
       const spawner = yield* ChildProcessSpawner;
       const stdio = yield* Stdio.Stdio;
+      const steam = yield* SteamCredentials;
 
       const parseManifestId = Effect.fn("DepotClient.parseManifestId")(function* (output: string) {
         const manifest = output.match(/Manifest (\d+) \(/);
@@ -109,9 +99,7 @@ export class DepotClient extends Context.Service<
       });
 
       const credentials = Effect.fn("DepotClient.credentials")(function* () {
-        const username = yield* readSteamCredential("STEAM_USERNAME");
-        const password = yield* readSteamCredential("STEAM_PASSWORD");
-        return { username, password };
+        return yield* steam.get;
       });
 
       const runPiped = (bin: string, args: ReadonlyArray<string>) =>

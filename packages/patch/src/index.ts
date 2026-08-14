@@ -10,6 +10,8 @@ export * from "./PatchReporter.ts";
 export * from "./pipeline.ts";
 export * from "./progress.ts";
 export * from "./schemas.ts";
+export * from "./SteamCredentials.ts";
+export * from "./SteamGuard.ts";
 export * from "./ToolCache.ts";
 export * from "./ToolPlatform.ts";
 export * from "./VersionRegistry.ts";

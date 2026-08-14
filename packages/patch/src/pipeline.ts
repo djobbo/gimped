@@ -20,6 +20,7 @@ import { Ffdec } from "./Ffdec.ts";
 import { GithubRelease } from "./GithubRelease.ts";
 import { KeyExtractor } from "./KeyExtractor.ts";
 import type { PatchRegistry } from "./schemas.ts";
+import { SteamCredentials } from "./SteamCredentials.ts";
 import { ToolCache } from "./ToolCache.ts";
 import { ToolPlatform } from "./ToolPlatform.ts";
 import { VersionRegistry } from "./VersionRegistry.ts";
@@ -221,7 +222,12 @@ export class Pipeline extends Context.Service<
     | GithubRelease
     | ToolPlatform,
     never,
-    FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ChildProcessSpawner | Stdio.Stdio
+    | FileSystem.FileSystem
+    | Path.Path
+    | HttpClient.HttpClient
+    | ChildProcessSpawner
+    | Stdio.Stdio
+    | SteamCredentials
   > = this.layer.pipe(
     Layer.provideMerge(DepotClient.layer),
     Layer.provideMerge(Ffdec.layer),
