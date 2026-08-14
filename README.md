@@ -118,7 +118,7 @@ patch fetch [--manifest <id>] [--full] [--cache-dir <path>] [--version-keys <pat
 | `--cache-dir`    | see cache root                                              | Cache directory                          |
 | `--version-keys` | `packages/swz/src/version-keys.json` if it exists under cwd | Key map to merge                         |
 
-Prints the per-patch `registry.json` as JSON. Requires `STEAM_USERNAME` and `STEAM_PASSWORD` (Steam Guard via inherited stdin). Java must be on `PATH` when FFDec is not a self-contained exe.
+Prints the per-patch `registry.json` as JSON. Requires `STEAM_USERNAME` and `STEAM_PASSWORD` (Steam Guard via inherited stdin). Each CLI loads a cwd `.env` file without overriding existing process env. Java must be on `PATH` when FFDec is not a self-contained exe.
 
 Cache root, first match: `--cache-dir`, `GIMPED_CACHE`, `%LOCALAPPDATA%/gimped` (Windows), otherwise `~/.cache/gimped`.
 
@@ -143,17 +143,17 @@ patch fetch --full --cache-dir D:\gimped-cache
 
 ## Packages
 
-| Package                                     | Role                                                            |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| [`@gimped/common`](packages/common)         | Shared `IoError` / `MalformedJson`, `ByteReader` / `ByteWriter` |
-| [`@gimped/swz`](packages/swz)               | SWZ codec, version keys, native/JSON directory IO               |
-| [`@gimped/swz-cli`](packages/swz-cli)       | `swz` CLI                                                       |
-| [`@gimped/replay`](packages/replay)         | Replay envelope, bitstream, JSON Schema                         |
-| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI                                                    |
-| [`@gimped/anm`](packages/anm)               | ANM envelope, animation codec, JSON directory IO                |
-| [`@gimped/anm-cli`](packages/anm-cli)       | `anm` CLI                                                       |
-| [`@gimped/patch`](packages/patch)           | Cached Steam patch pipeline                                     |
-| [`@gimped/patch-cli`](packages/patch-cli)   | `patch` CLI                                                     |
+| Package                                     | Role                                              |
+| ------------------------------------------- | ------------------------------------------------- |
+| [`@gimped/common`](packages/common)         | Shared errors, binary IO, CLI `.env` loading      |
+| [`@gimped/swz`](packages/swz)               | SWZ codec, version keys, native/JSON directory IO |
+| [`@gimped/swz-cli`](packages/swz-cli)       | `swz` CLI                                         |
+| [`@gimped/replay`](packages/replay)         | Replay envelope, bitstream, JSON Schema           |
+| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI                                      |
+| [`@gimped/anm`](packages/anm)               | ANM envelope, animation codec, JSON directory IO  |
+| [`@gimped/anm-cli`](packages/anm-cli)       | `anm` CLI                                         |
+| [`@gimped/patch`](packages/patch)           | Cached Steam patch pipeline                       |
+| [`@gimped/patch-cli`](packages/patch-cli)   | `patch` CLI                                       |
 
 ## Development
 
