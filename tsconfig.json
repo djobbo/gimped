@@ -24,6 +24,9 @@
     },
     {
       "path": "./packages/replay-cli"
+    },
+    {
+      "path": "./packages/patch"
     }
   ]
 }
