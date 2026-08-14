@@ -107,17 +107,15 @@ export const subscriptions = Subscription.make<Model, Message, ClientApi>()((ent
             const api = yield* ClientApi;
             return api.patchFetch(payload).pipe(
               Stream.map((event) => GotPatchMessage({ message: Patch.GotPatchEvent({ event }) })),
-              Stream.catchIf(
-                (error): error is typeof error => true,
-                (error) =>
-                  Stream.succeed(
-                    GotPatchMessage({
-                      message: Patch.FailedPatchFetch({
-                        tag: error._tag,
-                        detail: patchFetchErrorDetail(error),
-                      }),
+              Stream.catch((error) =>
+                Stream.succeed(
+                  GotPatchMessage({
+                    message: Patch.FailedPatchFetch({
+                      tag: error._tag,
+                      detail: patchFetchErrorDetail(error),
                     }),
-                  ),
+                  }),
+                ),
               ),
             );
           }),
