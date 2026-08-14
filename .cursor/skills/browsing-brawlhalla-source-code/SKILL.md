@@ -9,10 +9,10 @@ Obfuscated source code can be available under `brawlhalla-src`. It is AS3 (Actio
 
 Subfolder `dump` has variable names transformed to alphanumeric, while `obf` has haxed variable names. Prefer alphanumeric to use less tokens.
 
-| Tree | Identifiers | When |
-| --- | --- | --- |
-| `brawlhalla-src/dump` | alphanumeric (`class_42`, `var_7467`, `method_2882`) | Default. Search and read here. |
-| `brawlhalla-src/obf` | haxed (`§_-R35§`, `_-42u`) | Only to match ABC/p-code or docs that cite haxed names. |
+| Tree                  | Identifiers                                          | When                                                    |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| `brawlhalla-src/dump` | alphanumeric (`class_42`, `var_7467`, `method_2882`) | Default. Search and read here.                          |
+| `brawlhalla-src/obf`  | haxed (`§_-R35§`, `_-42u`)                           | Only to match ABC/p-code or docs that cite haxed names. |
 
 AS3 lives under `dump/scripts/` and `obf/scripts/`. Some files keep readable names in both trees (`ANE_*`, `flash/`, `haxe/`).
 

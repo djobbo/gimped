@@ -2,12 +2,12 @@
 
 TypeScript / Effect libraries and CLIs for Brawlhalla archives and related formats:
 
-| Format | What it is | Round-trip |
-| --- | --- | --- |
-| `.swz` | Encrypted XML/CSV resource archives | Native files or structured JSON |
-| `.replay` | Match recordings | One JSON document |
-| `.anm` | Animation defs | Directory of JSON |
-| Steam patch | Depot + SWF scripts | Cached registry + SWZ keys |
+| Format      | What it is                          | Round-trip                      |
+| ----------- | ----------------------------------- | ------------------------------- |
+| `.swz`      | Encrypted XML/CSV resource archives | Native files or structured JSON |
+| `.replay`   | Match recordings                    | One JSON document               |
+| `.anm`      | Animation defs                      | Directory of JSON               |
+| Steam patch | Depot + SWF scripts                 | Cached registry + SWZ keys      |
 
 Each format is a library (`@gimped/<name>`) plus a thin CLI (`@gimped/<name>-cli`). `@gimped/common` holds shared IO and binary helpers. `@gimped/patch` fetches a Steam patch, extracts the client build id and SWZ key, and merges them into the SWZ version map.
 
@@ -36,12 +36,12 @@ swz decompile --in <file.swz> --out <dir> [--version <id|alias>] [--json]
 swz compile   --in <dir>      --out <file.swz> [--version <id|alias>] [--json]
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--in` | required | `.swz` file (decompile) or directory (compile) |
-| `--out` | required | Directory (decompile) or `.swz` file (compile) |
-| `--version` | `latest` | Key map entry or alias |
-| `--json` | off | Structured JSON + `registry.json` instead of native `.xml` / `.csv` |
+| Flag        | Default  | Meaning                                                             |
+| ----------- | -------- | ------------------------------------------------------------------- |
+| `--in`      | required | `.swz` file (decompile) or directory (compile)                      |
+| `--out`     | required | Directory (decompile) or `.swz` file (compile)                      |
+| `--version` | `latest` | Key map entry or alias                                              |
+| `--json`    | off      | Structured JSON + `registry.json` instead of native `.xml` / `.csv` |
 
 Without `--json`, decompile writes native XML/CSV (filename from XML root or CSV table name). With `--json`, each entry is a JSON document and `registry.json` records `xml` vs `csv` so compile can restore the native form. Compile `--json` fails without `registry.json`.
 
@@ -64,11 +64,11 @@ replay decompile --in <file.replay> --out <file.json> [--data <dir|.swz>]
 replay compile   --in <file.json>   --out <file.replay>
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--in` | required | `.replay` (decompile) or JSON (compile) |
-| `--out` | required | JSON (decompile) or `.replay` (compile) |
-| `--data` | none | Decompile only: decompiled SWZ dir or `.swz` for ID → name |
+| Flag     | Default  | Meaning                                                    |
+| -------- | -------- | ---------------------------------------------------------- |
+| `--in`   | required | `.replay` (decompile) or JSON (compile)                    |
+| `--out`  | required | JSON (decompile) or `.replay` (compile)                    |
+| `--data` | none     | Decompile only: decompiled SWZ dir or `.swz` for ID → name |
 
 `--data` fills optional names (heroes, costumes, levels, scoring types, color schemes). Missing tables omit names; a path that cannot be loaded fails. Compile ignores name fields and recomputes the player checksum.
 
@@ -89,11 +89,11 @@ anm decompile --in <file.anm> --out <dir> [--data <dir|.swz>]
 anm compile   --in <dir>      --out <file.anm>
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--in` | required | `.anm` (decompile) or JSON directory (compile) |
-| `--out` | required | Directory (decompile) or `.anm` (compile) |
-| `--data` | none | Decompile only: decompiled SWZ dir or `.swz` for BoneTypes names |
+| Flag     | Default  | Meaning                                                          |
+| -------- | -------- | ---------------------------------------------------------------- |
+| `--in`   | required | `.anm` (decompile) or JSON directory (compile)                   |
+| `--out`  | required | Directory (decompile) or `.anm` (compile)                        |
+| `--data` | none     | Decompile only: decompiled SWZ dir or `.swz` for BoneTypes names |
 
 Compile uses bone `id` values; optional `name` fields are ignored. Extra `*.json` files not listed in `index.json` are ignored. Missing `index.json` fails.
 
@@ -111,12 +111,12 @@ Fetch one Brawlhalla Steam patch (app `291550`, Windows depot `291551`): install
 patch fetch [--manifest <id>] [--full] [--cache-dir <path>] [--version-keys <path>]
 ```
 
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `--manifest` | public latest | Steam manifest id |
-| `--full` | off | Whole depot instead of `*.swf` / `*.swz` |
-| `--cache-dir` | see cache root | Cache directory |
-| `--version-keys` | `packages/swz/src/version-keys.json` if it exists under cwd | Key map to merge |
+| Flag             | Default                                                     | Meaning                                  |
+| ---------------- | ----------------------------------------------------------- | ---------------------------------------- |
+| `--manifest`     | public latest                                               | Steam manifest id                        |
+| `--full`         | off                                                         | Whole depot instead of `*.swf` / `*.swz` |
+| `--cache-dir`    | see cache root                                              | Cache directory                          |
+| `--version-keys` | `packages/swz/src/version-keys.json` if it exists under cwd | Key map to merge                         |
 
 Prints the per-patch `registry.json` as JSON. Requires `STEAM_USERNAME` and `STEAM_PASSWORD` (Steam Guard via inherited stdin). Java must be on `PATH` when FFDec is not a self-contained exe.
 
@@ -143,17 +143,17 @@ patch fetch --full --cache-dir D:\gimped-cache
 
 ## Packages
 
-| Package | Role |
-| --- | --- |
-| [`@gimped/common`](packages/common) | Shared `IoError` / `MalformedJson`, `ByteReader` / `ByteWriter` |
-| [`@gimped/swz`](packages/swz) | SWZ codec, version keys, native/JSON directory IO |
-| [`@gimped/swz-cli`](packages/swz-cli) | `swz` CLI |
-| [`@gimped/replay`](packages/replay) | Replay envelope, bitstream, JSON Schema |
-| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI |
-| [`@gimped/anm`](packages/anm) | ANM envelope, animation codec, JSON directory IO |
-| [`@gimped/anm-cli`](packages/anm-cli) | `anm` CLI |
-| [`@gimped/patch`](packages/patch) | Cached Steam patch pipeline |
-| [`@gimped/patch-cli`](packages/patch-cli) | `patch` CLI |
+| Package                                     | Role                                                            |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| [`@gimped/common`](packages/common)         | Shared `IoError` / `MalformedJson`, `ByteReader` / `ByteWriter` |
+| [`@gimped/swz`](packages/swz)               | SWZ codec, version keys, native/JSON directory IO               |
+| [`@gimped/swz-cli`](packages/swz-cli)       | `swz` CLI                                                       |
+| [`@gimped/replay`](packages/replay)         | Replay envelope, bitstream, JSON Schema                         |
+| [`@gimped/replay-cli`](packages/replay-cli) | `replay` CLI                                                    |
+| [`@gimped/anm`](packages/anm)               | ANM envelope, animation codec, JSON directory IO                |
+| [`@gimped/anm-cli`](packages/anm-cli)       | `anm` CLI                                                       |
+| [`@gimped/patch`](packages/patch)           | Cached Steam patch pipeline                                     |
+| [`@gimped/patch-cli`](packages/patch-cli)   | `patch` CLI                                                     |
 
 ## Development
 

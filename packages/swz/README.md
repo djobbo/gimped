@@ -12,10 +12,10 @@ Provide `layer` (or `Pipeline.Default`) plus Node `FileSystem` / `Path` / `Crypt
 import { compileFile, decompileFile, layer } from "@gimped/swz";
 ```
 
-| Function | Role |
-| --- | --- |
+| Function                                            | Role               |
+| --------------------------------------------------- | ------------------ |
 | `decompileFile({ inPath, outPath, version, json })` | `.swz` → directory |
-| `compileFile({ inPath, outPath, version, json })` | directory → `.swz` |
+| `compileFile({ inPath, outPath, version, json })`   | directory → `.swz` |
 
 `version` is a build id or alias from `version-keys.json` (shipped map: build `10090` → key `762411009`, alias `latest`). If `seed` is omitted on compile, a random `uint32` is used; round-trip guarantees **entry equality**, not identical archive bytes.
 
@@ -29,24 +29,24 @@ CSV JSON (`name`, `headers`, `rows` of string cells) round-trips the native stri
 
 Lower-level services (all `Context.Service` + `layer`):
 
-| Service | Role |
-| --- | --- |
-| `Well512` | PRNG matching the ANE |
-| `SwzCodec` | `compile(entries, key, seed?)` / `decompile(bytes, key)` |
-| `VersionKeys` | `resolveKey(version, map?)` |
-| `EntryIo` | native directory read/write |
-| `JsonTranspile` | JSON directory + registry |
-| `CsvCodec` / `XmlCodec` | string ↔ structured JSON |
+| Service                 | Role                                                     |
+| ----------------------- | -------------------------------------------------------- |
+| `Well512`               | PRNG matching the ANE                                    |
+| `SwzCodec`              | `compile(entries, key, seed?)` / `decompile(bytes, key)` |
+| `VersionKeys`           | `resolveKey(version, map?)`                              |
+| `EntryIo`               | native directory read/write                              |
+| `JsonTranspile`         | JSON directory + registry                                |
+| `CsvCodec` / `XmlCodec` | string ↔ structured JSON                                 |
 
 Convenience exports: `compile`, `decompile`, `resolveKey`, `writeNativeDir`, `readNativeDir`, `writeJsonDir`, `readJsonDir`.
 
 ## Errors
 
-| Tag | When |
-| --- | --- |
-| `UnknownVersion` | `--version` not in keys or aliases |
-| `ChecksumMismatch` | Wrong key or corrupt header/entry |
-| `InvalidSwz` | Truncated / malformed archive |
-| `MissingRegistry` | JSON compile without `registry.json` |
-| `MalformedCsv` / `MalformedXml` / `MalformedJson` | Bad native or JSON entry |
-| `IoError` | Path missing, wrong type, collisions |
+| Tag                                               | When                                 |
+| ------------------------------------------------- | ------------------------------------ |
+| `UnknownVersion`                                  | `--version` not in keys or aliases   |
+| `ChecksumMismatch`                                | Wrong key or corrupt header/entry    |
+| `InvalidSwz`                                      | Truncated / malformed archive        |
+| `MissingRegistry`                                 | JSON compile without `registry.json` |
+| `MalformedCsv` / `MalformedXml` / `MalformedJson` | Bad native or JSON entry             |
+| `IoError`                                         | Path missing, wrong type, collisions |

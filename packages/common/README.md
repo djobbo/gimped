@@ -6,9 +6,9 @@ Shared Effect primitives for the other `@gimped/*` libraries. Not a CLI.
 
 `Schema.TaggedError` types used across SWZ, replay, ANM, and patch:
 
-| Error | Fields | When |
-| --- | --- | --- |
-| `IoError` | `path`, `message` | Filesystem / path failures |
+| Error           | Fields            | When                                |
+| --------------- | ----------------- | ----------------------------------- |
+| `IoError`       | `path`, `message` | Filesystem / path failures          |
 | `MalformedJson` | `path`, `message` | JSON parse or Schema decode failure |
 
 `toIoError(path, cause)` and `toMalformedJson(path, cause)` map unknown causes onto those tags.

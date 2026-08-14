@@ -82,16 +82,16 @@ Tool install is a **pipeline step**, not a separate command.
 
 Each module is a `Context.Service` + `Layer`. Prefer `FileSystem` / `Path` / `HttpClient` / `ChildProcess` over Node built-ins. Schema for all JSON.
 
-| Module            | Responsibility                                                                                          |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `CachePaths`      | Resolve cache root and well-known subpaths                                                              |
-| `ToolCache`       | `ensureDepotDownloader` / `ensureJpexs`: return binary path; download+unpack only if missing            |
-| `GithubRelease`   | `releases/latest` + asset download (used only by `ToolCache`)                                           |
-| `DepotClient`     | Spawn cached DepotDownloader; resolve public manifest; download into `depot/`                           |
-| `Ffdec`           | Spawn cached FFDec `-export script`                                                                     |
-| `KeyExtractor`    | Scan exported `.as` for Init key + build id                                                             |
-| `VersionRegistry` | Read/write `registry.json`, `index.json`; merge `version-keys.json`                                     |
-| `Pipeline`        | `fetch(options) → PatchRegistry`; skip steps whose outputs already exist                                |
+| Module            | Responsibility                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `CachePaths`      | Resolve cache root and well-known subpaths                                                   |
+| `ToolCache`       | `ensureDepotDownloader` / `ensureJpexs`: return binary path; download+unpack only if missing |
+| `GithubRelease`   | `releases/latest` + asset download (used only by `ToolCache`)                                |
+| `DepotClient`     | Spawn cached DepotDownloader; resolve public manifest; download into `depot/`                |
+| `Ffdec`           | Spawn cached FFDec `-export script`                                                          |
+| `KeyExtractor`    | Scan exported `.as` for Init key + build id                                                  |
+| `VersionRegistry` | Read/write `registry.json`, `index.json`; merge `version-keys.json`                          |
+| `Pipeline`        | `fetch(options) → PatchRegistry`; skip steps whose outputs already exist                     |
 
 `NodeServices.layer` does **not** include `HttpClient`. Live layer provides `NodeHttpClient` (fetch) plus `NodeServices`.
 
@@ -100,7 +100,7 @@ Public API: `fetch(options: FetchOptions): Effect<PatchRegistry, PatchError, …
 ```ts
 type FetchOptions = {
   readonly cacheDir?: string;
-  readonly manifestId?: string;      // omit → current public depot
+  readonly manifestId?: string; // omit → current public depot
   readonly full: boolean;
   readonly versionKeysPath?: string; // omit → do not touch version-keys.json
 };
@@ -219,12 +219,12 @@ This is a different file from SWZ per-archive `registry.json` (entry filetypes +
 
 After tools are ensured and the manifest id is known:
 
-| Condition                         | Action                                      |
-| --------------------------------- | ------------------------------------------- |
-| `registry.json` exists and decodes | Return it; still refresh `index.json` `latestManifestId` on public fetch |
-| `depot/` has the SWF, no `scripts/` | Skip DepotDownloader; run FFDec + parse + write |
-| `scripts/` present, no registry   | Skip download + FFDec; parse + write        |
-| Otherwise                         | Download → FFDec → parse → write            |
+| Condition                           | Action                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| `registry.json` exists and decodes  | Return it; still refresh `index.json` `latestManifestId` on public fetch |
+| `depot/` has the SWF, no `scripts/` | Skip DepotDownloader; run FFDec + parse + write                          |
+| `scripts/` present, no registry     | Skip download + FFDec; parse + write                                     |
+| Otherwise                           | Download → FFDec → parse → write                                         |
 
 A decoded `registry.json` is the definition of a complete patch. Do not re-download because Steam still has that manifest.
 
@@ -232,17 +232,17 @@ A decoded `registry.json` is the definition of a complete patch. Do not re-downl
 
 `Schema.TaggedError` in `packages/patch/src/errors.ts`. Reuse `@gimped/common` `IoError` / `MalformedJson` for file/JSON failures.
 
-| Tag                        | When                                              |
-| -------------------------- | ------------------------------------------------- |
-| `MissingSteamCredentials`  | `STEAM_USERNAME` or `STEAM_PASSWORD` empty        |
-| `ToolDownloadFailed`       | GitHub / unpack failed                            |
-| `MissingJava`              | `java` not on `PATH` before FFDec                 |
-| `DepotDownloadFailed`      | Non-zero DepotDownloader or no manifest id parsed |
-| `FfdecFailed`              | Non-zero FFDec                                    |
-| `MissingSwf`               | No usable SWF in `depot/`                         |
-| `KeyNotFound`              | No Init, or conflicting Init values               |
-| `BuildIdNotFound`          | No checksum `vs "<digits>"` (or fallback)         |
-| `KeyConflict`              | `version-keys.json` has a different key for this build |
+| Tag                       | When                                                   |
+| ------------------------- | ------------------------------------------------------ |
+| `MissingSteamCredentials` | `STEAM_USERNAME` or `STEAM_PASSWORD` empty             |
+| `ToolDownloadFailed`      | GitHub / unpack failed                                 |
+| `MissingJava`             | `java` not on `PATH` before FFDec                      |
+| `DepotDownloadFailed`     | Non-zero DepotDownloader or no manifest id parsed      |
+| `FfdecFailed`             | Non-zero FFDec                                         |
+| `MissingSwf`              | No usable SWF in `depot/`                              |
+| `KeyNotFound`             | No Init, or conflicting Init values                    |
+| `BuildIdNotFound`         | No checksum `vs "<digits>"` (or fallback)              |
+| `KeyConflict`             | `version-keys.json` has a different key for this build |
 
 ## Testing
 
