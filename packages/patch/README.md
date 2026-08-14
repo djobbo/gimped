@@ -18,7 +18,7 @@ type FetchOptions = {
 };
 ```
 
-Provide `layer` (`Pipeline.Default`) with Node services, `HttpClient` (CLI uses `FetchHttpClient`), `SteamCredentials`, and `SteamGuard`. `fetch` returns a `PatchRegistry`. `fetchStream` yields `PatchEvent`s (step start/skip/progress, Steam Guard, then `Completed`). Unary `fetch` drains that stream.
+Provide `layer` (`Pipeline.Default`) with Node services, `HttpClient` (CLI uses `FetchHttpClient`), `SteamCredentials`, and `SteamGuard`. `fetch` returns a `PatchRegistry`. `fetchStream` yields `PatchEvent`s (step start/skip/progress, Steam Guard, then `Completed`). Unary `fetch` drains that stream. The Electron shell is [`@gimped/client`](../../apps/client).
 
 `force: false` skips work whose outputs already exist. `force: true` still ensures tools if present, but does not return an existing `registry.json` and does not skip download/FFDec because depot/scripts already exist.
 
