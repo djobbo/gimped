@@ -2,31 +2,52 @@ import { MessageChannel } from "node:worker_threads";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer, Stream } from "effect";
 import { RpcClient, RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { ClientRpcs } from "../shared/client-rpc.ts";
 import { type IpcClientPort, layerIpcClient, makeIpcClientProtocol } from "../shared/rpc-client.ts";
-import { PingRpcs } from "../shared/ping-rpc.ts";
 import { clientAdapter, serverAdapter } from "./harness.ts";
 import { layerIpcServer, RpcPortHandoff } from "./ipc-server.ts";
 
 const serverConfig = { disableFatalDefects: true } as const;
 
-const makeServer = <H extends Parameters<typeof PingRpcs.of>[0]>(handlers: H) =>
-  RpcServer.layer(PingRpcs, serverConfig).pipe(
-    Layer.provide(PingRpcs.toLayer(handlers)),
+const sampleRegistry = {
+  steamAppId: 291550,
+  steamDepotId: 291551,
+  steamManifestId: "1",
+  fullDepot: false,
+  clientBuild: "10090",
+  swzKey: 762411009,
+  swf: "BrawlhallaAir.swf",
+  files: ["BrawlhallaAir.swf"],
+};
+
+const started = { _tag: "StepStarted" as const, step: "DownloadDepot" as const };
+const completed = { _tag: "Completed" as const, registry: sampleRegistry };
+
+const unused = {
+  PatchClear: () => Effect.void,
+  SubmitSteamGuard: () => Effect.void,
+  SettingsSet: () => Effect.void,
+};
+
+const makeServer = <H extends Parameters<typeof ClientRpcs.of>[0]>(handlers: H) =>
+  RpcServer.layer(ClientRpcs, serverConfig).pipe(
+    Layer.provide(ClientRpcs.toLayer(handlers)),
     Layer.provideMerge(layerIpcServer),
   );
 
 describe("layerIpc transport (client ⇄ server over a MessagePort)", () => {
-  it("round-trips a unary Ping call", async () => {
+  it("round-trips a unary SettingsGet call", async () => {
     const channel = new MessageChannel();
     const server = makeServer({
-      Ping: () => Effect.succeed("pong"),
-      Ticks: () => Stream.empty,
+      ...unused,
+      SettingsGet: () => Effect.succeed({ username: "alice", hasPassword: true }),
+      PatchFetch: () => Stream.empty,
     });
     const program = Effect.gen(function* () {
       const handoff = yield* RpcPortHandoff;
       handoff.bind(serverAdapter(channel.port2));
-      const client = yield* RpcClient.make(PingRpcs);
-      return yield* client.Ping();
+      const client = yield* RpcClient.make(ClientRpcs);
+      return yield* client.SettingsGet();
     }).pipe(
       Effect.provide(layerIpcClient(clientAdapter(channel.port1))),
       Effect.provide(server),
@@ -35,23 +56,24 @@ describe("layerIpc transport (client ⇄ server over a MessagePort)", () => {
 
     const result = await Effect.runPromise(program);
 
-    expect(result).toBe("pong");
+    expect(result).toEqual({ username: "alice", hasPassword: true });
 
     channel.port1.close();
     channel.port2.close();
   });
 
-  it("delivers a server-streamed sequence of values in order", async () => {
+  it("delivers a server-streamed sequence of PatchEvents in order", async () => {
     const channel = new MessageChannel();
     const server = makeServer({
-      Ping: () => Effect.never,
-      Ticks: () => Stream.fromIterable([1, 2, 3]),
+      ...unused,
+      SettingsGet: () => Effect.never,
+      PatchFetch: () => Stream.fromIterable([started, completed]),
     });
     const program = Effect.gen(function* () {
       const handoff = yield* RpcPortHandoff;
       handoff.bind(serverAdapter(channel.port2));
-      const client = yield* RpcClient.make(PingRpcs);
-      return yield* Stream.runCollect(client.Ticks());
+      const client = yield* RpcClient.make(ClientRpcs);
+      return yield* Stream.runCollect(client.PatchFetch({ full: false, force: false }));
     }).pipe(
       Effect.provide(layerIpcClient(clientAdapter(channel.port1))),
       Effect.provide(server),
@@ -60,7 +82,7 @@ describe("layerIpc transport (client ⇄ server over a MessagePort)", () => {
 
     const emissions = await Effect.runPromise(program);
 
-    expect(emissions).toStrictEqual([1, 2, 3]);
+    expect(emissions).toStrictEqual([started, completed]);
 
     channel.port1.close();
     channel.port2.close();
@@ -79,9 +101,10 @@ describe("layerIpc transport (client ⇄ server over a MessagePort)", () => {
     const channel1 = new MessageChannel();
     const channel2 = new MessageChannel();
     const server = makeServer({
-      Ping: () => Effect.never,
-      Ticks: () =>
-        Stream.make(1).pipe(
+      ...unused,
+      SettingsGet: () => Effect.never,
+      PatchFetch: () =>
+        Stream.make(started).pipe(
           Stream.concat(Stream.never),
           Stream.onExit((exit) => Effect.sync(() => resolveInterrupted(exit))),
         ),
@@ -90,15 +113,17 @@ describe("layerIpc transport (client ⇄ server over a MessagePort)", () => {
     const program = Effect.gen(function* () {
       const handoff = yield* RpcPortHandoff;
       handoff.bind(serverAdapter(channel1.port2));
-      const client = yield* RpcClient.make(PingRpcs);
+      const client = yield* RpcClient.make(ClientRpcs);
 
       yield* Effect.forkScoped(
-        Stream.runForEach(client.Ticks(), () => Effect.sync(() => resolveFirst())),
+        Stream.runForEach(client.PatchFetch({ full: false, force: false }), () =>
+          Effect.sync(() => resolveFirst()),
+        ),
       );
       yield* Effect.promise(() => gotFirst);
 
       // Swap in a fresh port: the old client is offered to `disconnects`, which
-      // RpcServer drains to interrupt its in-flight Ticks fiber.
+      // RpcServer drains to interrupt its in-flight PatchFetch fiber.
       handoff.bind(serverAdapter(channel2.port2));
 
       return yield* Effect.promise(() => interrupted).pipe(
