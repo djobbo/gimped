@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 import type { Spawn } from "./domain.ts";
-import type { SimulationFault } from "./errors.ts";
+import { SimulationFault } from "./errors.ts";
 import { Collision } from "./Collision.ts";
 import { Match } from "./Match.ts";
 
