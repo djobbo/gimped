@@ -137,7 +137,8 @@ const ingestTables = (tables: TablesData, node: XmlNode): void => {
   }
 
   const levelId = parseId(field(node, "LevelID"));
-  const levelName = field(node, "DisplayName") ?? field(node, "LevelName");
+  // Dump LevelType: `LevelName` is the map key (`LevelType.as:256`); `DisplayName` is UI text.
+  const levelName = field(node, "LevelName") ?? field(node, "DisplayName");
   if (levelId !== undefined && levelName !== undefined) {
     tables.levels.set(levelId, { id: levelId, name: levelName });
   }

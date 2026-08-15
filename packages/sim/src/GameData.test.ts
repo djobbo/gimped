@@ -68,6 +68,28 @@ layer(Live)("GameData", (it) => {
     }),
   );
 
+  it.effect("joins LevelDesc by LevelName when DisplayName differs", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "sim-gamedata-" });
+      yield* fs.writeFileString(path.join(dir, "ScoringTypes.xml"), scoringTypesXml);
+      yield* fs.writeFileString(path.join(dir, "HeroTypes.xml"), heroTypesXml);
+      yield* fs.writeFileString(
+        path.join(dir, "LevelTypes.xml"),
+        `<LevelTypes>
+  <LevelType LevelName="Box" DisplayName="Wrong"><LevelID>12</LevelID></LevelType>
+</LevelTypes>
+`,
+      );
+      yield* fs.writeFileString(path.join(dir, "LevelDesc_Box.xml"), levelDescXml);
+      const data = yield* GameData;
+      const loaded = yield* data.load(dir, 12);
+      expect(loaded.tables.levels.get(12)?.name).toBe("Box");
+      expect(loaded.level.lines.length).toBeGreaterThan(0);
+    }),
+  );
+
   it.effect("fails MissingCollision when the level has no lines", () =>
     Effect.gen(function* () {
       const dir = yield* writeTablesDir();
