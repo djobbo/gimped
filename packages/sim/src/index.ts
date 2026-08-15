@@ -13,6 +13,7 @@ export * from "./LevelCollision.ts";
 export * from "./Match.ts";
 export * from "./MatchRules.ts";
 export * from "./Renderer.ts";
+export * from "./ReplayLoader.ts";
 export * from "./Rng.ts";
 export * from "./Simulation.ts";
 export * from "./Stock.ts";
