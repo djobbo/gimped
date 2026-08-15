@@ -26,6 +26,7 @@ layer(Live)("Collision", (it) => {
         spawns: stage.spawns,
         bounds: stage.bounds,
         startingLives: 3,
+        inputs: [],
       });
 
       const hard = yield* collision.groundAt(0, -1, 1);

@@ -25,6 +25,7 @@ layer(Live)("World", (it) => {
         spawns: stage.spawns,
         bounds: stage.bounds,
         startingLives: 3,
+        inputs: [],
       });
 
       expect(yield* world.inBlastzone(0, 0)).toBe(false);

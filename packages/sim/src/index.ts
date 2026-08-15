@@ -3,6 +3,7 @@ export * from "./Collision.ts";
 export * from "./domain.ts";
 export * from "./errors.ts";
 export * from "./fixtures.ts";
+export * from "./Input.ts";
 export * from "./LevelCollision.ts";
 export * from "./Match.ts";
 export * from "./MatchRules.ts";

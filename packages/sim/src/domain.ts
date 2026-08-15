@@ -1,3 +1,5 @@
+import type { Replay } from "@gimped/replay";
+
 export const InputBits = { up: 1, down: 2, left: 4, right: 8 } as const;
 
 export type CollisionLine = {
@@ -50,6 +52,7 @@ export type MatchState = {
   spawns: Spawn[];
   bounds: CameraBounds;
   startingLives: number;
+  inputs: Replay["inputs"];
 };
 
 export type SimResults = {

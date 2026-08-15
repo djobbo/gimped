@@ -31,6 +31,7 @@ layer(Live)("Clock", (it) => {
         spawns: stage.spawns,
         bounds: stage.bounds,
         startingLives: 3,
+        inputs: [],
       });
 
       yield* clock.advance();
