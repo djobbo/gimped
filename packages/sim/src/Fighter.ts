@@ -49,7 +49,10 @@ export class Fighter extends Context.Service<
             fighter.grounded = false;
           }
 
-          if (fighter.stun === 0) {
+          const stunned = fighter.stun > 0;
+          if (stunned) {
+            fighter.stun -= 1;
+          } else {
             const bits = fighter.input ?? 0;
             if ((bits & InputBits.left) !== 0) {
               fighter.x -= GROUND_SPEED * DT;

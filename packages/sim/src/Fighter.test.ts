@@ -76,4 +76,33 @@ layer(Live)("Fighter", (it) => {
       expect(state.fighters[0]?.x).toBeGreaterThan(0);
     }),
   );
+
+  it.effect("decrements stun and walks after it expires", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [fighter({ y: 0, grounded: true, stun: 1, input: InputBits.right })],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      let state = yield* match.get();
+      expect(state.fighters[0]?.stun).toBe(0);
+      expect(state.fighters[0]?.x).toBe(0);
+
+      yield* kinematics.step();
+      state = yield* match.get();
+      expect(state.fighters[0]?.x).toBeGreaterThan(0);
+    }),
+  );
 });
