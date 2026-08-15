@@ -17,7 +17,7 @@ export class MatchRules extends Context.Service<
       const tables = yield* Tables;
       const check = Effect.fn("MatchRules.check")(function* (replay: Replay) {
         const scoring = tables.scoring.get(replay.rules.scoringTypeId);
-        if (scoring?.name !== "Stock") {
+        if (scoring?.name.toLowerCase() !== "stock") {
           return yield* fail(`scoring ${replay.rules.scoringTypeId} is not Stock`);
         }
         if (replay.heroSlotCount !== 1) {

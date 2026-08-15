@@ -8,3 +8,5 @@ export const TestLive = Simulation.Default.pipe(
   Layer.provide(Tables.make(stockTables())),
   Layer.provide(LevelCollision.make(boxStage())),
 );
+
+export { Simulation };

@@ -102,3 +102,21 @@ layer(Live)("MatchRules", (it) => {
     }),
   );
 });
+
+const DumpStockLive = MatchRules.layer.pipe(
+  Layer.provide(
+    Tables.make({
+      ...stockTables(),
+      scoring: new Map([[1, { id: 1, name: "STOCK" }]]),
+    }),
+  ),
+);
+
+layer(DumpStockLive)("MatchRules dump scoring name", (it) => {
+  it.effect("accepts scoring name STOCK case-insensitively", () =>
+    Effect.gen(function* () {
+      const rules = yield* MatchRules;
+      yield* rules.check(replay1v1());
+    }),
+  );
+});
