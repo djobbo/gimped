@@ -1,4 +1,5 @@
 export * from "./Clock.ts";
+export * from "./Collision.ts";
 export * from "./domain.ts";
 export * from "./errors.ts";
 export * from "./fixtures.ts";
