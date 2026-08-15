@@ -2,6 +2,7 @@ export * from "./Clock.ts";
 export * from "./Collision.ts";
 export * from "./domain.ts";
 export * from "./errors.ts";
+export * from "./Fighter.ts";
 export * from "./fixtures.ts";
 export * from "./Input.ts";
 export * from "./Items.ts";
