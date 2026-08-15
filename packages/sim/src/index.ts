@@ -8,3 +8,4 @@ export * from "./Match.ts";
 export * from "./MatchRules.ts";
 export * from "./Rng.ts";
 export * from "./Tables.ts";
+export * from "./World.ts";
