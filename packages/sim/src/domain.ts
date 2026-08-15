@@ -55,6 +55,21 @@ export type MatchState = {
   inputs: Replay["inputs"];
 };
 
+export type Snapshot = {
+  timeMs: number;
+  ended: boolean;
+  fighters: Array<{
+    entityId: number;
+    team: number;
+    x: number;
+    y: number;
+    lives: number;
+    damage: number;
+    score: number;
+    ko: boolean;
+  }>;
+};
+
 export type SimResults = {
   duration: number;
   scores: ReadonlyArray<{ entityId: number; score: number }>;
