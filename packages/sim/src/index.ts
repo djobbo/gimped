@@ -10,5 +10,6 @@ export * from "./Match.ts";
 export * from "./MatchRules.ts";
 export * from "./Renderer.ts";
 export * from "./Rng.ts";
+export * from "./Stock.ts";
 export * from "./Tables.ts";
 export * from "./World.ts";
