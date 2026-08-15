@@ -537,6 +537,40 @@ importers:
         specifier: 'catalog:'
         version: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
 
+  packages/sim:
+    dependencies:
+      '@gimped/common':
+        specifier: workspace:*
+        version: link:../common
+      '@gimped/replay':
+        specifier: workspace:*
+        version: link:../replay
+      '@gimped/swz':
+        specifier: workspace:*
+        version: link:../swz
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109(effect@4.0.0-rc.109)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109(effect@4.0.0-rc.109)(vitest@4.1.10)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.2.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.9(@types/node@26.2.0)(esbuild@0.28.2)(happy-dom@20.11.2)(typescript@7.0.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
+
   packages/swz:
     dependencies:
       '@gimped/common':
