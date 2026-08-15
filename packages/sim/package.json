@@ -1,0 +1,28 @@
+{
+  "name": "@gimped/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test",
+    "build": "vp build",
+    "check": "vp check"
+  },
+  "dependencies": {
+    "@gimped/common": "workspace:*",
+    "@gimped/replay": "workspace:*",
+    "@gimped/swz": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
