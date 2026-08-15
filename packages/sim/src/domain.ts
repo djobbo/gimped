@@ -1,6 +1,6 @@
 import type { Replay } from "@gimped/replay";
 
-export const InputBits = { up: 1, down: 2, left: 4, right: 8 } as const;
+export const InputBits = { up: 1, down: 2, left: 4, right: 8, attack: 32 } as const;
 
 export type CollisionLine = {
   startX: number;
@@ -41,6 +41,8 @@ export type FighterState = {
   stun: number;
   ko: boolean;
   lastHitBy: number | undefined;
+  /** Elapsed frames of the current unarmed nlight; 0 = idle. */
+  attackFrames?: number;
 };
 
 export type MatchState = {
