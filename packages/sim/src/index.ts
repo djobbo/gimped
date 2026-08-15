@@ -5,6 +5,7 @@ export * from "./domain.ts";
 export * from "./errors.ts";
 export * from "./Fighter.ts";
 export * from "./fixtures.ts";
+export * from "./GameData.ts";
 export * from "./Input.ts";
 export * from "./Items.ts";
 export * from "./layers.ts";
