@@ -6,7 +6,7 @@ import { GameData } from "./GameData.ts";
 import { LevelCollision } from "./LevelCollision.ts";
 import { Match } from "./Match.ts";
 import { ReplayLoader } from "./ReplayLoader.ts";
-import { create, Simulation } from "./Simulation.ts";
+import { create, runReplay, snapshot, Simulation } from "./Simulation.ts";
 import { Tables } from "./Tables.ts";
 
 const FIXTURE = "[10.09] SmallBrawlhaven (4).replay";
@@ -100,6 +100,37 @@ layer(Live)("SmallBrawlhaven unarmed stock fixture", (it) => {
       expect(fighterA?.recovery).toBe(statsA.recovery);
       expect(fighterB?.recovery).toBe(statsB.recovery);
       expect(fighterA?.x).not.toBe(fighterB?.x);
+    }),
+  );
+
+  it.effect("runToEnd reaches a legal STOCK end", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const here = yield* path.fromFileUrl(new URL(import.meta.url));
+      const replayPath = path.join(path.dirname(here), "..", "fixtures", FIXTURE);
+      const swzDir = path.join(path.dirname(here), "..", "..", "swz", "fixtures");
+
+      const loader = yield* ReplayLoader;
+      const gameData = yield* GameData;
+      const replay = yield* loader.fromPath(replayPath);
+      const loaded = yield* gameData.load(swzDir, replay.level.id);
+
+      const { results, snap } = yield* Effect.gen(function* () {
+        const results = yield* runReplay(replay);
+        const snap = yield* snapshot();
+        return { results, snap };
+      }).pipe(
+        Effect.provide(
+          Simulation.Default.pipe(
+            Layer.provide(Tables.make(loaded.tables)),
+            Layer.provide(LevelCollision.make(loaded.level)),
+          ),
+        ),
+      );
+
+      expect(snap.ended).toBe(true);
+      expect(results.scores.length).toBe(2);
+      expect(snap.fighters.some((f) => f.lives === 0)).toBe(true);
     }),
   );
 });
