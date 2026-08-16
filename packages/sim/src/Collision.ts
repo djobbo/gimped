@@ -9,8 +9,10 @@ const EPSILON = 0.01;
 const left = (line: CollisionLine) => Math.min(line.startX, line.endX);
 const right = (line: CollisionLine) => Math.max(line.startX, line.endX);
 const top = (line: CollisionLine) => Math.min(line.startY, line.endY);
+const bottom = (line: CollisionLine) => Math.max(line.startY, line.endY);
 
 const isHorizontal = (line: CollisionLine) => line.startY === line.endY;
+const isVertical = (line: CollisionLine) => line.startX === line.endX;
 
 export class Collision extends Context.Service<
   Collision,
@@ -19,6 +21,10 @@ export class Collision extends Context.Service<
       x: number,
       y: number,
       vy: number,
+    ) => Effect.Effect<CollisionLine | undefined, SimulationFault>;
+    readonly wallAt: (
+      x: number,
+      y: number,
     ) => Effect.Effect<CollisionLine | undefined, SimulationFault>;
   }
 >()("@gimped/sim/Collision") {
@@ -68,7 +74,34 @@ export class Collision extends Context.Service<
         return best;
       });
 
-      return Collision.of({ groundAt });
+      const wallAt = Effect.fn("Collision.wallAt")(function* (x: number, y: number) {
+        const state = yield* match.get();
+
+        let best: CollisionLine | undefined;
+        let bestDistance = Number.POSITIVE_INFINITY;
+
+        for (const line of state.lines) {
+          if (!isVertical(line) || line.type !== 1) {
+            continue;
+          }
+          if (Math.abs(x - line.startX) > EPSILON) {
+            continue;
+          }
+          if (y < top(line) - EPSILON || y > bottom(line) + EPSILON) {
+            continue;
+          }
+
+          const distance = Math.abs(x - line.startX);
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = line;
+          }
+        }
+
+        return best;
+      });
+
+      return Collision.of({ groundAt, wallAt });
     }),
   );
 }

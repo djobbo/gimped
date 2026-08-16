@@ -42,4 +42,28 @@ layer(Live)("Collision", (it) => {
       expect(offLine).toBeUndefined();
     }),
   );
+
+  it.effect("wallAt finds a vertical hard line and misses a floor", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const collision = yield* Collision;
+      const stage = boxStage();
+      const wall = { startX: 100, startY: -80, endX: 100, endY: 0, type: 1 as const };
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [],
+        lines: [hardFloor, wall],
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+      const hit = yield* collision.wallAt(100, -40);
+      expect(hit).toEqual(wall);
+      const miss = yield* collision.wallAt(0, -1);
+      expect(miss).toBeUndefined();
+    }),
+  );
 });
