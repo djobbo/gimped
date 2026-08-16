@@ -378,6 +378,41 @@ layer(Live)("Fighter", (it) => {
     }),
   );
 
+  it.effect("same-frame dodge+jump is ground spot dodge, not jump or air dodge", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            y: 0,
+            grounded: true,
+            input: InputBits.dodge | InputBits.jump,
+            prevInput: 0,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      // Dodge runs before jump; successful dodge consumes the frame (dump class_288).
+      expect(state.fighters[0]?.dodgeFrames).toBe(18);
+      expect(state.fighters[0]?.dodgeFrames).not.toBe(22);
+      expect(state.fighters[0]?.vy).toBe(0);
+      expect(state.fighters[0]?.grounded).toBe(true);
+    }),
+  );
+
   it.effect("grounded side dodge sets dodgeFrames 14 and dashing", () =>
     Effect.gen(function* () {
       const match = yield* Match;

@@ -56,6 +56,10 @@ export class Fighter extends Context.Service<
         const state = yield* match.get();
 
         for (const fighter of state.fighters) {
+          // Dump `class_288`: gravity+fall cap → method_84 (dodge) → method_5226 (jump).
+          const bits = fighter.input ?? 0;
+          const prevBits = fighter.prevInput ?? 0;
+
           if (!fighter.grounded) {
             // Dump `class_123` integrate: `vy += var_4334 * class_50.var_12301`.
             fighter.vy += GRAVITY * DT;
@@ -73,50 +77,15 @@ export class Fighter extends Context.Service<
                 fighter.vy = 0;
               }
             }
-            // Dump `class_123.as:3656-3658` — fall-speed cap after gravity, before jump.
-            const bitsForFall = fighter.input ?? 0;
-            const fallCap =
-              (bitsForFall & InputBits.down) !== 0 ? FALL_SPEED_CAP_FAST : FALL_SPEED_CAP;
+            // Dump `class_123.as:3656-3658` — fall-speed cap after gravity, before dodge/jump.
+            const fallCap = (bits & InputBits.down) !== 0 ? FALL_SPEED_CAP_FAST : FALL_SPEED_CAP;
             if (fighter.vy > fallCap) {
               fighter.vy = fallCap;
             }
           }
 
-          // Dump `class_123.method_5226` — jump on just-pressed bit 16.
-          const bits = fighter.input ?? 0;
-          const prevBits = fighter.prevInput ?? 0;
-          const jumpPressed = (bits & InputBits.jump) !== 0 && (prevBits & InputBits.jump) === 0;
-          let wallJumped = false;
-          if (jumpPressed && fighter.stun <= 0 && !fighter.ko) {
-            const wall = yield* collision.wallAt(fighter.x, fighter.y);
-            fighter.wallSide = wall !== undefined ? (fighter.x >= wall.startX ? 1 : -1) : 0;
-
-            if (fighter.grounded) {
-              if (fighter.dashing) {
-                // Dump `class_123.method_5226` dash branch.
-                fighter.vy -= JUMP_DASH;
-                if (fighter.vx > JUMP_DASH_VX_CAP) {
-                  fighter.vx = JUMP_DASH_VX_CAP;
-                } else if (fighter.vx < -JUMP_DASH_VX_CAP) {
-                  fighter.vx = -JUMP_DASH_VX_CAP;
-                }
-              } else {
-                fighter.vy -= JUMP_GROUND;
-              }
-              fighter.grounded = false;
-            } else if (fighter.wallSide !== 0) {
-              fighter.vy -= JUMP_WALL_Y;
-              fighter.vx = -JUMP_WALL_X * fighter.wallSide;
-              fighter.grounded = false;
-              wallJumped = true;
-            } else if ((fighter.airJumpsUsed ?? 0) < AIR_JUMPS) {
-              fighter.vy -= JUMP_AIR;
-              fighter.airJumpsUsed = (fighter.airJumpsUsed ?? 0) + 1;
-              fighter.grounded = false;
-            }
-          }
-
-          // Dump `class_123.method_84` — dodge on just-pressed bit 256.
+          // Dump `class_123.method_84` — dodge on just-pressed bit 256 (before jump).
+          let dodgeStarted = false;
           if ((fighter.dodgeFrames ?? 0) > 0) {
             fighter.dodgeFrames = (fighter.dodgeFrames ?? 0) - 1;
             if (fighter.dodgeFrames === 0) {
@@ -146,6 +115,39 @@ export class Fighter extends Context.Service<
                   fighter.vx = speed;
                 }
               }
+              dodgeStarted = true;
+            }
+          }
+
+          // Dump `class_123.method_5226` — jump on just-pressed bit 16; skipped if dodge started.
+          const jumpPressed = (bits & InputBits.jump) !== 0 && (prevBits & InputBits.jump) === 0;
+          let wallJumped = false;
+          if (jumpPressed && !dodgeStarted && fighter.stun <= 0 && !fighter.ko) {
+            const wall = yield* collision.wallAt(fighter.x, fighter.y);
+            fighter.wallSide = wall !== undefined ? (fighter.x >= wall.startX ? 1 : -1) : 0;
+
+            if (fighter.grounded) {
+              if (fighter.dashing) {
+                // Dump `class_123.method_5226` dash branch.
+                fighter.vy -= JUMP_DASH;
+                if (fighter.vx > JUMP_DASH_VX_CAP) {
+                  fighter.vx = JUMP_DASH_VX_CAP;
+                } else if (fighter.vx < -JUMP_DASH_VX_CAP) {
+                  fighter.vx = -JUMP_DASH_VX_CAP;
+                }
+              } else {
+                fighter.vy -= JUMP_GROUND;
+              }
+              fighter.grounded = false;
+            } else if (fighter.wallSide !== 0) {
+              fighter.vy -= JUMP_WALL_Y;
+              fighter.vx = -JUMP_WALL_X * fighter.wallSide;
+              fighter.grounded = false;
+              wallJumped = true;
+            } else if ((fighter.airJumpsUsed ?? 0) < AIR_JUMPS) {
+              fighter.vy -= JUMP_AIR;
+              fighter.airJumpsUsed = (fighter.airJumpsUsed ?? 0) + 1;
+              fighter.grounded = false;
             }
           }
 
