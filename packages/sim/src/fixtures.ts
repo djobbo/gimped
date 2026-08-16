@@ -9,6 +9,7 @@ export const stockTables = (): TablesData => ({
   hurtboxes: new Map([["DEFAULT", { name: "DEFAULT", width: 50, height: 80 }]]),
   powers: new Map(),
   levels: new Map([[12, { id: 12, name: "Box" }]]),
+  stats: new Map(),
 });
 
 export const boxStage = (): LevelCollisionData => ({

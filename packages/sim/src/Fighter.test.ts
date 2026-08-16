@@ -105,4 +105,94 @@ layer(Live)("Fighter", (it) => {
       expect(state.fighters[0]?.x).toBeGreaterThan(0);
     }),
   );
+
+  it.effect("higher runSpeed walks farther in the same steps", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({ entityId: 1, y: 0, grounded: true, runSpeed: 30, input: InputBits.right }),
+          fighter({
+            entityId: 2,
+            team: 2,
+            y: 0,
+            grounded: true,
+            runSpeed: 50,
+            input: InputBits.right,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      for (let i = 0; i < 10; i++) {
+        yield* kinematics.step();
+      }
+
+      const state = yield* match.get();
+      const slow = state.fighters.find((f) => f.entityId === 1);
+      const fast = state.fighters.find((f) => f.entityId === 2);
+      expect(fast?.x ?? 0).toBeGreaterThan(slow?.x ?? 0);
+    }),
+  );
+
+  it.effect("higher recovery decays knockback speed faster while stunned", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            entityId: 1,
+            y: -80,
+            grounded: false,
+            stun: 20,
+            vx: 20,
+            vy: -10,
+            recovery: 4,
+          }),
+          fighter({
+            entityId: 2,
+            team: 2,
+            y: -80,
+            grounded: false,
+            stun: 20,
+            vx: 20,
+            vy: -10,
+            recovery: 20,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      for (let i = 0; i < 5; i++) {
+        yield* kinematics.step();
+      }
+
+      const state = yield* match.get();
+      const light = state.fighters.find((f) => f.entityId === 1);
+      const heavy = state.fighters.find((f) => f.entityId === 2);
+      const lightSpeed = Math.hypot(light?.vx ?? 0, light?.vy ?? 0);
+      const heavySpeed = Math.hypot(heavy?.vx ?? 0, heavy?.vy ?? 0);
+      expect(heavySpeed).toBeLessThan(lightSpeed);
+    }),
+  );
 });

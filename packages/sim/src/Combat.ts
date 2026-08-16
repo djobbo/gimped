@@ -72,8 +72,10 @@ const applyOnHitImpulse = (attacker: FighterState, victim: FighterState): void =
   // `class_123.OnHit` (`class_123.as:6598`) queues dir; `class_122.as:29` is the interface.
   // `class_78.method_4558` (`:840`) `param7.normalize(impulse)`; `method_5949` (`:1080`)
   // zeros vx/vy then writes the scaled point.
-  victim.vx = (UNARMED_NLIGHT_FIXED_IMPULSE * ox) / len;
-  victim.vy = (UNARMED_NLIGHT_FIXED_IMPULSE * oy) / len;
+  // `class_78.method_778` (`:652`) scales by attacker Strength `ImpulseMult` (`var_5838`).
+  const impulse = UNARMED_NLIGHT_FIXED_IMPULSE * (attacker.impulseMult ?? 1);
+  victim.vx = (impulse * ox) / len;
+  victim.vy = (impulse * oy) / len;
 };
 
 export class Combat extends Context.Service<
@@ -109,7 +111,9 @@ export class Combat extends Context.Service<
             }
           } else {
             frames += 1;
-            if (frames > UNARMED_NLIGHT_STARTUP + UNARMED_NLIGHT_ACTIVE + UNARMED_NLIGHT_RECOVER) {
+            // Dump `class_630.as:1341` RecoverTime * Dexterity RecoverMod (`var_1056`).
+            const recover = Math.floor(UNARMED_NLIGHT_RECOVER * (attacker.recoverMod ?? 1));
+            if (frames > UNARMED_NLIGHT_STARTUP + UNARMED_NLIGHT_ACTIVE + recover) {
               attacker.attackFrames = 0;
               hitThisPower.delete(attacker.entityId);
               continue;

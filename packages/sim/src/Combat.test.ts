@@ -99,4 +99,57 @@ layer(Live)("Combat", (it) => {
       expect(victim.lastHitBy).toBeUndefined();
     }),
   );
+
+  it.effect("higher impulseMult knocks the victim farther", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: 0, input: ATTACK_BIT, impulseMult: 1 }),
+        fighter(2, 2, { x: 40 }),
+      ]);
+      for (let i = 0; i < STARTUP_PLUS_ACTIVE; i++) {
+        yield* combat.step();
+      }
+      const weak = (yield* match.get()).fighters.find((f) => f.entityId === 2)?.vx ?? 0;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: 0, input: ATTACK_BIT, impulseMult: 2 }),
+        fighter(2, 2, { x: 40 }),
+      ]);
+      for (let i = 0; i < STARTUP_PLUS_ACTIVE; i++) {
+        yield* combat.step();
+      }
+      const strong = (yield* match.get()).fighters.find((f) => f.entityId === 2)?.vx ?? 0;
+      expect(Math.abs(strong)).toBeGreaterThan(Math.abs(weak));
+    }),
+  );
+
+  it.effect("smaller stored recoverMod shortens unarmed nlight recover", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: 0, input: ATTACK_BIT, recoverMod: 1 }),
+        fighter(2, 2, { x: 400 }),
+      ]);
+      for (let i = 0; i < 9; i++) {
+        yield* combat.step();
+      }
+      const slow = (yield* match.get()).fighters.find((f) => f.entityId === 1)?.attackFrames ?? 0;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: 0, input: ATTACK_BIT, recoverMod: 0.5 }),
+        fighter(2, 2, { x: 400 }),
+      ]);
+      for (let i = 0; i < 9; i++) {
+        yield* combat.step();
+      }
+      const fast = (yield* match.get()).fighters.find((f) => f.entityId === 1)?.attackFrames ?? 0;
+      expect(slow).toBeGreaterThan(0);
+      expect(fast).toBe(0);
+    }),
+  );
 });

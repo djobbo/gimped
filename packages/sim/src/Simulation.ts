@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect";
 import { Clock } from "./Clock.ts";
 import { Collision } from "./Collision.ts";
 import { Combat } from "./Combat.ts";
-import type { FighterState, SimResults, Snapshot } from "./domain.ts";
+import type { FighterState, SimResults, Snapshot, StatRow } from "./domain.ts";
 import { MissingCollision, MissingTables, SimulationFault, UnsupportedMatch } from "./errors.ts";
 import { Fighter } from "./Fighter.ts";
 import { Input } from "./Input.ts";
@@ -21,6 +21,14 @@ import { World } from "./World.ts";
 const HURT_W = 50;
 const HURT_H = 80;
 const TIME_CAP_MS = 600_000;
+/** Dump `class_123` / `class_576` defaults. */
+const DEFAULT_RUN_SPEED = 30;
+const DEFAULT_IMPULSE_MULT = 1;
+const DEFAULT_RECOVER_MOD = 1;
+const DEFAULT_RECOVERY = 4;
+
+const statRow = (stats: Map<string, StatRow>, kind: string, rank: number | undefined) =>
+  rank === undefined ? undefined : stats.get(`${kind}${rank}`);
 
 export class Simulation extends Context.Service<
   Simulation,
@@ -84,12 +92,20 @@ export class Simulation extends Context.Service<
           inputs: [],
         });
 
+        const tagged = level.spawns.some((s) => s.team !== undefined);
         const teamIndex = new Map<number, number>();
         const fighters: FighterState[] = [];
+        let playerIndex = 0;
         for (const player of replay.players) {
           const index = teamIndex.get(player.team) ?? 0;
           teamIndex.set(player.team, index + 1);
-          const spawn = yield* world.spawnFor(player.team, index);
+          const spawn = yield* world.spawnFor(player.team, tagged ? index : playerIndex);
+          const heroId = player.heroes[0]?.heroId;
+          const hero = heroId === undefined ? undefined : tables.heroes.get(heroId);
+          const speed = statRow(tables.stats, "Speed", hero?.speed);
+          const strength = statRow(tables.stats, "Strength", hero?.strength);
+          const dexterity = statRow(tables.stats, "Dexterity", hero?.dexterity);
+          const weight = statRow(tables.stats, "Weight", hero?.weight);
           fighters.push({
             entityId: player.entityId,
             team: player.team,
@@ -108,7 +124,13 @@ export class Simulation extends Context.Service<
             stun: 0,
             ko: false,
             lastHitBy: undefined,
+            heroId,
+            runSpeed: speed?.runSpeed ?? DEFAULT_RUN_SPEED,
+            impulseMult: strength?.impulseMult ?? DEFAULT_IMPULSE_MULT,
+            recoverMod: dexterity?.recoverMod ?? DEFAULT_RECOVER_MOD,
+            recovery: weight?.recovery ?? DEFAULT_RECOVERY,
           });
+          playerIndex += 1;
         }
 
         yield* match.modify((s) => {

@@ -9,8 +9,10 @@ import { Match } from "./Match.ts";
 const GRAVITY = 3.75;
 /** Dump `class_50.var_12301` — per-frame physics scale. */
 const DT = 0.384;
-/** Dump `class_123.var_2419` — ground max speed. */
+/** Dump `class_123.var_2919` / `class_576` Speed.RunSpeed default. */
 const GROUND_SPEED = 30;
+/** Dump `class_123.var_8994` / `class_576` Weight.Recovery default. */
+const DEFAULT_RECOVERY = 4;
 
 const lineTop = (line: CollisionLine) => Math.min(line.startY, line.endY);
 
@@ -33,6 +35,20 @@ export class Fighter extends Context.Service<
           if (!fighter.grounded) {
             // Dump `class_123` integrate: `vy += var_4334 * class_50.var_12301`.
             fighter.vy += GRAVITY * DT;
+            if (fighter.stun > 0) {
+              // Dump `class_123.method_3493`: length -= Recovery * DT, then normalize.
+              const recovery = fighter.recovery ?? DEFAULT_RECOVERY;
+              const len = Math.hypot(fighter.vx, fighter.vy);
+              const next = len - recovery * DT;
+              if (len > 0 && next > 0) {
+                const scale = next / len;
+                fighter.vx *= scale;
+                fighter.vy *= scale;
+              } else {
+                fighter.vx = 0;
+                fighter.vy = 0;
+              }
+            }
           }
 
           const line = yield* collision.groundAt(fighter.x, fighter.y, fighter.vy);
@@ -54,14 +70,15 @@ export class Fighter extends Context.Service<
             fighter.stun -= 1;
           } else {
             const bits = fighter.input ?? 0;
+            const speed = fighter.runSpeed ?? GROUND_SPEED;
             if ((bits & InputBits.left) !== 0) {
-              fighter.x -= GROUND_SPEED * DT;
-              fighter.vx = -GROUND_SPEED;
+              fighter.x -= speed * DT;
+              fighter.vx = -speed;
               fighter.facingLeft = true;
             }
             if ((bits & InputBits.right) !== 0) {
-              fighter.x += GROUND_SPEED * DT;
-              fighter.vx = GROUND_SPEED;
+              fighter.x += speed * DT;
+              fighter.vx = speed;
               fighter.facingLeft = false;
             }
           }

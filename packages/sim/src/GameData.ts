@@ -58,6 +58,7 @@ const emptyTables = (): TablesData => ({
   hurtboxes: new Map(),
   powers: new Map(),
   levels: new Map(),
+  stats: new Map(),
 });
 
 const emptyIngested = (): Ingested => ({ tables: emptyTables(), descs: [] });
@@ -120,7 +121,26 @@ const ingestTables = (tables: TablesData, node: XmlNode): void => {
   const heroId = parseId(field(node, "HeroID"));
   const heroName = field(node, "HeroName");
   if (heroId !== undefined && heroName !== undefined) {
-    tables.heroes.set(heroId, { id: heroId, name: heroName });
+    tables.heroes.set(heroId, {
+      id: heroId,
+      name: heroName,
+      strength: parseNum(field(node, "Strength")),
+      dexterity: parseNum(field(node, "Dexterity")),
+      weight: parseNum(field(node, "Weight")),
+      speed: parseNum(field(node, "Speed")),
+    });
+  }
+
+  const statName = field(node, "StatName");
+  if (statName !== undefined && statName !== "Template") {
+    const xmlRecover = parseNum(field(node, "RecoverMod"));
+    tables.stats.set(statName, {
+      name: statName,
+      runSpeed: parseNum(field(node, "RunSpeed")),
+      impulseMult: parseNum(field(node, "ImpulseMult")),
+      recoverMod: xmlRecover !== undefined && xmlRecover !== 0 ? 1 / xmlRecover : undefined,
+      recovery: parseNum(field(node, "Recovery")),
+    });
   }
 
   const hurtName = field(node, "HurtboxName");
@@ -145,10 +165,12 @@ const ingestTables = (tables: TablesData, node: XmlNode): void => {
 };
 
 const parseLine = (node: XmlNode, type: 1 | 2): CollisionLine | undefined => {
-  const startX = parseNum(field(node, "X1"));
-  const startY = parseNum(field(node, "Y1"));
-  const endX = parseNum(field(node, "X2"));
-  const endY = parseNum(field(node, "Y2"));
+  const x = parseNum(field(node, "X"));
+  const y = parseNum(field(node, "Y"));
+  const startX = parseNum(field(node, "X1")) ?? x;
+  const startY = parseNum(field(node, "Y1")) ?? y;
+  const endX = parseNum(field(node, "X2")) ?? x;
+  const endY = parseNum(field(node, "Y2")) ?? y;
   if (startX === undefined || startY === undefined || endX === undefined || endY === undefined) {
     return undefined;
   }
@@ -259,6 +281,10 @@ export class GameData extends Context.Service<
           (name) =>
             Effect.gen(function* () {
               const filePath = path.join(dataPath, name);
+              if (isSwzPath(name)) {
+                yield* ingestSwz(ingested, filePath);
+                return;
+              }
               const content = yield* fs
                 .readFileString(filePath)
                 .pipe(Effect.orElseSucceed(() => undefined));
@@ -280,7 +306,9 @@ export class GameData extends Context.Service<
         const entries = yield* codec.decompile(bytes, key);
         yield* Effect.forEach(entries, (entry, index) => {
           if (!looksLikeXml(entry.content)) return Effect.void;
-          return ingestXml(ingested, entry.content, `${dataPath}#${index}`);
+          return ingestXml(ingested, entry.content, `${dataPath}#${index}`).pipe(
+            Effect.catchTag("MalformedXml", () => Effect.void),
+          );
         });
       });
 

@@ -43,6 +43,15 @@ export type FighterState = {
   lastHitBy: number | undefined;
   /** Elapsed frames of the current unarmed nlight; 0 = idle. */
   attackFrames?: number;
+  heroId?: number;
+  /** Dump `class_576` Speed.RunSpeed; grounded walk. */
+  runSpeed?: number;
+  /** Dump `class_576` Strength.ImpulseMult. */
+  impulseMult?: number;
+  /** Dump `class_576` Dexterity.RecoverMod stored as `1 / xml`. */
+  recoverMod?: number;
+  /** Dump `class_576` Weight.Recovery (UI Defense). */
+  recovery?: number;
 };
 
 export type MatchState = {
@@ -79,10 +88,25 @@ export type SimResults = {
 };
 
 export type ScoringRow = { id: number; name: string };
-export type HeroRow = { id: number; name: string };
+export type HeroRow = {
+  id: number;
+  name: string;
+  strength?: number;
+  dexterity?: number;
+  /** Dump XML `Weight` — UI Defense. */
+  weight?: number;
+  speed?: number;
+};
 export type HurtboxRow = { name: string; width: number; height: number };
 export type PowerRow = { id: number; name: string };
 export type LevelRow = { id: number; name: string };
+export type StatRow = {
+  name: string;
+  runSpeed?: number;
+  impulseMult?: number;
+  recoverMod?: number;
+  recovery?: number;
+};
 
 export type TablesData = {
   scoring: Map<number, ScoringRow>;
@@ -90,6 +114,7 @@ export type TablesData = {
   hurtboxes: Map<string, HurtboxRow>;
   powers: Map<number, PowerRow>;
   levels: Map<number, LevelRow>;
+  stats: Map<string, StatRow>;
 };
 
 export type LevelCollisionData = {
