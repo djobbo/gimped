@@ -1,18 +1,72 @@
 import type { Replay } from "@gimped/replay";
-import type { LevelCollisionData, TablesData } from "./domain.ts";
+import type { ItemRow, LevelCollisionData, PowerRow, TablesData } from "./domain.ts";
 
 type Cosmetics = Replay["players"][number]["cosmetics"];
 
-export const stockTables = (): TablesData => ({
-  scoring: new Map([[1, { id: 1, name: "Stock" }]]),
-  heroes: new Map([[3, { id: 3, name: "Bodvar" }]]),
-  hurtboxes: new Map([["DEFAULT", { name: "DEFAULT", width: 50, height: 80 }]]),
-  powers: new Map(),
-  powersByName: new Map(),
-  items: new Map(),
-  levels: new Map([[12, { id: 12, name: "Box" }]]),
-  stats: new Map(),
-});
+/** Dump Unarmed `itemTypes.csv` slots 1–11 (spec kit table). */
+const unarmedSlots = (): Map<number, string> =>
+  new Map([
+    [1, "BaseNeutral"],
+    [2, "BaseSide"],
+    [3, "BaseDown"],
+    [4, "BaseAir"],
+    [5, "BaseAirSide"],
+    [6, "BaseAirDown"],
+    [7, "BaseSmashSide"],
+    [8, "BaseSmashDown"],
+    [9, "BaseAirUpHeavy"],
+    [10, "BaseGroundPound"],
+    [11, "BaseSmashUp"],
+  ]);
+
+/** Minimal PowerRows; BaseNeutral keeps dump nlight combat numbers for Combat tests. */
+const kitPowers = (): Map<string, PowerRow> => {
+  const baseNeutral: PowerRow = {
+    id: 1,
+    name: "BaseNeutral",
+    startup: 5,
+    active: 2,
+    recover: 3,
+    damage: 3,
+    fixedImpulse: 25,
+    stun: 17,
+    centerOffsetX: 76,
+    centerOffsetY: 4,
+    aoeX: 45,
+    aoeY: 33,
+    impulseOffsetX: 100,
+    impulseOffsetY: -48,
+  };
+  const named = (id: number, name: string): PowerRow => ({ id, name });
+  return new Map([
+    ["BaseNeutral", baseNeutral],
+    ["BaseSide", named(2, "BaseSide")],
+    ["BaseDown", named(3, "BaseDown")],
+    ["BaseAir", named(4, "BaseAir")],
+    ["BaseAirSide", named(5, "BaseAirSide")],
+    ["BaseAirDown", named(6, "BaseAirDown")],
+    ["BaseSmashSide", named(7, "BaseSmashSide")],
+    ["BaseSmashDown", named(8, "BaseSmashDown")],
+    ["BaseAirUpHeavy", named(9, "BaseAirUpHeavy")],
+    ["BaseGroundPound", named(10, "BaseGroundPound")],
+    ["BaseSmashUp", named(11, "BaseSmashUp")],
+  ]);
+};
+
+export const stockTables = (): TablesData => {
+  const powersByName = kitPowers();
+  const unarmed: ItemRow = { name: "Unarmed", slots: unarmedSlots() };
+  return {
+    scoring: new Map([[1, { id: 1, name: "Stock" }]]),
+    heroes: new Map([[3, { id: 3, name: "Bodvar" }]]),
+    hurtboxes: new Map([["DEFAULT", { name: "DEFAULT", width: 50, height: 80 }]]),
+    powers: new Map([...powersByName.values()].map((row) => [row.id, row])),
+    powersByName,
+    items: new Map([["Unarmed", unarmed]]),
+    levels: new Map([[12, { id: 12, name: "Box" }]]),
+    stats: new Map(),
+  };
+};
 
 export const boxStage = (): LevelCollisionData => ({
   levelId: 12,

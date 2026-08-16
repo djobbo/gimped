@@ -10,8 +10,8 @@ import { Match } from "./Match.ts";
 import { Rng } from "./Rng.ts";
 import { Tables } from "./Tables.ts";
 
-/** Dump `class_288.as:1298` — `param2 & 32` starts unarmed light (`InputBits.attack`). */
-const ATTACK_BIT = InputBits.attack;
+/** Dump `class_288` — just-pressed light (128) starts unarmed lights. */
+const ATTACK_BIT = InputBits.light;
 /** Dump `powerTypes.csv` BaseNeutral `CastTime` `5:2@2-2` — startup 5 + active 2. */
 const STARTUP_PLUS_ACTIVE = 7;
 
@@ -170,6 +170,51 @@ layer(Live)("Combat", (it) => {
       const state = yield* match.get();
       const victim = state.fighters.find((f) => f.entityId === 2)!;
       expect(victim.damage).toBe(0);
+    }),
+  );
+
+  it.effect("slight and nlight select different Unarmed powers", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: -80, input: InputBits.light | InputBits.right }),
+        fighter(2, 2, { x: 80, input: InputBits.light }),
+      ]);
+      yield* combat.step();
+      const state = yield* match.get();
+      const slight = state.fighters.find((f) => f.entityId === 1)!;
+      const nlight = state.fighters.find((f) => f.entityId === 2)!;
+      expect(slight.attackPower).toBe("BaseSide");
+      expect(nlight.attackPower).toBe("BaseNeutral");
+    }),
+  );
+
+  it.effect("airborne light selects BaseAir", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [
+        fighter(1, 1, { grounded: false, y: -80, input: InputBits.light }),
+        fighter(2, 2, { x: 400 }),
+      ]);
+      yield* combat.step();
+      const state = yield* match.get();
+      expect(state.fighters.find((f) => f.entityId === 1)?.attackPower).toBe("BaseAir");
+    }),
+  );
+
+  it.effect("grounded heavy selects BaseSmashUp", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [fighter(1, 1, { input: InputBits.heavy }), fighter(2, 2, { x: 400 })]);
+      yield* combat.step();
+      const state = yield* match.get();
+      expect(state.fighters.find((f) => f.entityId === 1)?.attackPower).toBe("BaseSmashUp");
     }),
   );
 });

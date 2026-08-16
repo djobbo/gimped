@@ -54,8 +54,10 @@ export type FighterState = {
   stun: number;
   ko: boolean;
   lastHitBy: number | undefined;
-  /** Elapsed frames of the current unarmed nlight; 0 = idle. */
+  /** Elapsed frames of the current power; 0 = idle. */
   attackFrames?: number;
+  /** PowerName selected when the current attack started. */
+  attackPower?: string;
   heroId?: number;
   /** Dump `class_576` Speed.RunSpeed; grounded walk. */
   runSpeed?: number;
