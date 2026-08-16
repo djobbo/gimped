@@ -35,20 +35,21 @@ Per-frame positions are still not a golden.
 | Power timings / boxes | `PowerType.as` (`CastTime`, `RecoverTime`, `BaseDamage`, `FixedImpulse`, `FixedStunTime`, offsets/AoE) |
 | Stats already in sim | `class_576` Speed `RunSpeed`, Strength `ImpulseMult`, Dexterity `RecoverMod` (`1 / xml`), Weight `Recovery` |
 
-Replay 14-bit mask (held, recorded on change). This fixture’s rows use bits 16, 32, 64, 128, 256, 512 plus the direction nibble. Spec 1 implements actions for 16 / 32 / 64 / 256 / 512. Bit 128 stays on the mask; no extra action beyond dump hold-to-charge if we already read the mask. Taunt is a no-op.
+Replay 14-bit mask (held, recorded on change). This fixture’s rows use bits 16, 32, 64, 128, 256, 512 plus the direction nibble. Spec 1 implements actions for 16 / 64 / 128 / 256 / 512. Bit 32 is used inside `method_8993` as the neutral-vs-side check on the snapshot mask; do not start attacks on bit 32 alone. Taunt is a no-op.
 
 ### Input bits
 
-| Bit | Meaning in this spec |
-| --- | --- |
-| 1 | up |
-| 2 | down (fast-fall airborne; drop-through; dlight/dheavy direction) |
-| 4 / 8 | left / right |
-| 16 | jump (`class_123.method_5226`), **just pressed** |
-| 32 | light |
-| 64 | dodge; grounded directional dodge is a **dash** |
-| 256 | heavy |
-| 512 | throw (`method_4771` / `method_8698`) |
+| Bit | Dump | Sim `InputBits` |
+| --- | --- | --- |
+| 1 | up | `up` |
+| 2 | down (fast-fall airborne; drop-through; dlight/dheavy direction) | `down` |
+| 4 / 8 | left / right | `left` / `right` |
+| 16 | `method_5226` jump | `jump` |
+| 32 | used **inside** `method_8993` as neutral-vs-side on the snapshot mask | `attack` (inner check only; do not start attacks on 32) |
+| 64 | `method_8993(..., param4=6)` heavy | `heavy` |
+| 128 | `method_8993(..., param4=0)` light | `light` |
+| 256 | `method_84` dodge | `dodge` |
+| 512 | throw / `method_4771` | `throw` |
 
 Edge detect: previous mask vs current mask on the fighter. No `class_288` 5–7 frame input buffer in this spec.
 
@@ -64,7 +65,7 @@ No new service. `MatchRules` still rejects `weaponSpawnRateId !== 0` or `gadgetS
 | `Fighter` | Jump (ground / air / wall / dash-jump), dodge/dash, fast-fall, wall cling. |
 | `Collision` | Keep horizontal floors. Add **vertical** hard walls (`startX === endX`). |
 | `Combat` | Select Unarmed powers via `var_2268`; timings from `Tables` PowerType rows. |
-| `GameData` | Parse Unarmed `ItemType` slots + PowerType combat fields. |
+| `GameData` | Parse Unarmed `ItemType` slots + PowerType combat fields from `itemTypes.csv` / `powerTypes.csv` in `Game.swz` via `CsvCodec`. |
 | `Items` | Still no-op. |
 | Fixture test | Legal STOCK end; not file `2–1` / duration. |
 

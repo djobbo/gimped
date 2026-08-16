@@ -43,6 +43,7 @@ export class Input extends Context.Service<
         yield* match.modify((s) => {
           for (const fighter of s.fighters) {
             const row = latestByEntity.get(fighter.entityId);
+            fighter.prevInput = fighter.input;
             fighter.input = row?.input;
           }
         });

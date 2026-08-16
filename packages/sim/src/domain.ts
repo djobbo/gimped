@@ -1,6 +1,18 @@
 import type { Replay } from "@gimped/replay";
 
-export const InputBits = { up: 1, down: 2, left: 4, right: 8, attack: 32 } as const;
+export const InputBits = {
+  up: 1,
+  down: 2,
+  left: 4,
+  right: 8,
+  jump: 16,
+  /** Inner `class_288.method_8993` `(param2 & 32)` — not the replay light button. */
+  attack: 32,
+  heavy: 64,
+  light: 128,
+  dodge: 256,
+  throw: 512,
+} as const;
 
 export type CollisionLine = {
   startX: number;
@@ -36,6 +48,7 @@ export type FighterState = {
   damage: number;
   score: number;
   input: number | undefined;
+  prevInput?: number;
   hurtW: number;
   hurtH: number;
   stun: number;
