@@ -65,6 +65,7 @@ export class Fighter extends Context.Service<
           const bits = fighter.input ?? 0;
           const prevBits = fighter.prevInput ?? 0;
           const jumpPressed = (bits & InputBits.jump) !== 0 && (prevBits & InputBits.jump) === 0;
+          let wallJumped = false;
           if (jumpPressed && fighter.stun <= 0 && !fighter.ko) {
             const wall = yield* collision.wallAt(fighter.x, fighter.y);
             fighter.wallSide = wall !== undefined ? (fighter.x >= wall.startX ? 1 : -1) : 0;
@@ -76,6 +77,7 @@ export class Fighter extends Context.Service<
               fighter.vy -= JUMP_WALL_Y;
               fighter.vx = -JUMP_WALL_X * fighter.wallSide;
               fighter.grounded = false;
+              wallJumped = true;
             } else if ((fighter.airJumpsUsed ?? 0) < AIR_JUMPS) {
               fighter.vy -= JUMP_AIR;
               fighter.airJumpsUsed = (fighter.airJumpsUsed ?? 0) + 1;
@@ -108,12 +110,16 @@ export class Fighter extends Context.Service<
             const speed = fighter.runSpeed ?? GROUND_SPEED;
             if ((bits & InputBits.left) !== 0) {
               fighter.x -= speed * DT;
-              fighter.vx = -speed;
+              if (!wallJumped) {
+                fighter.vx = -speed;
+              }
               fighter.facingLeft = true;
             }
             if ((bits & InputBits.right) !== 0) {
               fighter.x += speed * DT;
-              fighter.vx = speed;
+              if (!wallJumped) {
+                fighter.vx = speed;
+              }
               fighter.facingLeft = false;
             }
           }

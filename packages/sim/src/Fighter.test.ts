@@ -307,4 +307,41 @@ layer(Live)("Fighter", (it) => {
       expect(state.fighters[0]?.vy).toBeLessThan(0);
     }),
   );
+
+  it.effect("wall jump keeps dump vx when direction is also held", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+      const wall = { startX: 0, startY: -80, endX: 0, endY: 0, type: 1 as const };
+      // On/right of wall → wallSide 1 → vx = -48 (away). Holding right would otherwise set vx = runSpeed.
+      const JUMP_WALL_X = 48;
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            x: 0,
+            y: -40,
+            grounded: false,
+            runSpeed: 30,
+            input: InputBits.jump | InputBits.right,
+            prevInput: 0,
+          }),
+        ],
+        lines: [...stage.lines, wall],
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      expect(state.fighters[0]?.vx).toBe(-JUMP_WALL_X);
+      expect(state.fighters[0]?.vx).not.toBe(30);
+    }),
+  );
 });
