@@ -114,6 +114,10 @@ export class Combat extends Context.Service<
           if (frames === 0) {
             const bits = attacker.input ?? 0;
             const prev = attacker.prevInput ?? 0;
+            // Spec 1: Unarmed has no throw power — just-pressed throw is a documented no-op.
+            if (justPressed(bits, prev, InputBits.throw)) {
+              /* no item spawn / no attack start from throw alone */
+            }
             const lightEdge = justPressed(bits, prev, InputBits.light);
             const heavyEdge = justPressed(bits, prev, InputBits.heavy);
             if (!lightEdge && !heavyEdge) {

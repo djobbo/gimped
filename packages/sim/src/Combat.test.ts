@@ -217,4 +217,16 @@ layer(Live)("Combat", (it) => {
       expect(state.fighters.find((f) => f.entityId === 1)?.attackPower).toBe("BaseSmashUp");
     }),
   );
+
+  it.effect("throw bit does not add entities", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+      yield* seed(match, [fighter(1, 1, { input: InputBits.throw }), fighter(2, 2, { x: 40 })]);
+      yield* combat.step();
+      const state = yield* match.get();
+      expect(state.fighters.length).toBe(2);
+      expect(state.fighters.every((f) => (f.attackFrames ?? 0) === 0)).toBe(true);
+    }),
+  );
 });
