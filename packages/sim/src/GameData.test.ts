@@ -183,6 +183,39 @@ layer(Live)("GameData", (it) => {
       expect(loaded.tables.heroes.get(15)?.dexterity).not.toBe(
         loaded.tables.heroes.get(22)?.dexterity,
       );
+      expect(loaded.tables.items.get("Unarmed")?.slots.get(1)).toBe("BaseNeutral");
+      expect(loaded.tables.powersByName.get("BaseNeutral")?.name).toBe("BaseNeutral");
+    }),
+  );
+
+  it.effect("parses itemTypes and powerTypes CSV for Unarmed kit", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectory({ prefix: "sim-gamedata-" });
+      yield* fs.writeFileString(path.join(dir, "ScoringTypes.xml"), scoringTypesXml);
+      yield* fs.writeFileString(path.join(dir, "HeroTypes.xml"), heroTypesXml);
+      yield* fs.writeFileString(path.join(dir, "LevelTypes.xml"), levelTypesXml);
+      yield* fs.writeFileString(path.join(dir, "LevelDesc_Box.xml"), levelDescXml);
+      yield* fs.writeFileString(
+        path.join(dir, "itemTypes.csv"),
+        `itemTypes
+ItemName,PowerType_Combo1,PowerType_Forward
+Unarmed,BaseNeutral,BaseSide
+`,
+      );
+      yield* fs.writeFileString(
+        path.join(dir, "powerTypes.csv"),
+        `powerTypes
+PowerName,PowerID,CastTime,RecoverTime,BaseDamage,FixedImpulse,FixedStunTime,CenterOffsetX,CenterOffsetY,AoERadiusX,AoERadiusY,ImpulseOffsetX,ImpulseOffsetY
+BaseNeutral,1,5:2@2-2,3,3,25,17,76,4,45,33,100,-48
+`,
+      );
+      const data = yield* GameData;
+      const loaded = yield* data.load(dir, 12);
+      expect(loaded.tables.items.get("Unarmed")?.slots.get(1)).toBe("BaseNeutral");
+      expect(loaded.tables.powersByName.get("BaseNeutral")?.startup).toBe(5);
+      expect(loaded.tables.powersByName.get("BaseNeutral")?.active).toBe(2);
     }),
   );
 });

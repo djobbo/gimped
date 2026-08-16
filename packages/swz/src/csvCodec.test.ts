@@ -18,6 +18,21 @@ layer(CsvCodecLive)("csvCodec", (it) => {
     }),
   );
 
+  it.effect("parses quoted cells that contain newlines", () =>
+    Effect.gen(function* () {
+      const native = 'MyTable\na,b\n1,"x\ny"\n2,z\n';
+      const data = yield* csvToJson(native, "MyTable.csv");
+      expect(data).toEqual({
+        name: "MyTable",
+        headers: ["a", "b"],
+        rows: [
+          { a: "1", b: "x\ny" },
+          { a: "2", b: "z" },
+        ],
+      });
+    }),
+  );
+
   it.effect("canonicalizes CSV without a trailing newline to always end with one", () =>
     Effect.gen(function* () {
       const native = "MyTable\na,b\n1,2";

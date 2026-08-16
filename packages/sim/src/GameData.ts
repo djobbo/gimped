@@ -1,10 +1,12 @@
 import { toIoError, type IoError } from "@gimped/common";
 import {
+  CsvCodec,
   SwzCodec,
   VersionKeys,
   XmlCodec,
   type ChecksumMismatch,
   type InvalidSwz,
+  type MalformedCsv,
   type MalformedXml,
   type UnknownVersion,
   type XmlNode,
@@ -48,6 +50,7 @@ export type GameDataLoadError =
   | MissingTables
   | MissingCollision
   | MalformedXml
+  | MalformedCsv
   | ChecksumMismatch
   | InvalidSwz
   | UnknownVersion;
@@ -57,6 +60,8 @@ const emptyTables = (): TablesData => ({
   heroes: new Map(),
   hurtboxes: new Map(),
   powers: new Map(),
+  powersByName: new Map(),
+  items: new Map(),
   levels: new Map(),
   stats: new Map(),
 });
@@ -109,7 +114,39 @@ const asNodes = (value: XmlValue | undefined): XmlNode[] => {
 
 const looksLikeXml = (content: string): boolean => content.trimStart().startsWith("<");
 
+const looksLikeCsv = (content: string): boolean => {
+  const first = content.trimStart().split(/\r?\n/, 1)[0] ?? "";
+  return first.length > 0 && !first.startsWith("<");
+};
+
 const isSwzPath = (dataPath: string): boolean => dataPath.toLowerCase().endsWith(".swz");
+
+const SLOT_COLS: Array<[number, string]> = [
+  [1, "PowerType_Combo1"],
+  [2, "PowerType_Forward"],
+  [3, "PowerType_Down"],
+  [4, "PowerType_Aerial"],
+  [5, "PowerType_Aerial_Forward"],
+  [6, "PowerType_Aerial_Down"],
+  [7, "PowerType_Smash_Forward"],
+  [8, "PowerType_Smash_Down"],
+  [9, "PowerType_Smash_Aerial_Up"],
+  [10, "PowerType_Smash_Aerial_Down"],
+  [11, "PowerType_Smash_Neutral"],
+];
+
+type CastTimeParts = {
+  readonly startup?: number;
+  readonly active?: number;
+};
+
+const parseCastTime = (raw: string | undefined): CastTimeParts => {
+  if (raw === undefined || raw === "" || raw.startsWith("time")) return {};
+  const [head, rest] = raw.split(":");
+  const startup = parseNum(head);
+  const active = parseNum(rest?.split("@")[0]);
+  return { startup, active };
+};
 
 const ingestTables = (tables: TablesData, node: XmlNode): void => {
   const scoringId = parseId(field(node, "ScoringID") ?? field(node, "ScoringTypeID"));
@@ -150,10 +187,42 @@ const ingestTables = (tables: TablesData, node: XmlNode): void => {
     tables.hurtboxes.set(hurtName, { name: hurtName, width, height });
   }
 
+  const itemName = field(node, "ItemName");
+  if (itemName !== undefined && itemName !== "" && itemName !== "XLTemplate") {
+    const slots = new Map<number, string>();
+    for (const [slot, col] of SLOT_COLS) {
+      const power = field(node, col);
+      if (power !== undefined && power !== "" && power !== "--") {
+        slots.set(slot, power);
+      }
+    }
+    if (slots.size > 0) {
+      tables.items.set(itemName, { name: itemName, slots });
+    }
+  }
+
   const powerId = parseId(field(node, "PowerID"));
   const powerName = field(node, "PowerName");
   if (powerId !== undefined && powerName !== undefined) {
-    tables.powers.set(powerId, { id: powerId, name: powerName });
+    const cast = parseCastTime(field(node, "CastTime"));
+    const row = {
+      id: powerId,
+      name: powerName,
+      startup: cast.startup,
+      active: cast.active,
+      recover: parseNum(field(node, "RecoverTime")),
+      damage: parseNum(field(node, "BaseDamage")),
+      fixedImpulse: parseNum(field(node, "FixedImpulse")),
+      stun: parseNum(field(node, "FixedStunTime")),
+      centerOffsetX: firstCsvNum(field(node, "CenterOffsetX")),
+      centerOffsetY: firstCsvNum(field(node, "CenterOffsetY")),
+      aoeX: firstCsvNum(field(node, "AoERadiusX")),
+      aoeY: firstCsvNum(field(node, "AoERadiusY")),
+      impulseOffsetX: firstCsvNum(field(node, "ImpulseOffsetX")),
+      impulseOffsetY: firstCsvNum(field(node, "ImpulseOffsetY")),
+    };
+    tables.powers.set(powerId, row);
+    tables.powersByName.set(powerName, row);
   }
 
   const levelId = parseId(field(node, "LevelID"));
@@ -259,6 +328,7 @@ export class GameData extends Context.Service<
       const codec = yield* SwzCodec;
       const versionKeys = yield* VersionKeys;
       const xml = yield* XmlCodec;
+      const csv = yield* CsvCodec;
 
       const ingestXml = Effect.fn("GameData.ingestXml")(function* (
         ingested: Ingested,
@@ -267,6 +337,18 @@ export class GameData extends Context.Service<
       ) {
         const data = yield* xml.xmlToJson(content, filePath);
         walk(ingested, data.root);
+      });
+
+      const ingestCsv = Effect.fn("GameData.ingestCsv")(function* (
+        ingested: Ingested,
+        content: string,
+        filePath: string,
+      ) {
+        const data = yield* csv.csvToJson(content, filePath);
+        for (const row of data.rows) {
+          // SAFETY: CSV rows are flat string maps; field()/attr() only read string|number keys like XmlNode attrs.
+          ingestTables(ingested.tables, row as XmlNode);
+        }
       });
 
       const ingestDirectory = Effect.fn("GameData.ingestDirectory")(function* (
@@ -288,10 +370,18 @@ export class GameData extends Context.Service<
               const content = yield* fs
                 .readFileString(filePath)
                 .pipe(Effect.orElseSucceed(() => undefined));
-              if (content === undefined || !looksLikeXml(content)) return;
-              yield* ingestXml(ingested, content, filePath);
+              if (content === undefined) return;
+              if (looksLikeXml(content)) {
+                yield* ingestXml(ingested, content, filePath);
+                return;
+              }
+              if (looksLikeCsv(content)) {
+                yield* ingestCsv(ingested, content, filePath).pipe(
+                  Effect.catchTag("MalformedCsv", () => Effect.void),
+                );
+              }
             }),
-          { concurrency: "unbounded" },
+          { concurrency: 1 },
         );
       });
 
@@ -304,12 +394,24 @@ export class GameData extends Context.Service<
           .pipe(Effect.mapError((error) => toIoError(dataPath, error)));
         const key = yield* versionKeys.resolveKey("latest");
         const entries = yield* codec.decompile(bytes, key);
-        yield* Effect.forEach(entries, (entry, index) => {
-          if (!looksLikeXml(entry.content)) return Effect.void;
-          return ingestXml(ingested, entry.content, `${dataPath}#${index}`).pipe(
-            Effect.catchTag("MalformedXml", () => Effect.void),
-          );
-        });
+        yield* Effect.forEach(
+          entries,
+          (entry, index) => {
+            const entryPath = `${dataPath}#${index}`;
+            if (looksLikeXml(entry.content)) {
+              return ingestXml(ingested, entry.content, entryPath).pipe(
+                Effect.catchTag("MalformedXml", () => Effect.void),
+              );
+            }
+            if (looksLikeCsv(entry.content)) {
+              return ingestCsv(ingested, entry.content, entryPath).pipe(
+                Effect.catchTag("MalformedCsv", () => Effect.void),
+              );
+            }
+            return Effect.void;
+          },
+          { concurrency: 1 },
+        );
       });
 
       const load = Effect.fn("GameData.load")(function* (dataPath: string, levelId: number) {
@@ -331,5 +433,6 @@ export class GameData extends Context.Service<
     Layer.provide(SwzCodec.Default),
     Layer.provide(VersionKeys.layer),
     Layer.provide(XmlCodec.layer),
+    Layer.provide(CsvCodec.layer),
   );
 }

@@ -119,7 +119,23 @@ export type HeroRow = {
   speed?: number;
 };
 export type HurtboxRow = { name: string; width: number; height: number };
-export type PowerRow = { id: number; name: string };
+export type PowerRow = {
+  id: number;
+  name: string;
+  startup?: number;
+  active?: number;
+  recover?: number;
+  damage?: number;
+  fixedImpulse?: number;
+  stun?: number;
+  centerOffsetX?: number;
+  centerOffsetY?: number;
+  aoeX?: number;
+  aoeY?: number;
+  impulseOffsetX?: number;
+  impulseOffsetY?: number;
+};
+export type ItemRow = { name: string; slots: Map<number, string> };
 export type LevelRow = { id: number; name: string };
 export type StatRow = {
   name: string;
@@ -134,6 +150,8 @@ export type TablesData = {
   heroes: Map<number, HeroRow>;
   hurtboxes: Map<string, HurtboxRow>;
   powers: Map<number, PowerRow>;
+  powersByName: Map<string, PowerRow>;
+  items: Map<string, ItemRow>;
   levels: Map<number, LevelRow>;
   stats: Map<string, StatRow>;
 };

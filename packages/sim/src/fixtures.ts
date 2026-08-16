@@ -8,6 +8,8 @@ export const stockTables = (): TablesData => ({
   heroes: new Map([[3, { id: 3, name: "Bodvar" }]]),
   hurtboxes: new Map([["DEFAULT", { name: "DEFAULT", width: 50, height: 80 }]]),
   powers: new Map(),
+  powersByName: new Map(),
+  items: new Map(),
   levels: new Map([[12, { id: 12, name: "Box" }]]),
   stats: new Map(),
 });
