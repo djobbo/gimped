@@ -65,6 +65,10 @@ export type FighterState = {
   recoverMod?: number;
   /** Dump `class_576` Weight.Recovery (UI Defense). */
   recovery?: number;
+  /** Air jumps consumed this airborne period; reset on land. */
+  airJumpsUsed?: number;
+  /** -1 left of wall, 1 on/right of wall, 0 none. */
+  wallSide?: -1 | 0 | 1;
 };
 
 export type MatchState = {

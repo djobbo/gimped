@@ -195,4 +195,116 @@ layer(Live)("Fighter", (it) => {
       expect(heavySpeed).toBeLessThan(lightSpeed);
     }),
   );
+
+  it.effect("ground jump leaves the floor with upward vy", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [fighter({ y: 0, grounded: true, input: InputBits.jump, prevInput: 0 })],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      expect(state.fighters[0]?.vy).toBeLessThan(0);
+      expect(state.fighters[0]?.grounded).toBe(false);
+    }),
+  );
+
+  it.effect("allows two air jumps then ignores a third", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      const pressJump = (airJumpsUsed: number) =>
+        match.replace({
+          timeMs: 0,
+          gameSpeed: 100,
+          ended: false,
+          fighters: [
+            fighter({
+              y: -80,
+              grounded: false,
+              airJumpsUsed,
+              input: InputBits.jump,
+              prevInput: 0,
+              vy: 0,
+            }),
+          ],
+          lines: stage.lines,
+          spawns: stage.spawns,
+          bounds: stage.bounds,
+          startingLives: 3,
+          inputs: [],
+        });
+
+      yield* pressJump(0);
+      yield* kinematics.step();
+      let state = yield* match.get();
+      expect(state.fighters[0]?.airJumpsUsed).toBe(1);
+      expect(state.fighters[0]?.vy).toBeLessThan(0);
+
+      yield* pressJump(1);
+      yield* kinematics.step();
+      state = yield* match.get();
+      expect(state.fighters[0]?.airJumpsUsed).toBe(2);
+      expect(state.fighters[0]?.vy).toBeLessThan(0);
+
+      // Gravity-only control (no jump press).
+      const GRAVITY = 3.75;
+      const DT = 0.384;
+      const gravityOnlyVy = 0 + GRAVITY * DT;
+
+      yield* pressJump(2);
+      yield* kinematics.step();
+      state = yield* match.get();
+      expect(state.fighters[0]?.airJumpsUsed).toBe(2);
+      expect(state.fighters[0]?.vy).toBeCloseTo(gravityOnlyVy, 5);
+    }),
+  );
+
+  it.effect("wall jump pushes away from the wall with upward vy", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+      const wall = { startX: 0, startY: -80, endX: 0, endY: 0, type: 1 as const };
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            x: 0,
+            y: -40,
+            grounded: false,
+            input: InputBits.jump,
+            prevInput: 0,
+          }),
+        ],
+        lines: [...stage.lines, wall],
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      expect(state.fighters[0]?.vx).not.toBe(0);
+      expect(state.fighters[0]?.vy).toBeLessThan(0);
+    }),
+  );
 });
