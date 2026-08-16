@@ -69,6 +69,10 @@ export type FighterState = {
   airJumpsUsed?: number;
   /** -1 left of wall, 1 on/right of wall, 0 none. */
   wallSide?: -1 | 0 | 1;
+  /** Remaining dodge invuln frames; `> 0` skips Combat hits. */
+  dodgeFrames?: number;
+  /** Set on grounded side dodge; enables dash-jump until dodge ends. */
+  dashing?: boolean;
 };
 
 export type MatchState = {

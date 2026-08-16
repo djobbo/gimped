@@ -23,6 +23,20 @@ const JUMP_WALL_Y = 53;
 const JUMP_WALL_X = 48;
 /** Dump `class_123.method_2869` — max air jumps. */
 const AIR_JUMPS = 2;
+/** Dump `class_123.method_5226` dash branch — dash-jump Y impulse. */
+const JUMP_DASH = 170;
+/** Dump `class_123.method_5226` dash branch — max |vx| after dash-jump. */
+const JUMP_DASH_VX_CAP = 66;
+/** Dump `class_123.as:3656-3658` — default max fall speed. */
+const FALL_SPEED_CAP = 70;
+/** Dump `class_123.as:3656-3658` — fast-fall max while holding down. */
+const FALL_SPEED_CAP_FAST = 85;
+/** Dump `DodgeType` `StandardSpot` grounded no-side duration. */
+const DODGE_GROUND_SPOT = 18;
+/** Dump `DodgeType` `StandardSide` grounded/air side duration. */
+const DODGE_SIDE = 14;
+/** Dump `DodgeType` `AerialSpot` airborne no-side duration. */
+const DODGE_AIR_SPOT = 22;
 
 const lineTop = (line: CollisionLine) => Math.min(line.startY, line.endY);
 
@@ -59,6 +73,13 @@ export class Fighter extends Context.Service<
                 fighter.vy = 0;
               }
             }
+            // Dump `class_123.as:3656-3658` — fall-speed cap after gravity, before jump.
+            const bitsForFall = fighter.input ?? 0;
+            const fallCap =
+              (bitsForFall & InputBits.down) !== 0 ? FALL_SPEED_CAP_FAST : FALL_SPEED_CAP;
+            if (fighter.vy > fallCap) {
+              fighter.vy = fallCap;
+            }
           }
 
           // Dump `class_123.method_5226` — jump on just-pressed bit 16.
@@ -71,7 +92,17 @@ export class Fighter extends Context.Service<
             fighter.wallSide = wall !== undefined ? (fighter.x >= wall.startX ? 1 : -1) : 0;
 
             if (fighter.grounded) {
-              fighter.vy -= JUMP_GROUND;
+              if (fighter.dashing) {
+                // Dump `class_123.method_5226` dash branch.
+                fighter.vy -= JUMP_DASH;
+                if (fighter.vx > JUMP_DASH_VX_CAP) {
+                  fighter.vx = JUMP_DASH_VX_CAP;
+                } else if (fighter.vx < -JUMP_DASH_VX_CAP) {
+                  fighter.vx = -JUMP_DASH_VX_CAP;
+                }
+              } else {
+                fighter.vy -= JUMP_GROUND;
+              }
               fighter.grounded = false;
             } else if (fighter.wallSide !== 0) {
               fighter.vy -= JUMP_WALL_Y;
@@ -82,6 +113,39 @@ export class Fighter extends Context.Service<
               fighter.vy -= JUMP_AIR;
               fighter.airJumpsUsed = (fighter.airJumpsUsed ?? 0) + 1;
               fighter.grounded = false;
+            }
+          }
+
+          // Dump `class_123.method_84` — dodge on just-pressed bit 256.
+          if ((fighter.dodgeFrames ?? 0) > 0) {
+            fighter.dodgeFrames = (fighter.dodgeFrames ?? 0) - 1;
+            if (fighter.dodgeFrames === 0) {
+              fighter.dashing = false;
+            }
+          } else {
+            const dodgePressed =
+              (bits & InputBits.dodge) !== 0 && (prevBits & InputBits.dodge) === 0;
+            if (dodgePressed && fighter.stun <= 0 && !fighter.ko) {
+              const holdingSide = (bits & InputBits.left) !== 0 || (bits & InputBits.right) !== 0;
+              if (fighter.grounded) {
+                fighter.dodgeFrames = holdingSide ? DODGE_SIDE : DODGE_GROUND_SPOT;
+                if (holdingSide) {
+                  fighter.dashing = true;
+                }
+              } else {
+                fighter.dodgeFrames = holdingSide ? DODGE_SIDE : DODGE_AIR_SPOT;
+              }
+              // Dump `class_123.as:8778-8780` — zero velocity on dodge start.
+              fighter.vx = 0;
+              fighter.vy = 0;
+              if (holdingSide) {
+                const speed = fighter.runSpeed ?? GROUND_SPEED;
+                if ((bits & InputBits.left) !== 0) {
+                  fighter.vx = -speed;
+                } else if ((bits & InputBits.right) !== 0) {
+                  fighter.vx = speed;
+                }
+              }
             }
           }
 

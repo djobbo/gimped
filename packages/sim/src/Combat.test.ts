@@ -152,4 +152,24 @@ layer(Live)("Combat", (it) => {
       expect(fast).toBe(0);
     }),
   );
+
+  it.effect("nlight does not hit a dodging victim", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const combat = yield* Combat;
+
+      yield* seed(match, [
+        fighter(1, 1, { x: 0, input: ATTACK_BIT }),
+        fighter(2, 2, { x: 40, dodgeFrames: 18 }),
+      ]);
+
+      for (let i = 0; i < STARTUP_PLUS_ACTIVE; i++) {
+        yield* combat.step();
+      }
+
+      const state = yield* match.get();
+      const victim = state.fighters.find((f) => f.entityId === 2)!;
+      expect(victim.damage).toBe(0);
+    }),
+  );
 });

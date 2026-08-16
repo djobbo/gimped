@@ -140,6 +140,9 @@ export class Combat extends Context.Service<
             if (victim.team === attacker.team) {
               continue;
             }
+            if ((victim.dodgeFrames ?? 0) > 0) {
+              continue;
+            }
             if (hitSet.has(victim.entityId)) {
               continue;
             }

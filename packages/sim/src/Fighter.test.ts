@@ -344,4 +344,151 @@ layer(Live)("Fighter", (it) => {
       expect(state.fighters[0]?.vx).not.toBe(30);
     }),
   );
+
+  it.effect("grounded spot dodge sets dodgeFrames 18 and zeros vy", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            y: 0,
+            grounded: true,
+            vy: 10,
+            input: InputBits.dodge,
+            prevInput: 0,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      expect(state.fighters[0]?.dodgeFrames).toBe(18);
+      expect(state.fighters[0]?.vy).toBe(0);
+    }),
+  );
+
+  it.effect("grounded side dodge sets dodgeFrames 14 and dashing", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            y: 0,
+            grounded: true,
+            input: InputBits.dodge | InputBits.right,
+            prevInput: 0,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      expect(state.fighters[0]?.dodgeFrames).toBe(14);
+      expect(state.fighters[0]?.dashing).toBe(true);
+    }),
+  );
+
+  it.effect("dash-jump uses stronger upward impulse than ground jump", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            y: 0,
+            grounded: true,
+            dashing: true,
+            input: InputBits.jump,
+            prevInput: 0,
+          }),
+        ],
+        lines: stage.lines,
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      yield* kinematics.step();
+      const state = yield* match.get();
+      // Dash-jump: vy -= 170; normal ground jump: vy -= 57.
+      expect(state.fighters[0]?.vy).toBeLessThan(-57);
+      expect(state.fighters[0]?.vy).toBeCloseTo(-170, 5);
+    }),
+  );
+
+  it.effect("fast-fall raises fall-speed cap while holding down", () =>
+    Effect.gen(function* () {
+      const match = yield* Match;
+      const kinematics = yield* Fighter;
+      const stage = boxStage();
+
+      yield* match.replace({
+        timeMs: 0,
+        gameSpeed: 100,
+        ended: false,
+        fighters: [
+          fighter({
+            entityId: 1,
+            y: -80,
+            grounded: false,
+            vy: 50,
+            input: 0,
+          }),
+          fighter({
+            entityId: 2,
+            team: 2,
+            y: -80,
+            grounded: false,
+            vy: 50,
+            input: InputBits.down,
+          }),
+        ],
+        // No floor — otherwise both land and vy resets to 0 before the cap can differ.
+        lines: [],
+        spawns: stage.spawns,
+        bounds: stage.bounds,
+        startingLives: 3,
+        inputs: [],
+      });
+
+      for (let i = 0; i < 20; i++) {
+        yield* kinematics.step();
+      }
+
+      const state = yield* match.get();
+      const normal = state.fighters.find((f) => f.entityId === 1);
+      const fast = state.fighters.find((f) => f.entityId === 2);
+      expect(fast?.vy ?? 0).toBeGreaterThan(normal?.vy ?? 0);
+      expect(normal?.vy ?? 0).toBeLessThanOrEqual(70);
+      expect(fast?.vy ?? 0).toBeLessThanOrEqual(85);
+    }),
+  );
 });
