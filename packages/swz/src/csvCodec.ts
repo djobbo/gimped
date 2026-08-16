@@ -120,9 +120,42 @@ const escapeCell = (cell: string): string => {
   return cell;
 };
 
+/** Split on newlines outside quotes so quoted cells may contain LF (Game.swz powerTypes). */
+const splitLogicalLines = (normalized: string): string[] => {
+  const lines: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized[i]!;
+    if (char === '"') {
+      if (inQuotes && normalized[i + 1] === '"') {
+        current += '""';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+        current += '"';
+      }
+      continue;
+    }
+    if (char === "\n" && !inQuotes) {
+      lines.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  if (current.length > 0) {
+    lines.push(current);
+  }
+
+  return lines;
+};
+
 const parseCsv = (content: string): CsvJsonData => {
   const normalized = content.replaceAll("\r", "");
-  const lines = normalized.split("\n");
+  const lines = splitLogicalLines(normalized);
   if (lines.at(-1) === "") {
     lines.pop();
   }

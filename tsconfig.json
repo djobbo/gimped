@@ -17,6 +17,9 @@
       "path": "./packages/replay"
     },
     {
+      "path": "./packages/sim"
+    },
+    {
       "path": "./packages/swz"
     },
     {
