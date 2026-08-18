@@ -16,6 +16,8 @@ describe("packet type table", () => {
     expect(dumpNameByType[PacketType.lobbyJoin]).toBe("var_13930");
     expect(dumpNameByType[PacketType.startMatch]).toBe("var_6923");
     expect(dumpNameByType[PacketType.assignGameServer]).toBe("var_8382");
+    expect(dumpNameByType[PacketType.matchSetup]).toBe("var_5141");
+    expect(dumpNameByType[PacketType.gameConnect]).toBe("var_3975");
   });
 
   it("prefers human aliases for known handshake types", () => {
@@ -24,6 +26,8 @@ describe("packet type table", () => {
     expect(nameForType(PacketType.customLobby)).toBe("customLobby");
     expect(nameForType(PacketType.startMatch)).toBe("startMatch");
     expect(nameForType(PacketType.assignGameServer)).toBe("assignGameServer");
+    expect(nameForType(PacketType.matchSetup)).toBe("matchSetup");
+    expect(nameForType(PacketType.gameConnect)).toBe("gameConnect");
     expect(nameForType(PacketType.loginAccepted)).toBe("loginAccepted");
     expect(nameForType(31)).toBe("var_656");
     expect(nameForType(99999)).toBe("type_99999");

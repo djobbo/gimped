@@ -1,5 +1,6 @@
 import { BitReader } from "./bitstream.ts";
 import { decodeAssignGameServer } from "./assign-game-server.ts";
+import { decodeGameConnect } from "./game-connect.ts";
 import { decodeAddBot, decodeCustomLobby, decodeLobbySettings } from "./custom-lobby.ts";
 import { decodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
@@ -37,6 +38,7 @@ export type DecodedPayload =
     }
   | { readonly _tag: "AddBot"; readonly controller: number }
   | { readonly _tag: "StartMatch" }
+  | { readonly _tag: "GameConnect"; readonly userId: number; readonly token: string }
   | {
       readonly _tag: "AssignGameServer";
       readonly userId: number;
@@ -105,6 +107,9 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
     }
     if (type === PacketType.assignGameServer) {
       return decodeAssignGameServer(payload);
+    }
+    if (type === PacketType.gameConnect) {
+      return decodeGameConnect(payload);
     }
   } catch {
     return { _tag: "Unknown" };

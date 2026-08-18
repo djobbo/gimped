@@ -34,6 +34,10 @@ export const PacketType = {
   lobbyJoin: 2449,
   /** var_8382 — backend assigns game-server host/ports (method_3206) */
   assignGameServer: 2466,
+  /** var_5141 — match setup (LinkUpdater.method_8488 → class_139.method_215) */
+  matchSetup: 10310,
+  /** var_3975 — game-server hello (class_139.method_5889) */
+  gameConnect: 10405,
   /** var_14117 — excluded from seq in method_6265 */
   seqExclude14117: 2467,
   /** var_7394 — server login challenge string */
@@ -67,6 +71,8 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.lobbySettings) return "lobbySettings";
   if (type === PacketType.lobbyJoin) return "lobbyJoin";
   if (type === PacketType.assignGameServer) return "assignGameServer";
+  if (type === PacketType.matchSetup) return "matchSetup";
+  if (type === PacketType.gameConnect) return "gameConnect";
   if (type === PacketType.loginChallenge) return "loginChallenge";
   if (type === PacketType.authRefused) return "authRefused";
   if (type === PacketType.dropOffline) return "dropOffline";
