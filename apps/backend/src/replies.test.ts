@@ -6,11 +6,6 @@ import {
   decodeLobbySettings,
   STUB_ROOM_CODE,
 } from "./custom-lobby.ts";
-import {
-  decodeAssignGameServer,
-  STUB_GAME_HOST,
-  STUB_GAME_TCP_PORT,
-} from "./assign-game-server.ts";
 import { decodePayload } from "./decode.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
@@ -89,20 +84,6 @@ describe("stub replies", () => {
     expect(replies).toHaveLength(1);
     expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
     expect(decodeAddBot(replies[0]!.payload)).toEqual({ _tag: "AddBot", controller: 5 });
-  });
-
-  it("assigns a local game server after startMatch 55 (LinkUpdater.method_3206)", () => {
-    const replies = repliesFor({
-      type: PacketType.startMatch,
-      seq: 0,
-      payload: new Uint8Array(),
-    });
-    expect(replies).toHaveLength(1);
-    expect(replies[0]?.type).toBe(PacketType.assignGameServer);
-    const assigned = decodeAssignGameServer(replies[0]!.payload);
-    expect(assigned.host).toBe(STUB_GAME_HOST);
-    expect(assigned.tcpPort).toBe(STUB_GAME_TCP_PORT);
-    expect(assigned.useNetworkNext).toBe(false);
   });
 
   it("does not reply to protocolHello", () => {

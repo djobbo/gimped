@@ -1,14 +1,14 @@
 # Next step
 
-Play in a custom room sends empty packet **55**. The stub now answers with **2466**, pointing the client at a local game-server TCP port (`127.0.0.1:23011`) plus UDP `23012`.
+Play in a custom room spawns a short-lived `game listen` child, then answers **55** with **2466** using that child's ephemeral TCP/UDP ports. The child answers **10405** with match-setup **10310**.
 
-**Right now:** create a custom room again (or stay in the current one if play is still clickable) and click **Play**. Do not expect a real match.
+**Right now:** create a custom room, optionally add a bot, and click **Play**. Expect the in-match shell, not `Error_FAILED_TRANSFER`. There is still no real match simulation.
+
+Do not queue ranked.
 
 Tell the agent whether you see:
 
-- a connecting / transferring overlay,
+- the in-match character-select / loading shell,
 - `Error_FAILED_TRANSFER` or a similar popup,
 - still no feedback,
 - or a crash / drop to offline
-
-The next slice is the game-server handshake (`10400` then match setup **10310**), not ranked or Steam-off.

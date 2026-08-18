@@ -1,11 +1,3 @@
-import {
-  encodeAssignGameServer,
-  STUB_GAME_HOST,
-  STUB_GAME_TCP_PORT,
-  STUB_GAME_TOKEN,
-  STUB_GAME_UDP_PORT,
-  STUB_LEVEL_ID,
-} from "./assign-game-server.ts";
 import { BitWriter } from "./bitstream.ts";
 import {
   decodeAddBotRequest,
@@ -14,7 +6,7 @@ import {
   settingsAckFromClient,
 } from "./custom-lobby.ts";
 import type { TcpFrame } from "./framing.ts";
-import { encodeLoginAccepted, STUB_USER_ID } from "./login-accepted.ts";
+import { encodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
 
 /** Non-empty salt for LinkUpdater.method_6530 → class_139.var_14332. */
@@ -55,23 +47,6 @@ export const repliesFor = (frame: TcpFrame): ReadonlyArray<TcpFrame> => {
     } catch {
       return [];
     }
-  }
-  if (frame.type === PacketType.startMatch) {
-    return [
-      {
-        type: PacketType.assignGameServer,
-        seq: undefined,
-        payload: encodeAssignGameServer({
-          userId: STUB_USER_ID,
-          levelId: STUB_LEVEL_ID,
-          token: STUB_GAME_TOKEN,
-          host: STUB_GAME_HOST,
-          tcpPort: STUB_GAME_TCP_PORT,
-          udpPort: STUB_GAME_UDP_PORT,
-          useNetworkNext: false,
-        }),
-      },
-    ];
   }
   return [];
 };

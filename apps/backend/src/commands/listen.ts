@@ -1,9 +1,9 @@
-import { Console, Effect, Option, Path } from "effect";
 import { NodeSocketServer } from "@effect/platform-node";
+import { Console, Effect, Option, Path } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { homedir } from "node:os";
-import { STUB_GAME_TCP_PORT } from "../assign-game-server.ts";
 import { startTshark, watchDiagnostics } from "../capture.ts";
+import { GameRuntime } from "../game-runtime.ts";
 import { createSession, packageRoot } from "../session.ts";
 import { runStub } from "../stub.ts";
 
@@ -62,18 +62,9 @@ export const listen = Command.make(
           yield* startTshark(config.port, path.join(session.dir, "capture.pcapng"));
         }
 
-        yield* Effect.all(
-          [
-            runStub(session, { label: "backend", startId: 1 }).pipe(
-              Effect.provide(NodeSocketServer.layer({ host: config.host, port: config.port })),
-            ),
-            runStub(session, { label: "game", startId: 1000 }).pipe(
-              Effect.provide(
-                NodeSocketServer.layer({ host: config.host, port: STUB_GAME_TCP_PORT }),
-              ),
-            ),
-          ],
-          { concurrency: 2 },
+        yield* runStub(session, { label: "backend", startId: 1 }).pipe(
+          Effect.provide(NodeSocketServer.layer({ host: config.host, port: config.port })),
+          Effect.provide(GameRuntime.layerChildProcess),
         );
       }),
     );
