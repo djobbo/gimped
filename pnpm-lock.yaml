@@ -276,6 +276,9 @@ importers:
 
   apps/backend:
     dependencies:
+      '@effect/platform-browser':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109(effect@4.0.0-rc.109)
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.109(effect@4.0.0-rc.109)(redis@6.2.1)
