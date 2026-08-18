@@ -274,6 +274,34 @@ importers:
         specifier: 'catalog:'
         version: 0.2.9(@types/node@26.2.0)(esbuild@0.28.2)(happy-dom@20.11.2)(typescript@7.0.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
 
+  apps/backend:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109(effect@4.0.0-rc.109)(redis@6.2.1)
+      '@gimped/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109
+    devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.109(effect@4.0.0-rc.109)(vitest@4.1.10)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.2.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.2.9(@types/node@26.2.0)(esbuild@0.28.2)(happy-dom@20.11.2)(typescript@7.0.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(happy-dom@20.11.2)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2))
+
   apps/client:
     dependencies:
       '@effect/platform-browser':
