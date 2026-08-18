@@ -39,7 +39,7 @@ const expectEmptyList = (bits: BitReader, name: string): void => {
   if (bits.readBool()) throw new RangeError(`stub customLobby expected empty ${name}`);
 };
 
-const writeRuleset = (bits: BitWriter): void => {
+export const writeTimedRuleset = (bits: BitWriter): void => {
   bits.writePackedU32(0);
   bits.writePackedU32(STUB_MAX_PLAYERS);
   bits.writePackedU32(180);
@@ -61,7 +61,7 @@ const writeSettings = (bits: BitWriter, maxPlayers: number, regionId: number): v
   bits.writePackedU32(0);
   bits.writePackedU32(1);
   bits.writePackedU24(maxPlayers);
-  writeRuleset(bits);
+  writeTimedRuleset(bits);
   bits.writePackedU32(0);
   bits.writeU8(regionId);
   bits.writePackedU24(0);
