@@ -7,7 +7,7 @@ import { PacketType } from "./packets.ts";
 const spec = { userId: 1, token: "gimped", includeBot: false };
 
 describe("game replies", () => {
-  it("answers valid 10405 with 10310", () => {
+  it("answers valid 10405 with 10310 and sync sequence", () => {
     const action = gameActionFor(
       {
         type: PacketType.gameConnect,
@@ -18,8 +18,12 @@ describe("game replies", () => {
     );
     expect(action._tag).toBe("Reply");
     if (action._tag !== "Reply") return;
-    expect(action.frames).toHaveLength(1);
-    expect(action.frames[0]?.type).toBe(PacketType.matchSetup);
+    expect(action.frames.map((frame) => frame.type)).toEqual([
+      PacketType.matchSetup,
+      PacketType.sessionSync,
+      PacketType.entitySpawn,
+      PacketType.gameServerReady,
+    ]);
     expect(decodeMatchSetup(action.frames[0]!.payload).hostUserId).toBe(1);
   });
 

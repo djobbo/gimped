@@ -1,39 +1,62 @@
 import { describe, expect, it } from "@effect/vitest";
 import { encodeGameConnect } from "./game-connect.ts";
-import { protocolActionFor } from "./game-child-protocol.ts";
+import { protocolActionFor, protocolIngest } from "./game-child-protocol.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { PacketType } from "./packets.ts";
 
 const spec = { userId: 1, token: "gimped", includeBot: false };
+const syncingState = {
+  phase: "syncingIntoMatch" as const,
+  includeBot: false,
+  connected: true,
+  tick: 0,
+  entities: [],
+};
 
 describe("game child protocol", () => {
-  it("answers valid 10405 with 10310", () => {
-    const action = protocolActionFor(
+  it("answers valid 10405 with 10310 and post-10310 sync sequence", () => {
+    const result = protocolIngest(
       {
         type: PacketType.gameConnect,
         seq: undefined,
         payload: encodeGameConnect({ userId: 1, token: "gimped" }),
       },
       spec,
+      syncingState,
     );
-    expect(action._tag).toBe("Reply");
-    if (action._tag !== "Reply") return;
-    expect(action.frames).toHaveLength(1);
-    expect(action.frames[0]?.type).toBe(PacketType.matchSetup);
-    expect(decodeMatchSetup(action.frames[0]!.payload).hostUserId).toBe(1);
+    expect(result.action._tag).toBe("Reply");
+    if (result.action._tag !== "Reply") return;
+    expect(result.action.frames.map((frame) => frame.type)).toEqual([
+      PacketType.matchSetup,
+      PacketType.sessionSync,
+      PacketType.entitySpawn,
+      PacketType.gameServerReady,
+    ]);
+    expect(decodeMatchSetup(result.action.frames[0]!.payload).hostUserId).toBe(1);
   });
 
   it("closes on token mismatch", () => {
     expect(
-      protocolActionFor(
+      protocolIngest(
         {
           type: PacketType.gameConnect,
           seq: undefined,
           payload: encodeGameConnect({ userId: 1, token: "nope" }),
         },
         spec,
-      ),
+        syncingState,
+      ).action,
     ).toEqual({ _tag: "Close" });
+  });
+
+  it("advances to activeMatch on 10403 during syncingIntoMatch", () => {
+    const result = protocolIngest(
+      { type: PacketType.postConnectAck, seq: undefined, payload: new Uint8Array() },
+      spec,
+      syncingState,
+    );
+    expect(result.nextPhase).toBe("activeMatch");
+    expect(result.action).toEqual({ _tag: "Reply", frames: [] });
   });
 
   it("echoes keepalive 12100", () => {

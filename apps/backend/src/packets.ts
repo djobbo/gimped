@@ -36,6 +36,14 @@ export const PacketType = {
   assignGameServer: 2466,
   /** var_5141 — match setup (LinkUpdater.method_8488 → class_139.method_215) */
   matchSetup: 10310,
+  /** var_3 — session sync (LinkUpdater.method_8595) */
+  sessionSync: 10311,
+  /** var_7923 — entity spawn snapshot (LinkUpdater.method_289) */
+  entitySpawn: 10312,
+  /** var_3324 — game-server ready (LinkUpdater.method_4718) */
+  gameServerReady: 10313,
+  /** var_8410 — empty post-connect ack (class_139.method_673) */
+  postConnectAck: 10403,
   /** var_3975 — game-server hello (class_139.method_5889) */
   gameConnect: 10405,
   /** var_14117 — excluded from seq in method_6265 */
@@ -72,6 +80,10 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.lobbyJoin) return "lobbyJoin";
   if (type === PacketType.assignGameServer) return "assignGameServer";
   if (type === PacketType.matchSetup) return "matchSetup";
+  if (type === PacketType.sessionSync) return "sessionSync";
+  if (type === PacketType.entitySpawn) return "entitySpawn";
+  if (type === PacketType.gameServerReady) return "gameServerReady";
+  if (type === PacketType.postConnectAck) return "postConnectAck";
   if (type === PacketType.gameConnect) return "gameConnect";
   if (type === PacketType.loginChallenge) return "loginChallenge";
   if (type === PacketType.authRefused) return "authRefused";

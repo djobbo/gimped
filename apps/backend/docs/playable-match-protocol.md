@@ -21,18 +21,18 @@ Observability: `game listen` logs every inbound/outbound frame via `observeGameF
 
 Packet ids **10311–10316** are assigned sequentially in `class_725.as` immediately after `var_5141` (**10310**). Client handlers are registered in `LinkUpdater.as` `var_1653[…]`.
 
-| #   | Direction      | Id    | Dump name     | Inferred role                                                                                                                                                   | Required for active play? | Decoder? | Source        |
-| --- | -------------- | ----- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------- | ------------- |
-| 3   | child → client | 10311 | var_3         | Session sync (`method_8595`): bool flag + token string; clears transfer overlay path                                                                            | likely yes                | no       | dump-inferred |
-| 4   | child → client | 10312 | var_7923      | Entity spawn snapshot (`method_289`): loop of entity records; triggers match UI + `method_856` reset                                                            | likely yes                | no       | dump-inferred |
-| 5   | child → client | 10313 | var_3324      | Game-server ready (`method_4718` → `method_4663`): bool ready + tick; **clears `var_7269` timer** — missing this yields `Error_NEVER_RECEIVED_GAMESERVER_READY` | **yes**                   | no       | dump-inferred |
-| 6   | client → child | 10403 | var_8410      | Empty post-connect ack (`class_139.method_673` sends on game TCP after connect gate)                                                                            | likely yes                | no       | dump-inferred |
-| 7   | child → client | 10314 | var_10734     | Player disconnect notice UI (`method_7944`)                                                                                                                     | no (runtime)              | no       | dump-inferred |
-| 8   | child → client | 10315 | var_1712      | Per-entity state poke (`method_3922`: entity id + value)                                                                                                        | unknown                   | no       | dump-inferred |
-| 9   | child → client | 10316 | var_5078      | Forwards to UDP handler (`method_8553` → `method_1750`)                                                                                                         | unknown (UDP path)        | no       | dump-inferred |
-| 10  | client → child | 10401 | var_14245     | Client ready for simulation tick (`class_139.method_3208` when `var_3590 == 4`)                                                                                 | likely yes (after sync)   | no       | dump-inferred |
-| 11  | client → child | 10404 | var_7095      | Server tick / frame ack (`method_2517`: stores `var_13909`, sets `var_4502`)                                                                                    | likely yes (during match) | no       | dump-inferred |
-| 12  | either         | 12100 | keepalivePing | Empty ping/pong (already echoed by child)                                                                                                                       | no                        | no       | live + dump   |
+| #   | Direction      | Id    | Dump name     | Inferred role                                                                                                                                                   | Required for active play? | Decoder?                                                     | Source        |
+| --- | -------------- | ----- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------ | ------------- |
+| 3   | child → client | 10311 | var_3         | Session sync (`method_8595`): bool flag + token string; clears transfer overlay path                                                                            | likely yes                | yes (`game-sync.ts`, **encoder-implemented-but-unverified**) | dump-inferred |
+| 4   | child → client | 10312 | var_7923      | Entity spawn snapshot (`method_289`): loop of entity records; triggers match UI + `method_856` reset                                                            | likely yes                | yes (`game-sync.ts`, **encoder-implemented-but-unverified**) | dump-inferred |
+| 5   | child → client | 10313 | var_3324      | Game-server ready (`method_4718` → `method_4663`): bool ready + tick; **clears `var_7269` timer** — missing this yields `Error_NEVER_RECEIVED_GAMESERVER_READY` | **yes**                   | yes (`game-sync.ts`, **encoder-implemented-but-unverified**) | dump-inferred |
+| 6   | client → child | 10403 | var_8410      | Empty post-connect ack (`class_139.method_673` sends on game TCP after connect gate)                                                                            | likely yes                | yes (`game-sync.ts`)                                         | dump-inferred |
+| 7   | child → client | 10314 | var_10734     | Player disconnect notice UI (`method_7944`)                                                                                                                     | no (runtime)              | no                                                           | dump-inferred |
+| 8   | child → client | 10315 | var_1712      | Per-entity state poke (`method_3922`: entity id + value)                                                                                                        | unknown                   | no                                                           | dump-inferred |
+| 9   | child → client | 10316 | var_5078      | Forwards to UDP handler (`method_8553` → `method_1750`)                                                                                                         | unknown (UDP path)        | no                                                           | dump-inferred |
+| 10  | client → child | 10401 | var_14245     | Client ready for simulation tick (`class_139.method_3208` when `var_3590 == 4`)                                                                                 | likely yes (after sync)   | no                                                           | dump-inferred |
+| 11  | client → child | 10404 | var_7095      | Server tick / frame ack (`method_2517`: stores `var_13909`, sets `var_4502`)                                                                                    | likely yes (during match) | no                                                           | dump-inferred |
+| 12  | either         | 12100 | keepalivePing | Empty ping/pong (already echoed by child)                                                                                                                       | no                        | no                                                           | live + dump   |
 
 ## Client error if sync incomplete
 
@@ -40,9 +40,22 @@ If the child sends **10310** but never sends **10313** with ready=true within ~1
 
 ## Gaps for Task 2+
 
-- Exact **order** and **payload shapes** for **10311–10313** must be confirmed with a live trace (or capture fixture) before implementing `buildInitialSync()`.
+- Exact **payload field semantics** for **10311–10313** encoders are dump-faithful but **not live-verified**; run a manual trace to confirm shapes.
 - Gameplay input packet ids (client → child during `var_3590 == 4`) are not listed here; capture a session that reaches move/attack.
 - UDP (**10316** path) is bound but not yet traced.
+
+## Implementation notes (Task 3)
+
+Child protocol after **10405** `gameConnect`:
+
+1. **10310** `matchSetup` — unchanged (`encodeMatchSetup`)
+2. **10311** `sessionSync` — `bool clearTransfer=true` + session token string (`encodeSessionSync`)
+3. **10312** `entitySpawn` — one record per player/bot from match state (`encodeEntitySpawn`)
+4. **10313** `gameServerReady` — `ready=true` + tick (`encodeGameServerReady`)
+
+`buildInitialSync()` in `game-sync.ts` emits steps 2–4 only; **10310** stays on the `gameConnect` reply.
+
+When the client sends **10403** `postConnectAck` (empty payload), the child advances phase from `syncingIntoMatch` to `activeMatch`.
 
 ## How to refresh this doc (live capture)
 

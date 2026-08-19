@@ -40,4 +40,27 @@ describe("game child runtime", () => {
       expect(yield* runtime.shouldClose).toBe(true);
     }),
   );
+
+  it.effect("moves to activeMatch after 10403 post-connect ack", () =>
+    Effect.gen(function* () {
+      const runtime = yield* GameChildRuntime.make({
+        includeBot: false,
+        userId: 1,
+        token: "gimped",
+      });
+      yield* runtime.connect();
+      yield* runtime.ingest({
+        type: PacketType.gameConnect,
+        seq: undefined,
+        payload: encodeGameConnect({ userId: 1, token: "gimped" }),
+      });
+      expect(yield* runtime.phase).toBe("syncingIntoMatch");
+      yield* runtime.ingest({
+        type: PacketType.postConnectAck,
+        seq: undefined,
+        payload: new Uint8Array(),
+      });
+      expect(yield* runtime.phase).toBe("activeMatch");
+    }),
+  );
 });

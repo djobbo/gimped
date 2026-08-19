@@ -1,7 +1,7 @@
 import { Effect, Ref } from "effect";
 import type { GameChildPhase } from "./game-child-model.ts";
 import { initialGameChildState } from "./game-child-model.ts";
-import { protocolActionFor } from "./game-child-protocol.ts";
+import { protocolIngest } from "./game-child-protocol.ts";
 import type { TcpFrame } from "./framing.ts";
 
 export type GameChildRuntimeService = {
@@ -50,12 +50,16 @@ export class GameChildRuntime {
     });
 
     const ingest = Effect.fn("GameChildRuntime.ingest")(function* (frame: TcpFrame) {
-      const action = protocolActionFor(frame, spec);
-      if (action._tag === "Close") {
+      const state = yield* Ref.get(stateRef);
+      const result = protocolIngest(frame, spec, state);
+      if (result.action._tag === "Close") {
         yield* disconnect();
         return [];
       }
-      return action.frames;
+      if (result.nextPhase !== undefined) {
+        yield* Ref.update(stateRef, (current) => ({ ...current, phase: result.nextPhase! }));
+      }
+      return result.action.frames;
     });
 
     return {

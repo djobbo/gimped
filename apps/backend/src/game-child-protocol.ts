@@ -1,4 +1,6 @@
 import { decodeGameConnect } from "./game-connect.ts";
+import type { GameChildPhase, GameChildState } from "./game-child-model.ts";
+import { buildInitialSync, decodePostConnectAck } from "./game-sync.ts";
 import type { TcpFrame } from "./framing.ts";
 import { encodeMatchSetup } from "./match-setup.ts";
 import { PacketType } from "./packets.ts";
@@ -13,30 +15,62 @@ export type GameProtocolSpec = {
   readonly includeBot: boolean;
 };
 
-export const protocolActionFor = (frame: TcpFrame, spec: GameProtocolSpec): GameProtocolAction => {
+export type ProtocolIngestResult = {
+  readonly action: GameProtocolAction;
+  readonly nextPhase?: GameChildPhase;
+};
+
+export const protocolActionFor = (frame: TcpFrame, spec: GameProtocolSpec): GameProtocolAction =>
+  protocolIngest(frame, spec, {
+    phase: "syncingIntoMatch",
+    includeBot: spec.includeBot,
+    connected: true,
+    tick: 0,
+    entities: [],
+  }).action;
+
+export const protocolIngest = (
+  frame: TcpFrame,
+  spec: GameProtocolSpec,
+  state: GameChildState,
+): ProtocolIngestResult => {
   if (frame.type === PacketType.keepalivePing) {
     return {
-      _tag: "Reply",
-      frames: [{ type: PacketType.keepalivePing, seq: undefined, payload: new Uint8Array() }],
+      action: {
+        _tag: "Reply",
+        frames: [{ type: PacketType.keepalivePing, seq: undefined, payload: new Uint8Array() }],
+      },
     };
   }
-  if (frame.type === PacketType.gameConnect) {
+  if (frame.type === PacketType.gameConnect && state.phase === "syncingIntoMatch") {
     try {
       const hello = decodeGameConnect(frame.payload);
-      if (hello.userId !== spec.userId || hello.token !== spec.token) return { _tag: "Close" };
+      if (hello.userId !== spec.userId || hello.token !== spec.token) {
+        return { action: { _tag: "Close" } };
+      }
       return {
-        _tag: "Reply",
-        frames: [
-          {
-            type: PacketType.matchSetup,
-            seq: undefined,
-            payload: encodeMatchSetup({ includeBot: spec.includeBot }),
-          },
-        ],
+        action: {
+          _tag: "Reply",
+          frames: [
+            {
+              type: PacketType.matchSetup,
+              seq: undefined,
+              payload: encodeMatchSetup({ includeBot: spec.includeBot }),
+            },
+            ...buildInitialSync(state, { sessionToken: spec.token }),
+          ],
+        },
       };
     } catch {
-      return { _tag: "Close" };
+      return { action: { _tag: "Close" } };
     }
   }
-  return { _tag: "Reply", frames: [] };
+  if (frame.type === PacketType.postConnectAck && state.phase === "syncingIntoMatch") {
+    decodePostConnectAck(frame.payload);
+    return {
+      action: { _tag: "Reply", frames: [] },
+      nextPhase: "activeMatch",
+    };
+  }
+  return { action: { _tag: "Reply", frames: [] } };
 };

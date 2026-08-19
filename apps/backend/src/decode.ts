@@ -2,6 +2,12 @@ import { BitReader } from "./bitstream.ts";
 import { decodeAssignGameServer } from "./assign-game-server.ts";
 import { decodeAddBot, decodeCustomLobby, decodeLobbySettings } from "./custom-lobby.ts";
 import { decodeGameConnect } from "./game-connect.ts";
+import {
+  decodeEntitySpawn,
+  decodeGameServerReady,
+  decodePostConnectAck,
+  decodeSessionSync,
+} from "./game-sync.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { decodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
@@ -46,6 +52,22 @@ export type DecodedPayload =
       readonly playerCount: number;
       readonly hostUserId: number;
     }
+  | { readonly _tag: "SessionSync"; readonly clearTransfer: boolean; readonly token: string }
+  | {
+      readonly _tag: "EntitySpawn";
+      readonly entities: ReadonlyArray<{
+        readonly entityId: number;
+        readonly field2: number;
+        readonly name: string;
+        readonly field4: string;
+        readonly field5: number;
+        readonly userId: number;
+        readonly field7: number;
+        readonly field8: boolean;
+      }>;
+    }
+  | { readonly _tag: "GameServerReady"; readonly ready: boolean; readonly tick: number }
+  | { readonly _tag: "PostConnectAck" }
   | {
       readonly _tag: "AssignGameServer";
       readonly userId: number;
@@ -120,6 +142,18 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
     }
     if (type === PacketType.matchSetup) {
       return decodeMatchSetup(payload);
+    }
+    if (type === PacketType.sessionSync) {
+      return decodeSessionSync(payload);
+    }
+    if (type === PacketType.entitySpawn) {
+      return decodeEntitySpawn(payload);
+    }
+    if (type === PacketType.gameServerReady) {
+      return decodeGameServerReady(payload);
+    }
+    if (type === PacketType.postConnectAck) {
+      return decodePostConnectAck(payload);
     }
   } catch {
     return { _tag: "Unknown" };
