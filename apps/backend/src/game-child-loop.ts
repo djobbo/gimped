@@ -6,11 +6,9 @@ export const runGameChildLoop = Effect.fn("runGameChildLoop")(function* (
   runtime: GameChildRuntimeService,
   write: (bytes: Uint8Array) => Effect.Effect<void>,
 ) {
-  yield* Effect.forever(
-    Effect.gen(function* () {
-      const frames = yield* runtime.tick();
-      yield* Effect.forEach(frames, (frame) => write(encodeFrame(frame)));
-      yield* Effect.sleep("16 millis");
-    }),
-  );
+  while (!(yield* runtime.shouldClose)) {
+    const frames = yield* runtime.tick();
+    yield* Effect.forEach(frames, (frame) => write(encodeFrame(frame)));
+    yield* Effect.sleep("16 millis");
+  }
 });

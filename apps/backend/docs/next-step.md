@@ -1,10 +1,8 @@
 # Next step
 
-## Milestone: post-10310 packet inventory (Task 1)
+## Milestone: full custom-match lifecycle (Task 5)
 
-Play in a custom room spawns a short-lived `game listen` child, then answers **55** with **2466** using that child's ephemeral TCP/UDP ports. The child answers **10405** with match-setup **10310** and now logs every game frame via `observeGameFrame()`.
-
-See `apps/backend/docs/playable-match-protocol.md` for the dump-inferred post-10310 inventory. A live trace is still needed to confirm order and payload shapes before Task 2 sync implementation.
+The backend stub now carries a minimal authoritative match lifecycle: active play ticks, deterministic KO checks at lethal damage, stock loss with respawn when stocks remain, and a final `matchOver` transition when the player loses the last stock.
 
 ### Manual validation
 
@@ -18,20 +16,18 @@ See `apps/backend/docs/playable-match-protocol.md` for the dump-inferred post-10
    ```
    Or: `Start-Process "steam://launch/291550"` after setting those launch options in Steam.
 3. Log in, create a **custom room**, optionally **add bot**, click **Play**.
-4. Watch the terminal for:
-   - `game allocate id=… tcp=127.0.0.1:… udp=…` in session notes
-   - child `game inbound` / `game outbound` lines after **10310**
-   - `game unknown …` lines for unmapped ids
-5. Session artifacts land under `apps/backend/captures/<timestamp>/` (`packets.jsonl`, `notes.txt`). Do not commit `captures/`.
+4. Confirm the client reaches active play, then force a few obvious combat outcomes:
+   - damage climbs until a KO occurs,
+   - with stocks remaining, the KO'd entity respawns at a reset position with one fewer stock,
+   - with the final player stock lost, the child transitions to `matchOver` and the match drops cleanly.
+5. If a bot is present, verify it follows the same stock-loss and respawn rules as the player.
 
 ### What to report
 
 Tell the agent whether you see:
 
-- the in-match character-select / loading shell,
-- `Error_NEVER_RECEIVED_GAMESERVER_READY` or `Error_FAILED_TRANSFER`,
-- post-10310 `game inbound` packet ids (copy the ordered list),
-- still no feedback,
-- or a crash / drop to offline
-
-Do not queue ranked.
+- active control after loading,
+- player KO -> respawn while stocks remain,
+- final-stock loss ending the match,
+- bot KO following the same stock rules,
+- or a crash / stuck state / premature offline drop.

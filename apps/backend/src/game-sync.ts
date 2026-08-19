@@ -1,6 +1,7 @@
 import { BitReader, BitWriter } from "./bitstream.ts";
 import type { GameChildState } from "./game-child-model.ts";
 import type { TcpFrame } from "./framing.ts";
+import { encodeEntityValue } from "./game-input.ts";
 import { STUB_DISPLAY_NAME, STUB_USER_ID } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
 
@@ -134,6 +135,12 @@ export const decodePostConnectAck = (_payload: Uint8Array): PostConnectAck => ({
   _tag: "PostConnectAck",
 });
 
+const encodeDropOffline = (reason: number): Uint8Array => {
+  const bits = new BitWriter();
+  bits.writePackedU32(reason);
+  return bits.toUint8Array();
+};
+
 const defaultSpawnEntities = (state: GameChildState): ReadonlyArray<EntitySpawnRecord> => {
   if (state.entities.length > 0) {
     return state.entities.map((entity) => ({
@@ -189,3 +196,16 @@ export const buildInitialSync = (
     frame(PacketType.gameServerReady, encodeGameServerReady({ ready: true, tick: state.tick })),
   ];
 };
+
+export const buildRespawnSync = (
+  state: GameChildState,
+  entityId: number,
+): ReadonlyArray<TcpFrame> => [
+  frame(PacketType.entitySpawn, encodeEntitySpawn({ entities: defaultSpawnEntities(state) })),
+  frame(PacketType.entityValue, encodeEntityValue(entityId, 0)),
+];
+
+export const buildMatchOverSync = (state: GameChildState): ReadonlyArray<TcpFrame> => [
+  frame(PacketType.entitySpawn, encodeEntitySpawn({ entities: defaultSpawnEntities(state) })),
+  frame(PacketType.dropOffline, encodeDropOffline(0)),
+];

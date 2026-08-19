@@ -1,46 +1,34 @@
 import { Effect, Ref } from "effect";
 import type { GameChildPhase, EntityState } from "./game-child-model.ts";
-import { initialGameChildState } from "./game-child-model.ts";
+import {
+  initialEntities,
+  initialGameChildState,
+  KO_DAMAGE,
+  PLAYER_ENTITY_ID,
+  type GameChildState,
+} from "./game-child-model.ts";
 import { encodeEntityValue, encodeTickPulse, type GameInput } from "./game-input.ts";
 import { protocolIngest } from "./game-child-protocol.ts";
 import { recordUnknownGamePacket } from "./game-observe.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
 import type { TcpFrame } from "./framing.ts";
 import { PacketType } from "./packets.ts";
+import { buildMatchOverSync, buildRespawnSync } from "./game-sync.ts";
 
 export type GameChildRuntimeService = {
   readonly phase: Effect.Effect<GameChildPhase>;
+  readonly state: Effect.Effect<GameChildState>;
   readonly shouldClose: Effect.Effect<boolean>;
   readonly connect: () => Effect.Effect<void>;
   readonly ingest: (frame: TcpFrame) => Effect.Effect<ReadonlyArray<TcpFrame>>;
   readonly applyInput: (input: GameInput) => Effect.Effect<void>;
   readonly tick: () => Effect.Effect<ReadonlyArray<TcpFrame>>;
+  readonly forceState: (state: GameChildState) => Effect.Effect<void>;
   readonly disconnect: () => Effect.Effect<void>;
 };
 
-const defaultEntities = (includeBot: boolean): ReadonlyArray<EntityState> => {
-  const entities: EntityState[] = [
-    {
-      entityId: 1,
-      userId: STUB_USER_ID,
-      stocks: 3,
-      damage: 0,
-      x: 0,
-      y: 0,
-    },
-  ];
-  if (includeBot) {
-    entities.push({
-      entityId: 2,
-      userId: 0,
-      stocks: 3,
-      damage: 0,
-      x: 0,
-      y: 0,
-    });
-  }
-  return entities;
-};
+const defaultEntities = (includeBot: boolean, userId: number): ReadonlyArray<EntityState> =>
+  initialEntities(userId, includeBot);
 
 const updateEntity = (
   entities: ReadonlyArray<EntityState>,
@@ -48,6 +36,55 @@ const updateEntity = (
   update: Partial<Pick<EntityState, "x" | "y" | "damage" | "stocks">>,
 ): ReadonlyArray<EntityState> =>
   entities.map((entity) => (entity.entityId === entityId ? { ...entity, ...update } : entity));
+
+type KoTransition = {
+  readonly state: GameChildState;
+  readonly frames: ReadonlyArray<TcpFrame>;
+  readonly shouldClose: boolean;
+};
+
+const applyKoRules = (state: GameChildState): KoTransition => {
+  const koEntity = state.entities.find((entity) => entity.damage >= KO_DAMAGE);
+  if (koEntity === undefined) {
+    return { state, frames: [], shouldClose: false };
+  }
+
+  const nextEntities = state.entities.map((entity) => {
+    if (entity.entityId !== koEntity.entityId) return entity;
+    const nextStocks = Math.max(0, entity.stocks - 1);
+    if (nextStocks === 0) {
+      return { ...entity, stocks: 0, damage: 0, x: 0, y: 0 };
+    }
+    return { ...entity, stocks: nextStocks, damage: 0, x: 0, y: 0 };
+  });
+
+  const playerLostFinalStock =
+    koEntity.entityId === PLAYER_ENTITY_ID &&
+    nextEntities.some((entity) => entity.entityId === PLAYER_ENTITY_ID && entity.stocks === 0);
+
+  if (playerLostFinalStock) {
+    const matchOverState: GameChildState = {
+      ...state,
+      phase: "matchOver",
+      entities: nextEntities,
+    };
+    return {
+      state: matchOverState,
+      frames: buildMatchOverSync(matchOverState),
+      shouldClose: true,
+    };
+  }
+
+  const respawnState: GameChildState = {
+    ...state,
+    entities: nextEntities,
+  };
+  return {
+    state: respawnState,
+    frames: buildRespawnSync(respawnState, koEntity.entityId),
+    shouldClose: false,
+  };
+};
 
 export class GameChildRuntime {
   static make = Effect.fn("GameChildRuntime.make")(function* (args: {
@@ -64,7 +101,9 @@ export class GameChildRuntime {
     };
 
     const phase = Ref.get(stateRef).pipe(Effect.map((state) => state.phase));
+    const state = Ref.get(stateRef);
     const shouldClose = Ref.get(closedRef);
+    const forceState = (state: GameChildState) => Ref.set(stateRef, state);
 
     const disconnect = Effect.fn("GameChildRuntime.disconnect")(function* () {
       yield* Ref.set(closedRef, true);
@@ -98,7 +137,7 @@ export class GameChildRuntime {
               entities:
                 state.entities.length > 0
                   ? updateEntity(state.entities, input.entityId, { x: input.x, y: input.y })
-                  : defaultEntities(state.includeBot),
+                  : defaultEntities(state.includeBot, spec.userId || STUB_USER_ID),
             };
           default:
             return state;
@@ -111,23 +150,30 @@ export class GameChildRuntime {
       if (state.phase !== "activeMatch" || !state.simReady) {
         return [];
       }
-      const nextTick = state.tick + 1;
-      yield* Ref.update(stateRef, (current) => ({ ...current, tick: nextTick }));
+      const progressedState = { ...state, tick: state.tick + 1 };
+      const transition = applyKoRules(progressedState);
+      yield* Ref.set(stateRef, transition.state);
+      if (transition.shouldClose) {
+        yield* Ref.set(closedRef, true);
+      }
+      if (transition.state.phase === "matchOver") {
+        return transition.frames;
+      }
       const frames: TcpFrame[] = [
         {
           type: PacketType.tickPulse,
           seq: undefined,
-          payload: encodeTickPulse(nextTick),
+          payload: encodeTickPulse(transition.state.tick),
         },
       ];
-      for (const entity of state.entities) {
+      for (const entity of transition.state.entities) {
         frames.push({
           type: PacketType.entityValue,
           seq: undefined,
           payload: encodeEntityValue(entity.entityId, entity.x),
         });
       }
-      return frames;
+      return [...transition.frames, ...frames];
     });
 
     const ingest = Effect.fn("GameChildRuntime.ingest")(function* (frame: TcpFrame) {
@@ -142,7 +188,9 @@ export class GameChildRuntime {
           ...current,
           phase: result.nextPhase!,
           entities:
-            current.entities.length > 0 ? current.entities : defaultEntities(current.includeBot),
+            current.entities.length > 0
+              ? current.entities
+              : defaultEntities(current.includeBot, spec.userId || STUB_USER_ID),
         }));
       }
       if (result.input !== undefined) {
@@ -160,11 +208,13 @@ export class GameChildRuntime {
 
     return {
       phase,
+      state,
       shouldClose,
       connect,
       ingest,
       applyInput,
       tick,
+      forceState,
       disconnect,
     } satisfies GameChildRuntimeService;
   });
