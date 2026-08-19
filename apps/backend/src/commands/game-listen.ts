@@ -1,11 +1,27 @@
 import { NodeSocketServer } from "@effect/platform-node";
 import { Console, Effect, Schema } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
+import { runGameChildLoop } from "../game-child-loop.ts";
+import { GameChildRuntime } from "../game-child-runtime.ts";
 import { encodeFrame, FrameDecoder } from "../framing.ts";
 import { observeGameFrame, recordUnknownGamePacket } from "../game-observe.ts";
-import { gameActionFor } from "../game-replies.ts";
 import { GameListenReady, GameListenReadyLine } from "../match-spec.ts";
 import { bindUdp } from "../udp-bind.ts";
+
+const logFrame = Effect.fn("logFrame")(function* (
+  dir: "inbound" | "outbound",
+  frame: Parameters<typeof observeGameFrame>[0],
+) {
+  const observed = observeGameFrame(frame);
+  yield* Console.log(`game ${dir} type=${frame.type} ${observed.summary}`);
+  if (!observed.known) {
+    yield* recordUnknownGamePacket({
+      dir: dir === "inbound" ? "client" : "server",
+      type: frame.type,
+      payload: frame.payload,
+    });
+  }
+});
 
 export const gameListen = Command.make(
   "listen",
@@ -31,37 +47,27 @@ export const gameListen = Command.make(
           tcpPort: server.address.port,
           udpPort: udp.port,
         });
-        const spec = { userId: config.userId, token: config.token, includeBot: config.bot };
         yield* server
           .run((socket) =>
             Effect.scoped(
               Effect.gen(function* () {
+                const runtime = yield* GameChildRuntime.make({
+                  includeBot: config.bot,
+                  userId: config.userId,
+                  token: config.token,
+                });
                 const decoder = new FrameDecoder();
                 const write = yield* socket.writer;
+                yield* runtime.connect();
+                yield* runGameChildLoop(runtime, write).pipe(Effect.forkScoped);
                 yield* socket.run((chunk) =>
                   Effect.gen(function* () {
                     for (const frame of decoder.push(chunk)) {
-                      const inbound = observeGameFrame(frame);
-                      yield* Console.log(`game inbound type=${frame.type} ${inbound.summary}`);
-                      if (!inbound.known) {
-                        yield* recordUnknownGamePacket({
-                          dir: "client",
-                          type: frame.type,
-                          payload: frame.payload,
-                        });
-                      }
-                      const action = gameActionFor(frame, spec);
-                      if (action._tag === "Close") return yield* Effect.interrupt;
-                      for (const reply of action.frames) {
-                        const outbound = observeGameFrame(reply);
-                        yield* Console.log(`game outbound type=${reply.type} ${outbound.summary}`);
-                        if (!outbound.known) {
-                          yield* recordUnknownGamePacket({
-                            dir: "server",
-                            type: reply.type,
-                            payload: reply.payload,
-                          });
-                        }
+                      yield* logFrame("inbound", frame);
+                      const replies = yield* runtime.ingest(frame);
+                      if (yield* runtime.shouldClose) return yield* Effect.interrupt;
+                      for (const reply of replies) {
+                        yield* logFrame("outbound", reply);
                         yield* write(encodeFrame(reply));
                       }
                     }
