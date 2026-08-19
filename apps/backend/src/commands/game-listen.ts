@@ -2,6 +2,7 @@ import { NodeSocketServer } from "@effect/platform-node";
 import { Console, Effect, Schema } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { encodeFrame, FrameDecoder } from "../framing.ts";
+import { observeGameFrame, recordUnknownGamePacket } from "../game-observe.ts";
 import { gameActionFor } from "../game-replies.ts";
 import { GameListenReady, GameListenReadyLine } from "../match-spec.ts";
 import { bindUdp } from "../udp-bind.ts";
@@ -40,9 +41,29 @@ export const gameListen = Command.make(
                 yield* socket.run((chunk) =>
                   Effect.gen(function* () {
                     for (const frame of decoder.push(chunk)) {
+                      const inbound = observeGameFrame(frame);
+                      yield* Console.log(`game inbound type=${frame.type} ${inbound.summary}`);
+                      if (!inbound.known) {
+                        yield* recordUnknownGamePacket({
+                          dir: "client",
+                          type: frame.type,
+                          payload: frame.payload,
+                        });
+                      }
                       const action = gameActionFor(frame, spec);
                       if (action._tag === "Close") return yield* Effect.interrupt;
-                      for (const reply of action.frames) yield* write(encodeFrame(reply));
+                      for (const reply of action.frames) {
+                        const outbound = observeGameFrame(reply);
+                        yield* Console.log(`game outbound type=${reply.type} ${outbound.summary}`);
+                        if (!outbound.known) {
+                          yield* recordUnknownGamePacket({
+                            dir: "server",
+                            type: reply.type,
+                            payload: reply.payload,
+                          });
+                        }
+                        yield* write(encodeFrame(reply));
+                      }
                     }
                   }),
                 );

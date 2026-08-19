@@ -91,6 +91,9 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
           ),
         );
       if (allocated !== undefined) {
+        yield* session.note(
+          `game allocate id=${allocated.id} tcp=${allocated.host}:${allocated.tcpPort} udp=${allocated.udpPort}`,
+        );
         replies.push({
           type: PacketType.assignGameServer,
           seq: undefined,
