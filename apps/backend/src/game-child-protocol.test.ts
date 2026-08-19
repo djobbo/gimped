@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { encodeGameConnect } from "./game-connect.ts";
 import { protocolActionFor, protocolIngest } from "./game-child-protocol.ts";
+import { BitWriter } from "./bitstream.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { PacketType } from "./packets.ts";
 
@@ -10,6 +11,8 @@ const syncingState = {
   includeBot: false,
   connected: true,
   tick: 0,
+  clientTick: 0,
+  simReady: false,
   entities: [],
 };
 
@@ -77,5 +80,26 @@ describe("game child protocol", () => {
       spec,
     );
     expect(action).toEqual({ _tag: "Reply", frames: [] });
+  });
+
+  it("routes 10401 simReady to gameplay input during activeMatch", () => {
+    const result = protocolIngest(
+      { type: PacketType.simReady, seq: undefined, payload: new Uint8Array() },
+      spec,
+      { ...syncingState, phase: "activeMatch" },
+    );
+    expect(result.input).toEqual({ _tag: "SimReady" });
+    expect(result.action).toEqual({ _tag: "Reply", frames: [] });
+  });
+
+  it("routes 10404 tickAck to gameplay input during activeMatch", () => {
+    const writer = new BitWriter();
+    writer.writePackedU32(7);
+    const result = protocolIngest(
+      { type: PacketType.tickAck, seq: undefined, payload: writer.toUint8Array() },
+      spec,
+      { ...syncingState, phase: "activeMatch" },
+    );
+    expect(result.input).toEqual({ _tag: "TickAck", clientTick: 7 });
   });
 });

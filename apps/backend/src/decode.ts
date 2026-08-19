@@ -8,6 +8,7 @@ import {
   decodePostConnectAck,
   decodeSessionSync,
 } from "./game-sync.ts";
+import { decodeMove, decodeSimReady, decodeTickAck } from "./game-input.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { decodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
@@ -68,6 +69,16 @@ export type DecodedPayload =
     }
   | { readonly _tag: "GameServerReady"; readonly ready: boolean; readonly tick: number }
   | { readonly _tag: "PostConnectAck" }
+  | { readonly _tag: "SimReady" }
+  | { readonly _tag: "TickAck"; readonly clientTick: number }
+  | {
+      readonly _tag: "MoveInput";
+      readonly entityId: number;
+      readonly x: number;
+      readonly y: number;
+    }
+  | { readonly _tag: "TickPulse"; readonly tick: number }
+  | { readonly _tag: "EntityValue"; readonly entityId: number; readonly value: number }
   | {
       readonly _tag: "AssignGameServer";
       readonly userId: number;
@@ -154,6 +165,33 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
     }
     if (type === PacketType.postConnectAck) {
       return decodePostConnectAck(payload);
+    }
+    if (type === PacketType.simReady) {
+      return decodeSimReady(payload);
+    }
+    if (type === PacketType.tickAck) {
+      return decodeTickAck(payload);
+    }
+    if (type === PacketType.moveInput) {
+      const move = decodeMove(payload);
+      return {
+        _tag: "MoveInput",
+        entityId: move.entityId,
+        x: move.x,
+        y: move.y,
+      };
+    }
+    if (type === PacketType.tickPulse) {
+      const bits = new BitReader(payload);
+      return { _tag: "TickPulse", tick: bits.readPackedU32() };
+    }
+    if (type === PacketType.entityValue) {
+      const bits = new BitReader(payload);
+      return {
+        _tag: "EntityValue",
+        entityId: bits.readPackedU32(),
+        value: bits.readPackedU32(),
+      };
     }
   } catch {
     return { _tag: "Unknown" };

@@ -5,6 +5,8 @@ export type EntityState = {
   readonly userId: number;
   readonly stocks: number;
   readonly damage: number;
+  readonly x: number;
+  readonly y: number;
 };
 
 export type GameChildState = {
@@ -12,6 +14,8 @@ export type GameChildState = {
   readonly includeBot: boolean;
   readonly connected: boolean;
   readonly tick: number;
+  readonly clientTick: number;
+  readonly simReady: boolean;
   readonly entities: ReadonlyArray<EntityState>;
 };
 
@@ -20,5 +24,7 @@ export const initialGameChildState = (includeBot: boolean): GameChildState => ({
   includeBot,
   connected: false,
   tick: 0,
+  clientTick: 0,
+  simReady: false,
   entities: [],
 });

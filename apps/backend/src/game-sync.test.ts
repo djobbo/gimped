@@ -18,6 +18,8 @@ describe("game sync", () => {
         includeBot: false,
         connected: true,
         tick: 0,
+        clientTick: 0,
+        simReady: false,
         entities: [],
       },
       { sessionToken: "gimped" },

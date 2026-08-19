@@ -8,6 +8,8 @@ describe("game child model", () => {
     expect(state.includeBot).toBe(false);
     expect(state.connected).toBe(false);
     expect(state.tick).toBe(0);
+    expect(state.clientTick).toBe(0);
+    expect(state.simReady).toBe(false);
     expect(state.entities).toEqual([]);
   });
 

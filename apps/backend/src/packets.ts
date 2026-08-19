@@ -44,8 +44,18 @@ export const PacketType = {
   gameServerReady: 10313,
   /** var_8410 — empty post-connect ack (class_139.method_673) */
   postConnectAck: 10403,
+  /** var_14245 — client ready for simulation tick (class_139.method_3208) */
+  simReady: 10401,
+  /** var_7095 — server tick ack (LinkUpdater.method_2517) */
+  tickAck: 10404,
   /** var_3975 — game-server hello (class_139.method_5889) */
   gameConnect: 10405,
+  /** var_5618 — entity move sample (class_288.method_2934) */
+  moveInput: 10407,
+  /** var_8486 — tick pulse during active match (LinkUpdater.method_6885) */
+  tickPulse: 10301,
+  /** var_2752 — entity value poke (LinkUpdater.method_6785) */
+  entityValue: 2509,
   /** var_14117 — excluded from seq in method_6265 */
   seqExclude14117: 2467,
   /** var_7394 — server login challenge string */
@@ -84,6 +94,11 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.entitySpawn) return "entitySpawn";
   if (type === PacketType.gameServerReady) return "gameServerReady";
   if (type === PacketType.postConnectAck) return "postConnectAck";
+  if (type === PacketType.simReady) return "simReady";
+  if (type === PacketType.tickAck) return "tickAck";
+  if (type === PacketType.moveInput) return "moveInput";
+  if (type === PacketType.tickPulse) return "tickPulse";
+  if (type === PacketType.entityValue) return "entityValue";
   if (type === PacketType.gameConnect) return "gameConnect";
   if (type === PacketType.loginChallenge) return "loginChallenge";
   if (type === PacketType.authRefused) return "authRefused";
