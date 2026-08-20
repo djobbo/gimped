@@ -1,5 +1,6 @@
 import type { TcpFrame } from "./framing.ts";
-import { type GameProtocolAction, protocolActionFor } from "./game-child-protocol.ts";
+import { protocolActionFor } from "./game-child-protocol.ts";
+import type { GameProtocolAction } from "./messages.ts";
 
 export type GameAction = GameProtocolAction;
 

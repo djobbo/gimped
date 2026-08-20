@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import type { GameInput } from "./game-input.ts";
 
 export const TcpFrame = Schema.Struct({
   type: Schema.Number,
@@ -32,7 +33,9 @@ export const ProtocolIngestResult = Schema.Struct({
     }),
   ),
 });
-export type ProtocolIngestResult = typeof ProtocolIngestResult.Type;
+export type ProtocolIngestResult = Omit<typeof ProtocolIngestResult.Type, "input"> & {
+  readonly input?: GameInput;
+};
 
 export const ProtocolHello = Schema.TaggedStruct("ProtocolHello", {
   text: Schema.String,
