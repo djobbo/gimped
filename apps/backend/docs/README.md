@@ -18,6 +18,20 @@ Equivalent:
 node --experimental-transform-types apps/backend/src/bin.ts listen --host 127.0.0.1 --port 23001
 ```
 
+### Tailscale / remote client
+
+Pass your Tailscale IP as `--host` (binds on `0.0.0.0`, advertises that IP in launch help + game 2466):
+
+```
+node --experimental-transform-types apps/backend/src/bin.ts listen --host 100.x.y.z --port 23001
+```
+
+Remote Steam launch options:
+
+```
+-h 100.x.y.z -p 23001 -diagnosticlog
+```
+
 Sessions write under `apps/backend/captures/<timestamp>/` (gitignored). Packet payloads may include auth tickets — do not commit them.
 
 ## First capture (do this now)

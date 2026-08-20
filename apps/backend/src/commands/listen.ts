@@ -4,6 +4,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { homedir } from "node:os";
 import { startTshark, watchDiagnostics } from "../capture.ts";
 import { GameRuntime } from "../game-runtime.ts";
+import { resolveListenHosts } from "../net-host.ts";
 import { createSession, packageRoot } from "../session.ts";
 import { runStub } from "../stub.ts";
 
@@ -28,7 +29,7 @@ export const listen = Command.make(
   {
     host: Flag.string("host").pipe(
       Flag.withDefault("127.0.0.1"),
-      Flag.withDescription("Bind address for the backend TCP stub"),
+      Flag.withDescription("Client-facing host (-h / game 2466). Non-loopback IPs bind on 0.0.0.0"),
     ),
     port: Flag.integer("port").pipe(
       Flag.withDefault(23001),
@@ -54,8 +55,14 @@ export const listen = Command.make(
         const outRoot = Option.getOrElse(config.out, () => path.join(packageRoot, "captures"));
         const session = yield* createSession(outRoot);
         const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
+        const { bindHost, advertiseHost } = resolveListenHosts(config.host);
 
-        yield* Effect.log(launchHelp(config.host, config.port));
+        yield* Effect.log(launchHelp(advertiseHost, config.port));
+        if (advertiseHost !== bindHost) {
+          yield* Effect.log(
+            `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
+          );
+        }
         yield* watchDiagnostics(session.dir, docs, session.note);
 
         if (config.tshark) {
@@ -63,8 +70,13 @@ export const listen = Command.make(
         }
 
         yield* runStub(session, { label: "backend", startId: 1 }).pipe(
-          Effect.provide(NodeSocketServer.layer({ host: config.host, port: config.port })),
-          Effect.provide(GameRuntime.layerChildProcess),
+          Effect.provide(NodeSocketServer.layer({ host: bindHost, port: config.port })),
+          Effect.provide(
+            GameRuntime.layerChildProcess({
+              bindHost,
+              advertiseHost,
+            }),
+          ),
         );
       }),
     );

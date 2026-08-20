@@ -35,7 +35,7 @@ layer(GameRuntime.layerFake)("GameRuntime fake", (it) => {
   );
 });
 
-layer(GameRuntime.layerChildProcess.pipe(Layer.provide(NodeServices.layer)), {
+layer(GameRuntime.layerChildProcess().pipe(Layer.provide(NodeServices.layer)), {
   excludeTestServices: true,
 })("GameRuntime child process", (it) => {
   it.effect(

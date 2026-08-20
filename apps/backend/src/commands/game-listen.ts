@@ -35,13 +35,21 @@ export const gameListen = Command.make(
       Flag.withDefault(encodeSetupArg(MatchSetupSpec.default)),
       Flag.withDescription("JSON MatchSetupSpec from the parent stub"),
     ),
+    bindHost: Flag.string("bind-host").pipe(
+      Flag.withDefault("127.0.0.1"),
+      Flag.withDescription("Local bind address for game TCP+UDP"),
+    ),
+    advertiseHost: Flag.string("advertise-host").pipe(
+      Flag.withDefault("127.0.0.1"),
+      Flag.withDescription("Host advertised to the client in 2466 / ready line"),
+    ),
   },
   Effect.fn("gameListen")(function* (config) {
     const setup = decodeSetupArg(config.setup);
     const includeBot = setup.bots.length > 0;
     yield* Effect.scoped(
       Effect.gen(function* () {
-        const udp = yield* bindUdp("127.0.0.1");
+        const udp = yield* bindUdp(config.bindHost);
         const runtimeRef = yield* Ref.make<Option.Option<GameChildRuntimeService>>(Option.none());
         const tcpWriteRef = yield* Ref.make<
           Option.Option<(bytes: Uint8Array) => Effect.Effect<void>>
@@ -66,12 +74,12 @@ export const gameListen = Command.make(
             });
           }),
         ).pipe(Effect.forkScoped);
-        const server = yield* NodeSocketServer.make({ host: "127.0.0.1", port: 0 });
+        const server = yield* NodeSocketServer.make({ host: config.bindHost, port: 0 });
         if (server.address._tag !== "TcpAddress") {
           return yield* Effect.die("game listen expected TCP address");
         }
         const ready = new GameListenReady({
-          host: "127.0.0.1",
+          host: config.advertiseHost,
           tcpPort: server.address.port,
           udpPort: udp.port,
         });

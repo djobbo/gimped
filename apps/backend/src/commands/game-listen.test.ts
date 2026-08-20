@@ -73,4 +73,51 @@ layer(NodeServices.layer, { excludeTestServices: true })("game listen", (it) => 
       }).pipe(Effect.scoped),
     20_000,
   );
+
+  it.effect(
+    "advertises a remote host while binding for external clients",
+    () =>
+      Effect.gen(function* () {
+        const handle = yield* ChildProcess.make(
+          process.execPath,
+          [
+            "--experimental-transform-types",
+            bin,
+            "game",
+            "listen",
+            "--user-id",
+            "1",
+            "--token",
+            "gimped",
+            "--level-id",
+            "1",
+            "--bind-host",
+            "0.0.0.0",
+            "--advertise-host",
+            "100.64.1.2",
+          ],
+          { stdout: "pipe", stdin: "ignore" },
+        );
+        yield* Effect.addFinalizer(() =>
+          handle.kill({ forceKillAfter: "1 second" }).pipe(Effect.ignore),
+        );
+        const line = yield* Stream.decodeText(handle.stdout).pipe(
+          Stream.splitLines,
+          Stream.filter((text) => text.length > 0 && readyLine(text)),
+          Stream.map((text) => Schema.decodeUnknownSync(GameListenReadyLine)(text)),
+          Stream.take(1),
+          Stream.runHead,
+          Effect.flatMap(
+            Option.match({
+              onNone: () => Effect.fail(new Error("game listen printed no ready line")),
+              onSome: (ready) => Effect.succeed(ready),
+            }),
+          ),
+          Effect.timeout("10 seconds"),
+        );
+        expect(line.host).toBe("100.64.1.2");
+        yield* connectTcp("127.0.0.1", line.tcpPort);
+      }).pipe(Effect.scoped),
+    20_000,
+  );
 });
