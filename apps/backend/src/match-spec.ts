@@ -6,6 +6,14 @@ export class MatchSetupHeroSlot extends Schema.Class<MatchSetupHeroSlot>("MatchS
   costumeId: Schema.Number,
 }) {}
 
+export class MatchSetupGuest extends Schema.Class<MatchSetupGuest>("MatchSetupGuest")({
+  controller: Schema.Number,
+  entityId: Schema.Number,
+  heroId: Schema.Number,
+  costumeId: Schema.Number,
+  heroSlots: Schema.Array(MatchSetupHeroSlot),
+}) {}
+
 export class MatchSetupBot extends Schema.Class<MatchSetupBot>("MatchSetupBot")({
   controller: Schema.Number,
   entityId: Schema.Number,
@@ -18,6 +26,7 @@ export class MatchSetupSpec extends Schema.Class<MatchSetupSpec>("MatchSetupSpec
   hostCostumeId: Schema.Number,
   hostHeroSlots: Schema.Array(MatchSetupHeroSlot),
   ruleset: Schema.Array(Schema.Number),
+  guests: Schema.Array(MatchSetupGuest),
   bots: Schema.Array(MatchSetupBot),
 }) {
   static readonly default = new MatchSetupSpec({
@@ -28,6 +37,7 @@ export class MatchSetupSpec extends Schema.Class<MatchSetupSpec>("MatchSetupSpec
       { heroId: DEFAULT_HOST_HERO_ID, costumeId: DEFAULT_HOST_COSTUME_ID },
     ],
     ruleset: [...DEFAULT_RULESET],
+    guests: [],
     bots: [],
   });
 }

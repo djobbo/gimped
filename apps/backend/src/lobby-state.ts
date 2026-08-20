@@ -71,6 +71,16 @@ export type LobbyBot = {
   readonly costumeId: number;
 };
 
+/** Second keyboard / local split-input seat (same account, var_12478==2). */
+export type LobbyGuest = {
+  readonly controller: number;
+  readonly localIndex: number;
+  readonly entityId: number;
+  readonly heroId: number;
+  readonly costumeId: number;
+  readonly heroSlots: ReadonlyArray<HeroSlotLoadout>;
+};
+
 export type LobbyState = {
   readonly playlistId: number;
   readonly customGameType: number;
@@ -81,8 +91,9 @@ export type LobbyState = {
   readonly hostHeroId: number;
   readonly hostCostumeId: number;
   readonly hostHeroSlots: ReadonlyArray<HeroSlotLoadout>;
+  readonly guests: ReadonlyArray<LobbyGuest>;
   readonly bots: ReadonlyArray<LobbyBot>;
-  readonly nextBotEntityId: number;
+  readonly nextEntityId: number;
 };
 
 export const initialLobbyState = (): LobbyState => ({
@@ -95,9 +106,19 @@ export const initialLobbyState = (): LobbyState => ({
   hostHeroId: DEFAULT_HOST_HERO_ID,
   hostCostumeId: DEFAULT_HOST_COSTUME_ID,
   hostHeroSlots: defaultHostHeroSlots(),
+  guests: [],
   bots: [],
-  nextBotEntityId: 2,
+  nextEntityId: 2,
 });
+
+const occupiedSeats = (state: LobbyState): number => 1 + state.guests.length + state.bots.length;
+
+export const nextGuestController = (state: LobbyState): number => {
+  const used = new Set<number>([0, ...state.guests.map((guest) => guest.controller)]);
+  let controller = 1;
+  while (used.has(controller) || controller === BOT_CONTROLLER) controller += 1;
+  return controller;
+};
 
 export type ParsedUpdateSettings = {
   readonly playlistId: number;
@@ -142,6 +163,23 @@ export const applyLegendPickToState = (state: LobbyState, pick: LegendPick): Lob
     return { ...state, bots };
   }
 
+  // Human legend picks send var_4118 (controller), not lobby array index.
+  const guestIndex = state.guests.findIndex((guest) => guest.controller === pick.slotId);
+  if (guestIndex >= 0) {
+    const guest = state.guests[guestIndex]!;
+    const fallback = { heroId: guest.heroId, costumeId: guest.costumeId };
+    const heroSlots = padHeroSlots(
+      heroSlotsFromPick(pick, guest.heroId, guest.costumeId),
+      HERO_SLOTS_PER_PLAYER,
+      fallback,
+    );
+    const costumeId = primaryCostumeFromPick(pick) || heroSlots[0]?.costumeId || guest.costumeId;
+    const guests = state.guests.map((entry, index) =>
+      index === guestIndex ? { ...entry, heroId: pick.heroId, costumeId, heroSlots } : entry,
+    );
+    return { ...state, guests };
+  }
+
   const fallback = {
     heroId: state.hostHeroId,
     costumeId: state.hostCostumeId,
@@ -168,15 +206,12 @@ export type AddBotRequest = {
 };
 
 export const applyAddBotRequest = (state: LobbyState, request: AddBotRequest): LobbyState => {
-  if (!request.add) {
-    if (state.bots.length === 0) return state;
-    return { ...state, bots: state.bots.slice(0, -1) };
-  }
-  if (state.bots.length >= Math.max(0, state.maxPlayers - 1)) return state;
-  const entityId = state.nextBotEntityId;
+  if (!request.add) return state;
+  if (occupiedSeats(state) >= state.maxPlayers) return state;
+  const entityId = state.nextEntityId;
   return {
     ...state,
-    nextBotEntityId: entityId + 1,
+    nextEntityId: entityId + 1,
     bots: [
       ...state.bots,
       {
@@ -184,6 +219,30 @@ export const applyAddBotRequest = (state: LobbyState, request: AddBotRequest): L
         entityId,
         heroId: DEFAULT_HOST_HERO_ID,
         costumeId: DEFAULT_HOST_COSTUME_ID,
+      },
+    ],
+  };
+};
+
+/** Packet 44 bool-false or packet 80 — local keyboard / controller seat join. */
+export const applyLocalGuestJoin = (state: LobbyState, controller: number): LobbyState => {
+  if (controller === 0) return state;
+  if (state.guests.some((guest) => guest.controller === controller)) return state;
+  if (occupiedSeats(state) >= state.maxPlayers) return state;
+  const entityId = state.nextEntityId;
+  const localIndex = state.guests.length + 1;
+  return {
+    ...state,
+    nextEntityId: entityId + 1,
+    guests: [
+      ...state.guests,
+      {
+        controller,
+        localIndex,
+        entityId,
+        heroId: DEFAULT_HOST_HERO_ID,
+        costumeId: DEFAULT_HOST_COSTUME_ID,
+        heroSlots: defaultHostHeroSlots(),
       },
     ],
   };

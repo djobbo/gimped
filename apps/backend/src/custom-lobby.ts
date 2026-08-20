@@ -73,7 +73,65 @@ const writeSettings = (bits: BitWriter, state: LobbyState): void => {
   bits.writeBool(false);
 };
 
-const writeHost = (bits: BitWriter, state: LobbyState): void => {
+const writeHumanPlayerBody = (
+  bits: BitWriter,
+  fields: {
+    readonly localIndex: number;
+    readonly controller: number;
+    readonly team: number;
+    readonly readyLock: number;
+    readonly heroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>;
+  },
+): void => {
+  bits.writeBool(false);
+  bits.writePackedU32(STUB_USER_ID);
+  bits.writeString(STUB_DISPLAY_NAME);
+  bits.writeString("");
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writeString("");
+  bits.writePackedU32(fields.localIndex);
+  bits.writePackedU32(fields.controller);
+  bits.writePackedU32(fields.team);
+  bits.writePackedU32(fields.readyLock);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writeBool(false);
+  bits.writePackedU32(fields.heroSlots.length);
+  for (const slot of fields.heroSlots) {
+    bits.writeBool(false);
+    bits.writeBool(false);
+    bits.writePackedU32(slot.heroId);
+    bits.writePackedU32(slot.costumeId);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+  }
+};
+
+const writeHost = (
+  bits: BitWriter,
+  state: LobbyState,
+  options: { readonly includeHeroSlots?: boolean } = {},
+): void => {
+  if (options.includeHeroSlots) {
+    // Online custom lock-in uses method_2148 → uint(-1) as var_6587 (not 1).
+    writeHumanPlayerBody(bits, {
+      localIndex: 0,
+      controller: 0,
+      team: 0,
+      readyLock: 0xffffffff,
+      heroSlots: state.hostHeroSlots,
+    });
+    return;
+  }
   bits.writeBool(false);
   bits.writePackedU32(STUB_USER_ID);
   bits.writeString(STUB_DISPLAY_NAME);
@@ -94,7 +152,19 @@ const writeHost = (bits: BitWriter, state: LobbyState): void => {
   bits.writePackedU32(0);
   bits.writePackedU24(0);
   bits.writeBool(false);
+  // Initial 2445: empty slots; host pick arrives via packet 41 / method_2849.
   bits.writePackedU32(0);
+};
+
+const writeLobbyGuest = (bits: BitWriter, guest: LobbyState["guests"][number]): void => {
+  writeHumanPlayerBody(bits, {
+    localIndex: guest.localIndex,
+    controller: guest.controller,
+    team: 0,
+    readyLock: 0,
+    // Empty slots → method_2849 assigns a selectable grid hero.
+    heroSlots: [],
+  });
 };
 
 const writeLobbyBot = (bits: BitWriter, bot: LobbyState["bots"][number]): void => {
@@ -196,22 +266,33 @@ export const decodeLobbySettings = (payload: Uint8Array): LobbySettings => {
 /** LinkUpdater.method_4037 / method_5878 payload for a custom room snapshot. */
 export const encodeCustomLobby = (
   state: LobbyState = initialLobbyState(),
-  options: { readonly includeHeroUpdate?: boolean } = {},
+  options: {
+    readonly includeHeroUpdate?: boolean;
+    readonly includeHeroSlots?: boolean;
+  } = {},
 ): Uint8Array => {
   const bits = new BitWriter();
   bits.writePackedU32(1);
   bits.writePackedU32(0);
   writeSettings(bits, state);
+  // After settings: bool, hostUserId, then bool → client var_486 = true?1:2
+  // false → var_486=2: join sends 44 with controller id (dedupeable).
+  // true → var_486=1: join sends empty packet 80 (cannot identify device → ghost seats).
+  const onlineJoinModeBool = false;
   bits.writeBool(false);
   bits.writePackedU32(STUB_USER_ID);
-  bits.writeBool(false);
+  bits.writeBool(onlineJoinModeBool);
   bits.writeBool(false);
   bits.writeBool(false);
   bits.writePackedU32(0);
   bits.writeString(STUB_ROOM_CODE);
   bits.writeBool(false);
   bits.writeBool(true);
-  writeHost(bits, state);
+  writeHost(bits, state, { includeHeroSlots: options.includeHeroSlots });
+  for (const guest of state.guests) {
+    bits.writeBool(true);
+    writeLobbyGuest(bits, guest);
+  }
   for (const bot of state.bots) {
     bits.writeBool(true);
     writeLobbyBot(bits, bot);
@@ -345,6 +426,39 @@ export const encodeAddBot = (controller = BOT_CONTROLLER): Uint8Array => {
   return bits.toUint8Array();
 };
 
+/**
+ * 2449 human branch (method_6848) — same player body as writeHost/writeLobbyGuest
+ * (empty hero slots). Trailing bool false keeps class_112 bindings when var_486=2.
+ * Hero assignment for the guest is expected from a follow-up 2445 (method_2849),
+ * matching how the host gets a selectable legend on room create.
+ */
+export const encodeLocalGuestJoin = (guest: LobbyState["guests"][number]): Uint8Array => {
+  const bits = new BitWriter();
+  bits.writeBool(false);
+  bits.writePackedU32(STUB_USER_ID);
+  bits.writeString(STUB_DISPLAY_NAME);
+  bits.writeString("");
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writeString("");
+  bits.writePackedU32(guest.localIndex);
+  bits.writePackedU32(guest.controller);
+  bits.writePackedU32(guest.heroId);
+  bits.writePackedU32(guest.costumeId);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writeBool(false);
+  bits.writePackedU32(0);
+  bits.writeBool(false);
+  return bits.toUint8Array();
+};
+
 export const decodeAddBot = (payload: Uint8Array): AddBot => {
   const bits = new BitReader(payload);
   if (!bits.readBool()) throw new RangeError("stub addBot expected bot branch");
@@ -372,7 +486,7 @@ export const lobbySettingsFrame = (state: LobbyState): TcpFrame => ({
 
 export const customLobbyFrame = (
   state: LobbyState,
-  options?: { readonly includeHeroUpdate?: boolean },
+  options?: { readonly includeHeroUpdate?: boolean; readonly includeHeroSlots?: boolean },
 ): TcpFrame => ({
   type: PacketType.customLobby,
   seq: undefined,
@@ -383,4 +497,10 @@ export const lobbyJoinFrame = (controller = BOT_CONTROLLER): TcpFrame => ({
   type: PacketType.lobbyJoin,
   seq: undefined,
   payload: encodeAddBot(controller),
+});
+
+export const lobbyGuestJoinFrame = (guest: LobbyState["guests"][number]): TcpFrame => ({
+  type: PacketType.lobbyJoin,
+  seq: undefined,
+  payload: encodeLocalGuestJoin(guest),
 });

@@ -52,6 +52,7 @@ describe("legend pick loadout", () => {
           hostCostumeId: lobby.hostCostumeId,
           hostHeroSlots: [...lobby.hostHeroSlots],
           ruleset: [...lobby.ruleset],
+          guests: [],
           bots: [],
         }),
       ),

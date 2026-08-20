@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   applyAddBotRequest,
+  applyLocalGuestJoin,
   applyUpdateSettings,
   initialLobbyState,
   rulesetFromArray,
@@ -22,10 +23,20 @@ describe("lobby state", () => {
     expect(state.ruleset[2]).toBe(300);
   });
 
-  it("tracks bot add and remove", () => {
-    let state = applyAddBotRequest(initialLobbyState(), { add: true, controller: 5 });
+  it("tracks bot add", () => {
+    const state = applyAddBotRequest(initialLobbyState(), { add: true, controller: 5 });
     expect(state.bots).toHaveLength(1);
-    state = applyAddBotRequest(state, { add: false, controller: 5 });
-    expect(state.bots).toHaveLength(0);
+    expect(state.bots[0]?.entityId).toBe(2);
+  });
+
+  it("tracks local guest join by controller", () => {
+    const state = applyLocalGuestJoin(initialLobbyState(), 1);
+    expect(state.guests).toHaveLength(1);
+    expect(state.guests[0]).toMatchObject({
+      controller: 1,
+      localIndex: 1,
+      entityId: 2,
+    });
+    expect(applyLocalGuestJoin(state, 1).guests).toHaveLength(1);
   });
 });

@@ -3,6 +3,7 @@ import {
   customLobbyFrame,
   decodeAddBotRequest,
   encodeAddBot,
+  lobbyGuestJoinFrame,
   lobbyJoinFrame,
   lobbySettingsFrame,
   parseUpdateSettings,
@@ -13,8 +14,10 @@ import { encodeLoginAccepted } from "./login-accepted.ts";
 import {
   applyAddBotRequest,
   applyLegendPickToState,
+  applyLocalGuestJoin,
   applyUpdateSettings,
   initialLobbyState,
+  nextGuestController,
   type LobbyState,
 } from "./lobby-state.ts";
 import { decodeLegendPick } from "./legend-pick.ts";
@@ -27,6 +30,29 @@ const lobbyRefresh = (
   state: LobbyState,
   options?: { readonly includeHeroUpdate?: boolean },
 ): ReadonlyArray<TcpFrame> => [customLobbyFrame(state, options)];
+
+const acceptLocalGuest = (
+  lobby: LobbyState,
+  controller: number,
+  source: string,
+): HandleFrameResult => {
+  // Empty packet 80 cannot name the device. If a guest seat already exists, re-ack
+  // it instead of minting another controller (1→2→3 spam while stuck in join mode).
+  if (source === "packet-80" && lobby.guests.length > 0) {
+    const last = lobby.guests[lobby.guests.length - 1]!;
+    return { lobby, replies: [lobbyGuestJoinFrame(last)] };
+  }
+  const next = applyLocalGuestJoin(lobby, controller);
+  const guest = next.guests[next.guests.length - 1];
+  const changed = next.guests.length !== lobby.guests.length && guest !== undefined;
+  if (!changed || guest === undefined) return { lobby: next, replies: [] };
+  // 2449 claims the seat; 2445 rebuilds the lobby so method_2849 can assign
+  // selectable legends. includeHeroSlots preserves the host's prior pick.
+  return {
+    lobby: next,
+    replies: [lobbyGuestJoinFrame(guest), customLobbyFrame(next, { includeHeroSlots: true })],
+  };
+};
 
 export const repliesFor = (
   frame: TcpFrame,
@@ -94,13 +120,19 @@ export const handleFrame = (
       return { lobby, replies: [] };
     }
   }
+  if (frame.type === PacketType.localJoin) {
+    return acceptLocalGuest(lobby, nextGuestController(lobby), "packet-80");
+  }
   if (frame.type === PacketType.addBot) {
     try {
       const request = decodeAddBotRequest(frame.payload);
+      // bool false + controller = local keyboard claim (method_7849), not bot remove.
+      if (!request.add) {
+        return acceptLocalGuest(lobby, request.controller, "packet-44-false");
+      }
       const next = applyAddBotRequest(lobby, request);
       const changed = next.bots.length !== lobby.bots.length;
       if (!changed) return { lobby: next, replies: [] };
-      if (!request.add) return { lobby: next, replies: [] };
       return {
         lobby: next,
         replies: [lobbyJoinFrame(request.controller)],

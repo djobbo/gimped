@@ -28,6 +28,16 @@ const matchSpecFromLobby = (lobby: LobbyState): MatchSpec =>
         costumeId: slot.costumeId,
       })),
       ruleset: [...lobby.ruleset],
+      guests: lobby.guests.map((guest) => ({
+        controller: guest.controller,
+        entityId: guest.entityId,
+        heroId: guest.heroId,
+        costumeId: guest.costumeId,
+        heroSlots: guest.heroSlots.map((slot) => ({
+          heroId: slot.heroId,
+          costumeId: slot.costumeId,
+        })),
+      })),
       bots: lobby.bots.map((bot) => ({
         controller: bot.controller,
         entityId: bot.entityId,

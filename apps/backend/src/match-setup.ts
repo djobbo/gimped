@@ -24,6 +24,13 @@ export type MatchSetupEncodeOptions = {
   readonly hostCostumeId: number;
   readonly hostHeroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>;
   readonly ruleset: ReadonlyArray<number>;
+  readonly guests: ReadonlyArray<{
+    readonly controller: number;
+    readonly entityId: number;
+    readonly heroId: number;
+    readonly costumeId: number;
+    readonly heroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>;
+  }>;
   readonly bots: ReadonlyArray<{
     readonly controller: number;
     readonly entityId: number;
@@ -142,6 +149,7 @@ export const matchSetupOptionsFromSpec = (setup: MatchSetupSpec): MatchSetupEnco
   hostCostumeId: setup.hostCostumeId,
   hostHeroSlots: setup.hostHeroSlots,
   ruleset: setup.ruleset,
+  guests: setup.guests,
   bots: setup.bots,
 });
 
@@ -181,10 +189,33 @@ export const encodeMatchSetup = (options: MatchSetupEncodeOptions): Uint8Array =
     options.hostHeroSlots,
     heroFallback,
   );
+  let nextTeam = hostTeam + 1;
+  for (const guest of options.guests) {
+    const guestFallback = { heroId: guest.heroId, costumeId: guest.costumeId };
+    const team = nextTeam;
+    nextTeam += 1;
+    writePlayer(
+      bits,
+      {
+        name: STUB_DISPLAY_NAME,
+        entityId: guest.entityId,
+        userId: STUB_USER_ID,
+        local: true,
+        isBotRecord: false,
+        botCostume: false,
+        controller: guest.controller,
+        team,
+        heroId: guest.heroId,
+        costumeId: guest.costumeId,
+      },
+      guest.heroSlots.length > 0 ? guest.heroSlots : [guestFallback],
+      guestFallback,
+    );
+  }
   for (const bot of options.bots) {
     const botFallback = { heroId: bot.heroId, costumeId: bot.costumeId };
-    // Opposing team from host (training spawn uses 1 vs 2).
-    const botTeam = hostTeam + 1;
+    const botTeam = nextTeam;
+    nextTeam += 1;
     writePlayer(
       bits,
       {
@@ -216,6 +247,7 @@ export const encodeMatchSetupLegacy = (options: { readonly includeBot: boolean }
       { heroId: STUB_HERO_ID, costumeId: STUB_COSTUME_ID },
     ],
     ruleset: [...DEFAULT_RULESET],
+    guests: [],
     bots: options.includeBot
       ? [
           {

@@ -87,6 +87,46 @@ describe("stub replies", () => {
     expect(decodeAddBot(replies[0]!.payload)).toEqual({ _tag: "AddBot", controller: 5 });
   });
 
+  it("acks local keyboard claim 44 bool-false with human lobbyJoin 2449", () => {
+    const bits = new BitWriter();
+    bits.writeBool(false);
+    bits.writePackedU32(1);
+    const { replies, lobby } = handleFrame(
+      { type: PacketType.addBot, seq: 0, payload: bits.toUint8Array() },
+      initialLobbyState(),
+    );
+    expect(lobby.guests).toHaveLength(1);
+    expect(lobby.guests[0]?.controller).toBe(1);
+    expect(replies).toHaveLength(2);
+    expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
+    expect(replies[1]?.type).toBe(PacketType.customLobby);
+    expect((replies[0]!.payload[0]! & 0x80) === 0).toBe(true);
+  });
+
+  it("acks localJoin 80 with human lobbyJoin 2449", () => {
+    const { replies, lobby } = handleFrame(
+      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
+      initialLobbyState(),
+    );
+    expect(lobby.guests).toHaveLength(1);
+    expect(lobby.guests[0]?.controller).toBe(1);
+    expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
+    expect(replies[1]?.type).toBe(PacketType.customLobby);
+  });
+
+  it("re-acks existing guest on repeated localJoin 80 instead of minting seats", () => {
+    const first = handleFrame(
+      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
+      initialLobbyState(),
+    );
+    const second = handleFrame(
+      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
+      first.lobby,
+    );
+    expect(second.lobby.guests).toHaveLength(1);
+    expect(second.replies[0]?.type).toBe(PacketType.lobbyJoin);
+  });
+
   it("stores legendPick 41 without sending a 2445 refresh", () => {
     const bits = new BitWriter();
     bits.writeBool(false);

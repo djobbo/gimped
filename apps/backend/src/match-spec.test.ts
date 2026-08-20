@@ -23,6 +23,7 @@ describe("match spec schemas", () => {
           { heroId: 58, costumeId: 120 },
         ],
         bots: [{ controller: 5, entityId: 2, heroId: 3, costumeId: 3 }],
+        guests: [],
       }),
     });
     expect(Schema.decodeUnknownSync(MatchSpec)(Schema.encodeUnknownSync(MatchSpec)(spec))).toEqual(
