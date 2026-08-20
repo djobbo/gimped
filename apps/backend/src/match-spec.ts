@@ -1,4 +1,5 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
+import { MatchSpecParseError } from "./errors.ts";
 import { DEFAULT_HOST_COSTUME_ID, DEFAULT_HOST_HERO_ID, DEFAULT_RULESET } from "./lobby-state.ts";
 
 export class MatchSetupHeroSlot extends Schema.Class<MatchSetupHeroSlot>("MatchSetupHeroSlot")({
@@ -64,3 +65,8 @@ export const encodeSetupArg = (setup: MatchSetupSpec): string =>
 
 export const decodeSetupArg = (text: string): MatchSetupSpec =>
   Schema.decodeUnknownSync(MatchSetupArgLine)(text);
+
+export const decodeSetupArgEffect = (text: string) =>
+  Schema.decodeUnknownEffect(MatchSetupArgLine)(text).pipe(
+    Effect.mapError((error) => new MatchSpecParseError({ reason: String(error) })),
+  );

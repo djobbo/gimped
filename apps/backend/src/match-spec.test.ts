@@ -1,6 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Schema } from "effect";
-import { GameListenReady, GameListenReadyLine, MatchSetupSpec, MatchSpec } from "./match-spec.ts";
+import { Effect, Exit, Schema } from "effect";
+import { MatchSpecParseError } from "./errors.ts";
+import {
+  GameListenReady,
+  GameListenReadyLine,
+  MatchSetupSpec,
+  MatchSpec,
+  decodeSetupArgEffect,
+  encodeSetupArg,
+} from "./match-spec.ts";
 
 describe("match spec schemas", () => {
   it("round-trips the ready JSON line", () => {
@@ -30,4 +38,17 @@ describe("match spec schemas", () => {
       spec,
     );
   });
+
+  it("decodes setup with Effect helper", () => {
+    const encoded = encodeSetupArg(MatchSetupSpec.default);
+    const exit = Effect.runSyncExit(decodeSetupArgEffect(encoded));
+    expect(exit).toEqual(Exit.succeed(MatchSetupSpec.default));
+  });
+
+  it.effect("maps setup decode failures to MatchSpecParseError", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(decodeSetupArgEffect("{oops"));
+      expect(error).toBeInstanceOf(MatchSpecParseError);
+    }),
+  );
 });

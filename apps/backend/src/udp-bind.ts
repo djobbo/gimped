@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { createSocket, type RemoteInfo, type Socket } from "node:dgram";
+import { UdpBindError } from "./errors.ts";
 
 export type UdpBinding = {
   readonly port: number;
@@ -14,8 +15,17 @@ export const bindUdp = Effect.fn("bindUdp")(function* (host: string) {
       socket.close(() => resume(Effect.void));
     }),
   );
-  yield* Effect.callback<void, Error>((resume) => {
-    socket.once("error", (error) => resume(Effect.fail(error)));
+  yield* Effect.callback<void, UdpBindError>((resume) => {
+    socket.once("error", (error) =>
+      resume(
+        Effect.fail(
+          new UdpBindError({
+            host,
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        ),
+      ),
+    );
     socket.bind(0, host, () => resume(Effect.void));
   });
   const addr = socket.address();

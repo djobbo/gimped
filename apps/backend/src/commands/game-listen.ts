@@ -9,7 +9,7 @@ import {
   GameListenReady,
   GameListenReadyLine,
   MatchSetupSpec,
-  decodeSetupArg,
+  decodeSetupArgEffect,
   encodeSetupArg,
 } from "../match-spec.ts";
 import { bindUdp, runUdpListener } from "../udp-bind.ts";
@@ -45,7 +45,7 @@ export const gameListen = Command.make(
     ),
   },
   Effect.fn("gameListen")(function* (config) {
-    const setup = decodeSetupArg(config.setup);
+    const setup = yield* decodeSetupArgEffect(config.setup);
     const includeBot = setup.bots.length > 0;
     yield* Effect.scoped(
       Effect.gen(function* () {
