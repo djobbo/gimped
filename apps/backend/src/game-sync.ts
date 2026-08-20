@@ -1,7 +1,7 @@
 import { BitReader, BitWriter } from "./bitstream.ts";
 import type { GameChildState } from "./game-child-model.ts";
 import type { TcpFrame } from "./framing.ts";
-import { encodeEntityValue } from "./game-input.ts";
+import { encodeEntityRespawn, encodeEntityState } from "./game-input.ts";
 import { STUB_DISPLAY_NAME, STUB_USER_ID } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
 
@@ -181,18 +181,22 @@ const defaultSpawnEntities = (state: GameChildState): ReadonlyArray<EntitySpawnR
   return entities;
 };
 
-/** Post-10310 child→client sync sequence (10310 is sent separately on gameConnect). */
+/** Post-10310 child→client sync (10310 is sent separately on gameConnect). */
 export const buildInitialSync = (
+  _state: GameChildState,
+  _options: { readonly sessionToken: string },
+): ReadonlyArray<TcpFrame> => [];
+
+/** Sent after client 10409/10403 once the level shell is ready (not right after 10310). */
+export const buildLevelReadySync = (
   state: GameChildState,
-  options: { readonly sessionToken: string },
+  _options: { readonly sessionToken: string },
 ): ReadonlyArray<TcpFrame> => {
-  const entities = defaultSpawnEntities(state);
+  // LinkUpdater.method_8604 (10311) calls class_139.method_855() when var_5286 != 0, which clears
+  // fighters spawned by 10310. After 10409 levelReady the client has already ticked the level shell,
+  // so var_5286 is non-zero and 10311 wipes var_7032 before we can start sim.
+  // LinkUpdater.method_288 (10312) also ends in method_855(); keep it for respawn/match-over only.
   return [
-    frame(
-      PacketType.sessionSync,
-      encodeSessionSync({ clearTransfer: true, token: options.sessionToken }),
-    ),
-    frame(PacketType.entitySpawn, encodeEntitySpawn({ entities })),
     frame(PacketType.gameServerReady, encodeGameServerReady({ ready: true, tick: state.tick })),
   ];
 };
@@ -200,10 +204,22 @@ export const buildInitialSync = (
 export const buildRespawnSync = (
   state: GameChildState,
   entityId: number,
-): ReadonlyArray<TcpFrame> => [
-  frame(PacketType.entitySpawn, encodeEntitySpawn({ entities: defaultSpawnEntities(state) })),
-  frame(PacketType.entityValue, encodeEntityValue(entityId, 0)),
-];
+): ReadonlyArray<TcpFrame> => {
+  const tick = state.tick === 0 ? 16 : state.tick;
+  return [
+    frame(PacketType.entityState, encodeEntityState({ entityId, tick, code: tick })),
+    frame(
+      PacketType.entityRespawn,
+      encodeEntityRespawn({
+        entityId,
+        field2: 0,
+        tick,
+        reason: 4,
+        active: true,
+      }),
+    ),
+  ];
+};
 
 export const buildMatchOverSync = (state: GameChildState): ReadonlyArray<TcpFrame> => [
   frame(PacketType.entitySpawn, encodeEntitySpawn({ entities: defaultSpawnEntities(state) })),

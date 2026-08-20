@@ -1,5 +1,5 @@
 import { NodeSocketServer } from "@effect/platform-node";
-import { Console, Effect, Option, Path } from "effect";
+import { Effect, Option, Path } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { homedir } from "node:os";
 import { startTshark, watchDiagnostics } from "../capture.ts";
@@ -55,7 +55,7 @@ export const listen = Command.make(
         const session = yield* createSession(outRoot);
         const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
 
-        yield* Console.log(launchHelp(config.host, config.port));
+        yield* Effect.log(launchHelp(config.host, config.port));
         yield* watchDiagnostics(session.dir, docs, session.note);
 
         if (config.tshark) {

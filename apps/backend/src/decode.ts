@@ -1,6 +1,11 @@
 import { BitReader } from "./bitstream.ts";
 import { decodeAssignGameServer } from "./assign-game-server.ts";
-import { decodeAddBot, decodeCustomLobby, decodeLobbySettings } from "./custom-lobby.ts";
+import {
+  decodeAddBot,
+  decodeAddBotRequest,
+  decodeCustomLobby,
+  decodeLobbySettings,
+} from "./custom-lobby.ts";
 import { decodeGameConnect } from "./game-connect.ts";
 import {
   decodeEntitySpawn,
@@ -9,6 +14,7 @@ import {
   decodeSessionSync,
 } from "./game-sync.ts";
 import { decodeMove, decodeSimReady, decodeTickAck } from "./game-input.ts";
+import { decodeLegendPick } from "./legend-pick.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { decodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
@@ -44,6 +50,13 @@ export type DecodedPayload =
       readonly maxPlayers: number;
       readonly regionId: number;
     }
+  | {
+      readonly _tag: "LegendPick";
+      readonly isBot: boolean;
+      readonly slotId: number;
+      readonly heroId: number;
+      readonly ready: boolean;
+    }
   | { readonly _tag: "AddBot"; readonly controller: number }
   | { readonly _tag: "StartMatch" }
   | { readonly _tag: "GameConnect"; readonly userId: number; readonly token: string }
@@ -78,6 +91,7 @@ export type DecodedPayload =
       readonly y: number;
     }
   | { readonly _tag: "TickPulse"; readonly tick: number }
+  | { readonly _tag: "TickPulseEcho" }
   | { readonly _tag: "EntityValue"; readonly entityId: number; readonly value: number }
   | {
       readonly _tag: "AssignGameServer";
@@ -89,6 +103,13 @@ export type DecodedPayload =
       readonly udpPort: number;
       readonly useNetworkNext: boolean;
     }
+  | {
+      readonly _tag: "MoveInput";
+      readonly entityId: number;
+      readonly tick: number;
+      readonly input: number;
+    }
+  | { readonly _tag: "IntroSync"; readonly size: number }
   | { readonly _tag: "Unknown" };
 
 const decodeLoginRequest = (payload: Uint8Array) => {
@@ -139,6 +160,20 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
     if (type === PacketType.lobbySettings) {
       return decodeLobbySettings(payload);
     }
+    if (type === PacketType.legendPick) {
+      const pick = decodeLegendPick(payload);
+      return {
+        _tag: "LegendPick",
+        isBot: pick.isBot,
+        slotId: pick.slotId,
+        heroId: pick.heroId,
+        ready: pick.ready,
+      };
+    }
+    if (type === PacketType.addBot) {
+      const request = decodeAddBotRequest(payload);
+      return { _tag: "AddBot", controller: request.controller };
+    }
     if (type === PacketType.lobbyJoin) {
       return decodeAddBot(payload);
     }
@@ -163,7 +198,7 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
     if (type === PacketType.gameServerReady) {
       return decodeGameServerReady(payload);
     }
-    if (type === PacketType.postConnectAck) {
+    if (type === PacketType.postConnectAck || type === PacketType.levelReady) {
       return decodePostConnectAck(payload);
     }
     if (type === PacketType.simReady) {
@@ -177,21 +212,41 @@ export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload
       return {
         _tag: "MoveInput",
         entityId: move.entityId,
-        x: move.x,
-        y: move.y,
+        tick: move.tick,
+        input: move.input,
       };
+    }
+    if (
+      type === PacketType.introPlayerSync ||
+      type === PacketType.introEntitySync ||
+      type === PacketType.introAuxSync
+    ) {
+      return { _tag: "IntroSync", size: payload.length };
     }
     if (type === PacketType.tickPulse) {
-      const bits = new BitReader(payload);
-      return { _tag: "TickPulse", tick: bits.readPackedU32() };
+      if (payload.length === 0) {
+        return { _tag: "TickPulseEcho" };
+      }
+      const tickBits = new BitReader(payload);
+      return { _tag: "TickPulse", tick: tickBits.readPackedU32() };
     }
-    if (type === PacketType.entityValue) {
+    if (type === PacketType.inputBroadcast) {
+      return { _tag: "InputBroadcast", size: payload.length };
+    }
+    if (type === PacketType.udpTunnel) {
+      return { _tag: "UdpTunnel", size: payload.length };
+    }
+    if (type === PacketType.entityState) {
       const bits = new BitReader(payload);
       return {
-        _tag: "EntityValue",
+        _tag: "EntityState",
         entityId: bits.readPackedU32(),
-        value: bits.readPackedU32(),
+        tick: bits.readPackedU32(),
+        code: bits.readPackedU32(),
       };
+    }
+    if (type === PacketType.entityRespawn) {
+      return { _tag: "EntityRespawn", size: payload.length };
     }
   } catch {
     return { _tag: "Unknown" };

@@ -14,6 +14,8 @@ export const PacketType = {
   updateSettings: 37,
   /** var_3770 — add/remove bot (LinkUpdater.method_6324 / method_7840) */
   addBot: 44,
+  /** var_5607 — legend / loadout pick (LinkUpdater.method_6666) */
+  legendPick: 41,
   /** var_6923 — host clicked play in a custom room (class_104.method_8137) */
   startMatch: 55,
   /** var_2045 — alternate login packet when var_10808 */
@@ -44,6 +46,8 @@ export const PacketType = {
   gameServerReady: 10313,
   /** var_8410 — empty post-connect ack (class_139.method_673) */
   postConnectAck: 10403,
+  /** var_174 — level finished loading (LinkUpdater.method_4975 after method_9055) */
+  levelReady: 10409,
   /** var_14245 — client ready for simulation tick (class_139.method_3208) */
   simReady: 10401,
   /** var_7095 — server tick ack (LinkUpdater.method_2517) */
@@ -52,10 +56,22 @@ export const PacketType = {
   gameConnect: 10405,
   /** var_5618 — entity move sample (class_288.method_2934) */
   moveInput: 10407,
+  /** var_12127 — intro player/ruleset sync (class_314.method_6941) */
+  introPlayerSync: 10415,
+  /** var_4272 — intro entity state sync during countdown */
+  introEntitySync: 10419,
+  /** var_6928 — intro auxiliary sync during countdown */
+  introAuxSync: 10422,
   /** var_8486 — tick pulse during active match (LinkUpdater.method_6885) */
   tickPulse: 10301,
-  /** var_2752 — entity value poke (LinkUpdater.method_6785) */
-  entityValue: 2509,
+  /** var_6185 — batched rollback inputs (LinkUpdater.method_2963) */
+  inputBroadcast: 10309,
+  /** var_8091 — stock loss / entity state (LinkUpdater.method_3520) */
+  entityState: 10304,
+  /** var_8260 — respawn after stock loss (LinkUpdater.method_2473) */
+  entityRespawn: 10307,
+  /** var_1712 — per-entity value poke (LinkUpdater.method_3926) */
+  entityPoke: 10315,
   /** var_14117 — excluded from seq in method_6265 */
   seqExclude14117: 2467,
   /** var_7394 — server login challenge string */
@@ -64,6 +80,8 @@ export const PacketType = {
   authRefused: 12001,
   /** var_4304 — disconnect / drop to offline */
   dropOffline: 12002,
+  /** var_5078 — UDP multiplex tunnel (LinkUpdater.method_8562 → class_647.method_4767) */
+  udpTunnel: 10316,
   /** var_14380 — empty keepalive ping/pong */
   keepalivePing: 12100,
 } as const;
@@ -83,6 +101,7 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.createCustomRoom) return "createCustomRoom";
   if (type === PacketType.updateSettings) return "updateSettings";
   if (type === PacketType.addBot) return "addBot";
+  if (type === PacketType.legendPick) return "legendPick";
   if (type === PacketType.startMatch) return "startMatch";
   if (type === PacketType.loginAccepted) return "loginAccepted";
   if (type === PacketType.customLobby) return "customLobby";
@@ -94,11 +113,19 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.entitySpawn) return "entitySpawn";
   if (type === PacketType.gameServerReady) return "gameServerReady";
   if (type === PacketType.postConnectAck) return "postConnectAck";
+  if (type === PacketType.levelReady) return "levelReady";
   if (type === PacketType.simReady) return "simReady";
   if (type === PacketType.tickAck) return "tickAck";
   if (type === PacketType.moveInput) return "moveInput";
+  if (type === PacketType.introPlayerSync) return "introPlayerSync";
+  if (type === PacketType.introEntitySync) return "introEntitySync";
+  if (type === PacketType.introAuxSync) return "introAuxSync";
   if (type === PacketType.tickPulse) return "tickPulse";
-  if (type === PacketType.entityValue) return "entityValue";
+  if (type === PacketType.inputBroadcast) return "inputBroadcast";
+  if (type === PacketType.entityState) return "entityState";
+  if (type === PacketType.entityRespawn) return "entityRespawn";
+  if (type === PacketType.entityPoke) return "entityPoke";
+  if (type === PacketType.udpTunnel) return "udpTunnel";
   if (type === PacketType.gameConnect) return "gameConnect";
   if (type === PacketType.loginChallenge) return "loginChallenge";
   if (type === PacketType.authRefused) return "authRefused";

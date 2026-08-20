@@ -4,7 +4,9 @@ import { gameActionFor } from "./game-replies.ts";
 import { decodeMatchSetup } from "./match-setup.ts";
 import { PacketType } from "./packets.ts";
 
-const spec = { userId: 1, token: "gimped", includeBot: false };
+import { MatchSetupSpec } from "./match-spec.ts";
+
+const spec = { userId: 1, token: "gimped", includeBot: false, setup: MatchSetupSpec.default };
 
 describe("game replies", () => {
   it("answers valid 10405 with 10310 and sync sequence", () => {
@@ -18,12 +20,7 @@ describe("game replies", () => {
     );
     expect(action._tag).toBe("Reply");
     if (action._tag !== "Reply") return;
-    expect(action.frames.map((frame) => frame.type)).toEqual([
-      PacketType.matchSetup,
-      PacketType.sessionSync,
-      PacketType.entitySpawn,
-      PacketType.gameServerReady,
-    ]);
+    expect(action.frames.map((frame) => frame.type)).toEqual([PacketType.matchSetup]);
     expect(decodeMatchSetup(action.frames[0]!.payload).hostUserId).toBe(1);
   });
 

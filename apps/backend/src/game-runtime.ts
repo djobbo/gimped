@@ -1,5 +1,6 @@
 import {
   Context,
+  Deferred,
   Effect,
   Layer,
   Option,
@@ -16,7 +17,7 @@ import {
   ChildProcessSpawner,
 } from "effect/unstable/process/ChildProcessSpawner";
 import process from "node:process";
-import { GameListenReadyLine, MatchSpec } from "./match-spec.ts";
+import { GameListenReady, GameListenReadyLine, MatchSpec, encodeSetupArg } from "./match-spec.ts";
 import { packageRoot } from "./session.ts";
 
 export class GameListenTimeout extends Schema.TaggedError<GameListenTimeout>()(
@@ -102,7 +103,8 @@ export class GameRuntime extends Context.Service<
             spec.token,
             "--level-id",
             String(spec.levelId),
-            ...(spec.includeBot ? ["--bot"] : []),
+            "--setup",
+            encodeSetupArg(spec.setup),
           ],
           { stdout: "pipe", stdin: "ignore" },
         );
@@ -111,20 +113,35 @@ export class GameRuntime extends Context.Service<
           Effect.tapError(() => mutex.release(1)),
         );
         yield* Effect.forkIn(handle.exitCode.pipe(Effect.ensuring(clear())), scope);
-        const ready = yield* Stream.decodeText(handle.stdout).pipe(
-          Stream.splitLines,
-          Stream.filter(isReadyLine),
-          Stream.map((text) => Schema.decodeUnknownSync(GameListenReadyLine)(text)),
-          Stream.take(1),
-          Stream.runHead,
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                new GameListenTimeout({
-                  message: "game listen printed no ready line",
-                }),
-              onSome: (line) => Effect.succeed(line),
-            }),
+        const readyDeferred = yield* Deferred.make<GameListenReady, GameListenTimeout>();
+        yield* Effect.forkIn(
+          Stream.decodeText(handle.stdout).pipe(
+            Stream.splitLines,
+            Stream.filter((text) => text.length > 0),
+            Stream.tap((line) =>
+              Effect.gen(function* () {
+                if (isReadyLine(line)) {
+                  yield* Deferred.complete(
+                    readyDeferred,
+                    Effect.succeed(Schema.decodeUnknownSync(GameListenReadyLine)(line)),
+                  ).pipe(Effect.ignore);
+                  return;
+                }
+                yield* Effect.sync(() => {
+                  process.stderr.write(`${line}\n`);
+                });
+              }),
+            ),
+            Stream.runDrain,
+          ),
+          scope,
+        );
+        const ready = yield* Deferred.await(readyDeferred).pipe(
+          Effect.mapError(
+            () =>
+              new GameListenTimeout({
+                message: "game listen printed no ready line",
+              }),
           ),
           Effect.timeoutOrElse({
             duration: "10 seconds",

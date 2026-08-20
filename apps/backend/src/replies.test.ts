@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { BitReader } from "./bitstream.ts";
+import { BitReader, BitWriter } from "./bitstream.ts";
 import {
   decodeAddBot,
   decodeCustomLobby,
@@ -7,9 +7,10 @@ import {
   STUB_ROOM_CODE,
 } from "./custom-lobby.ts";
 import { decodePayload } from "./decode.ts";
+import { initialLobbyState } from "./lobby-state.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
-import { LOGIN_CHALLENGE, repliesFor } from "./replies.ts";
+import { LOGIN_CHALLENGE, handleFrame, repliesFor } from "./replies.ts";
 
 describe("stub replies", () => {
   it("sends login challenge 12000 after clientVersion (LinkUpdater.method_6530)", () => {
@@ -84,6 +85,37 @@ describe("stub replies", () => {
     expect(replies).toHaveLength(1);
     expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
     expect(decodeAddBot(replies[0]!.payload)).toEqual({ _tag: "AddBot", controller: 5 });
+  });
+
+  it("stores legendPick 41 without sending a 2445 refresh", () => {
+    const bits = new BitWriter();
+    bits.writeBool(false);
+    bits.writePackedU32(0);
+    bits.writePackedU32(58);
+    bits.writeBool(false);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writePackedU32(2);
+    bits.writeBool(true);
+    bits.writeBool(true);
+    bits.writePackedU32(58);
+    bits.writePackedU32(120);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writeBool(true);
+    bits.writeBool(true);
+    bits.writePackedU32(58);
+    bits.writePackedU32(120);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    const { replies, lobby } = handleFrame(
+      { type: PacketType.legendPick, seq: 0, payload: bits.toUint8Array() },
+      initialLobbyState(),
+    );
+    expect(replies).toEqual([]);
+    expect(lobby.hostHeroId).toBe(58);
+    expect(lobby.hostCostumeId).toBe(120);
   });
 
   it("does not reply to protocolHello", () => {

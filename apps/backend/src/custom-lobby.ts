@@ -1,13 +1,18 @@
 import { BitReader, BitWriter } from "./bitstream.ts";
+import type { LobbyState, ParsedUpdateSettings, RulesetFields } from "./lobby-state.ts";
+import {
+  BOT_CONTROLLER,
+  DEFAULT_RULESET,
+  STUB_MAX_PLAYERS,
+  initialLobbyState,
+} from "./lobby-state.ts";
 import { STUB_DISPLAY_NAME, STUB_USER_ID } from "./login-accepted.ts";
+import type { TcpFrame } from "./framing.ts";
+import { PacketType } from "./packets.ts";
 
 export const STUB_ROOM_CODE = "GIM1";
-/** RegionTypes.xml Atlanta — first AvailableForCustom region (not Template/Anonymous). */
-export const STUB_REGION_ID = 2;
-/** Default Timed max players; class_104.method_6165 falls back to var_8259. */
-export const STUB_MAX_PLAYERS = 4;
-/** class_40.var_14290 — default bot controller sent by class_487.method_3314. */
-export const BOT_CONTROLLER = 5;
+/** Re-exported lobby defaults live in lobby-state.ts. */
+export { BOT_CONTROLLER, STUB_MAX_PLAYERS, STUB_REGION_ID } from "./lobby-state.ts";
 
 export type CustomLobby = {
   readonly _tag: "CustomLobby";
@@ -31,6 +36,13 @@ export type AddBot = {
   readonly controller: number;
 };
 
+const readRulesetFields = (bits: BitReader): RulesetFields => {
+  const fields = Array.from({ length: 15 }, () => bits.readPackedU32());
+  if (fields.length !== 15) throw new RangeError("ruleset must have 15 fields");
+  // SAFETY: length check above guarantees the tuple width for RulesetFields.
+  return fields as RulesetFields;
+};
+
 const writeEmptyList = (bits: BitWriter): void => {
   bits.writeBool(false);
 };
@@ -39,37 +51,29 @@ const expectEmptyList = (bits: BitReader, name: string): void => {
   if (bits.readBool()) throw new RangeError(`stub customLobby expected empty ${name}`);
 };
 
-export const writeTimedRuleset = (bits: BitWriter): void => {
-  bits.writePackedU32(0);
-  bits.writePackedU32(STUB_MAX_PLAYERS);
-  bits.writePackedU32(180);
-  bits.writePackedU32(0);
-  bits.writePackedU32(0);
-  bits.writePackedU32(1);
-  bits.writePackedU32(0);
-  bits.writePackedU32(100);
-  bits.writePackedU32(100);
-  bits.writePackedU32(1);
-  bits.writePackedU32(2);
-  bits.writePackedU32(2);
-  bits.writePackedU32(4);
-  bits.writePackedU32(0);
-  bits.writePackedU32(0);
+export const writeRuleset = (bits: BitWriter, ruleset: RulesetFields): void => {
+  for (const field of ruleset) bits.writePackedU32(field);
 };
 
-const writeSettings = (bits: BitWriter, maxPlayers: number, regionId: number): void => {
-  bits.writePackedU32(0);
-  bits.writePackedU32(1);
-  bits.writePackedU24(maxPlayers);
-  writeTimedRuleset(bits);
-  bits.writePackedU32(0);
-  bits.writeU8(regionId);
+export const writeTimedRuleset = (bits: BitWriter): void => {
+  writeRuleset(bits, DEFAULT_RULESET);
+};
+
+const writeSettings = (bits: BitWriter, state: LobbyState): void => {
+  bits.writePackedU32(state.playlistId);
+  bits.writePackedU32(state.customGameType);
+  if (state.playlistId === 0) {
+    bits.writePackedU24(state.maxPlayers);
+    writeRuleset(bits, state.ruleset);
+  }
+  bits.writePackedU32(state.levelPick);
+  bits.writeU8(state.regionId);
   bits.writePackedU24(0);
   bits.writeBool(false);
   bits.writeBool(false);
 };
 
-const writeHost = (bits: BitWriter): void => {
+const writeHost = (bits: BitWriter, state: LobbyState): void => {
   bits.writeBool(false);
   bits.writePackedU32(STUB_USER_ID);
   bits.writeString(STUB_DISPLAY_NAME);
@@ -80,8 +84,8 @@ const writeHost = (bits: BitWriter): void => {
   bits.writeString("");
   bits.writePackedU32(0);
   bits.writePackedU32(0);
-  bits.writePackedU32(0);
-  bits.writePackedU32(0);
+  bits.writePackedU32(state.hostHeroId);
+  bits.writePackedU32(state.hostCostumeId);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
@@ -93,13 +97,46 @@ const writeHost = (bits: BitWriter): void => {
   bits.writePackedU32(0);
 };
 
+const writeLobbyBot = (bits: BitWriter, bot: LobbyState["bots"][number]): void => {
+  bits.writeBool(false);
+  bits.writePackedU32(0);
+  bits.writeString("Bot");
+  bits.writeString("");
+  bits.writePackedU32(0);
+  bits.writePackedU32(bot.entityId);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writeBool(false);
+  bits.writeBool(true);
+  bits.writeBool(true);
+  bits.writePackedU32(bot.controller);
+  for (let i = 0; i < 6; i++) bits.writePackedU32(0);
+  for (let i = 0; i < 8; i++) bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writePackedU24(0);
+  bits.writeBool(false);
+  bits.writePackedU24(0);
+  bits.writePackedU32(0);
+  bits.writePackedU24(0);
+  bits.writePackedU24(0);
+  bits.writePackedU32(0);
+  bits.writePackedU32(0);
+  bits.writeString("");
+};
+
+const writePlayerHeroUpdates = (bits: BitWriter, state: LobbyState): void => {
+  bits.writeBool(true);
+  bits.writePackedU32(STUB_USER_ID);
+  bits.writeBool(false);
+  bits.writePackedU32(state.hostHeroId);
+  bits.writePackedU32(state.hostCostumeId);
+  bits.writeBool(false);
+};
+
 /** LinkUpdater.method_5878 body used by method_8229 (2448). */
-export const encodeLobbySettings = (
-  maxPlayers = STUB_MAX_PLAYERS,
-  regionId = STUB_REGION_ID,
-): Uint8Array => {
+export const encodeLobbySettings = (state: LobbyState = initialLobbyState()): Uint8Array => {
   const bits = new BitWriter();
-  writeSettings(bits, maxPlayers, regionId);
+  writeSettings(bits, state);
   return bits.toUint8Array();
 };
 
@@ -108,47 +145,63 @@ export const encodeLobbySettings = (
  * method_5878 / method_8229 (2448) does not read it.
  */
 export const settingsAckFromClient = (payload: Uint8Array): Uint8Array => {
-  const src = new BitReader(payload);
-  const dst = new BitWriter();
-  const playlistId = src.readPackedU32();
-  const customGameType = src.readPackedU32();
-  dst.writePackedU32(playlistId);
-  dst.writePackedU32(customGameType);
-  if (playlistId === 0) {
-    dst.writePackedU24(src.readPackedU24());
-    for (let i = 0; i < 15; i++) dst.writePackedU32(src.readPackedU32());
-  }
-  dst.writePackedU32(src.readPackedU32());
-  dst.writeU8(src.readU8());
-  src.readString();
-  dst.writePackedU24(src.readPackedU24());
-  dst.writeBool(src.readBool());
-  dst.writeBool(src.readBool());
-  return dst.toUint8Array();
+  const parsed = parseUpdateSettings(payload, { includeRoomCode: false });
+  const bits = new BitWriter();
+  writeSettings(bits, { ...initialLobbyState(), ...parsed });
+  return bits.toUint8Array();
 };
 
-export const decodeLobbySettings = (payload: Uint8Array): LobbySettings => {
+export const parseUpdateSettings = (
+  payload: Uint8Array,
+  options: { readonly includeRoomCode: boolean } = { includeRoomCode: true },
+): ParsedUpdateSettings => {
   const bits = new BitReader(payload);
   const playlistId = bits.readPackedU32();
   const customGameType = bits.readPackedU32();
-  const maxPlayers = playlistId === 0 ? bits.readPackedU24() : 0;
+  let maxPlayers = STUB_MAX_PLAYERS;
+  let ruleset: RulesetFields = DEFAULT_RULESET;
   if (playlistId === 0) {
-    for (let i = 0; i < 15; i++) bits.readPackedU32();
+    maxPlayers = bits.readPackedU24();
+    ruleset = readRulesetFields(bits);
   }
-  bits.readPackedU32();
+  const levelPick = bits.readPackedU32();
   const regionId = bits.readU8();
+  if (options.includeRoomCode) bits.readString();
   bits.readPackedU24();
-  bits.readBool();
-  bits.readBool();
-  return { _tag: "LobbySettings", playlistId, customGameType, maxPlayers, regionId };
+  const flagsA = bits.readBool();
+  const flagsB = bits.readBool();
+  return {
+    playlistId,
+    customGameType,
+    maxPlayers,
+    ruleset,
+    levelPick,
+    regionId,
+    flagsA,
+    flagsB,
+  };
 };
 
-/** LinkUpdater.method_4037 / method_5878 payload for a Default custom room. */
-export const encodeCustomLobby = (): Uint8Array => {
+export const decodeLobbySettings = (payload: Uint8Array): LobbySettings => {
+  const parsed = parseUpdateSettings(payload, { includeRoomCode: false });
+  return {
+    _tag: "LobbySettings",
+    playlistId: parsed.playlistId,
+    customGameType: parsed.customGameType,
+    maxPlayers: parsed.maxPlayers,
+    regionId: parsed.regionId,
+  };
+};
+
+/** LinkUpdater.method_4037 / method_5878 payload for a custom room snapshot. */
+export const encodeCustomLobby = (
+  state: LobbyState = initialLobbyState(),
+  options: { readonly includeHeroUpdate?: boolean } = {},
+): Uint8Array => {
   const bits = new BitWriter();
   bits.writePackedU32(1);
   bits.writePackedU32(0);
-  writeSettings(bits, STUB_MAX_PLAYERS, STUB_REGION_ID);
+  writeSettings(bits, state);
   bits.writeBool(false);
   bits.writePackedU32(STUB_USER_ID);
   bits.writeBool(false);
@@ -158,9 +211,17 @@ export const encodeCustomLobby = (): Uint8Array => {
   bits.writeString(STUB_ROOM_CODE);
   bits.writeBool(false);
   bits.writeBool(true);
-  writeHost(bits);
-  writeEmptyList(bits);
-  writeEmptyList(bits);
+  writeHost(bits, state);
+  for (const bot of state.bots) {
+    bits.writeBool(true);
+    writeLobbyBot(bits, bot);
+  }
+  bits.writeBool(false);
+  if (options.includeHeroUpdate) {
+    writePlayerHeroUpdates(bits, state);
+  } else {
+    writeEmptyList(bits);
+  }
   writeEmptyList(bits);
   writeEmptyList(bits);
   return bits.toUint8Array();
@@ -209,8 +270,66 @@ export const decodeCustomLobby = (payload: Uint8Array): CustomLobby => {
   bits.readPackedU24();
   bits.readBool();
   bits.readPackedU32();
-  expectEmptyList(bits, "players");
-  expectEmptyList(bits, "playerUpdates");
+  while (bits.readBool()) {
+    bits.readBool();
+    bits.readPackedU32();
+    bits.readString();
+    bits.readString();
+    bits.readPackedU32();
+    bits.readPackedU32();
+    bits.readPackedU32();
+    bits.readPackedU32();
+    bits.readPackedU32();
+    bits.readBool();
+    bits.readBool();
+    bits.readBool();
+    bits.readPackedU32();
+    for (let i = 0; i < 6; i++) bits.readPackedU32();
+    for (let i = 0; i < 8; i++) bits.readPackedU32();
+    bits.readPackedU24();
+    bits.readPackedU24();
+    bits.readBool();
+    bits.readPackedU24();
+    bits.readPackedU32();
+    bits.readPackedU24();
+    bits.readPackedU24();
+    bits.readPackedU32();
+    bits.readPackedU32();
+    bits.readString();
+  }
+  while (bits.readBool()) {
+    bits.readPackedU32();
+    if (bits.readBool()) {
+      bits.readBool();
+      bits.readPackedU32();
+      bits.readString();
+      bits.readString();
+      bits.readPackedU32();
+      bits.readPackedU32();
+      bits.readPackedU32();
+      bits.readPackedU32();
+      bits.readPackedU32();
+      bits.readBool();
+      bits.readBool();
+      bits.readBool();
+      bits.readPackedU32();
+      for (let i = 0; i < 6; i++) bits.readPackedU32();
+      for (let i = 0; i < 8; i++) bits.readPackedU32();
+      bits.readPackedU24();
+      bits.readPackedU24();
+      bits.readBool();
+      bits.readPackedU24();
+      bits.readPackedU32();
+      bits.readPackedU24();
+      bits.readPackedU24();
+      bits.readPackedU32();
+      bits.readPackedU32();
+      bits.readString();
+    } else {
+      bits.readPackedU32();
+      bits.readPackedU32();
+    }
+  }
   expectEmptyList(bits, "bans");
   expectEmptyList(bits, "spectators");
   return { _tag: "CustomLobby", roomId, roomCode, hostUserId, regionId, maxPlayers };
@@ -244,3 +363,24 @@ export const decodeAddBotRequest = (payload: Uint8Array): AddBotRequest => {
   const bits = new BitReader(payload);
   return { add: bits.readBool(), controller: bits.readPackedU32() };
 };
+
+export const lobbySettingsFrame = (state: LobbyState): TcpFrame => ({
+  type: PacketType.lobbySettings,
+  seq: undefined,
+  payload: encodeLobbySettings(state),
+});
+
+export const customLobbyFrame = (
+  state: LobbyState,
+  options?: { readonly includeHeroUpdate?: boolean },
+): TcpFrame => ({
+  type: PacketType.customLobby,
+  seq: undefined,
+  payload: encodeCustomLobby(state, options),
+});
+
+export const lobbyJoinFrame = (controller = BOT_CONTROLLER): TcpFrame => ({
+  type: PacketType.lobbyJoin,
+  seq: undefined,
+  payload: encodeAddBot(controller),
+});

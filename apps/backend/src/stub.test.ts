@@ -7,6 +7,7 @@ import { encodeFrame, FrameDecoder } from "./framing.ts";
 import { GameRuntime } from "./game-runtime.ts";
 import { PacketType } from "./packets.ts";
 import { CapturedPacketLine, createSession } from "./session.ts";
+import { initialLobbyState } from "./lobby-state.ts";
 import { ingestChunk } from "./stub.ts";
 
 layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backend stub", (it) => {
@@ -15,7 +16,7 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
       const fs = yield* FileSystem.FileSystem;
       const temp = yield* fs.makeTempDirectory({ prefix: "backend-" });
       const session = yield* createSession(temp);
-      const flags = yield* Ref.make({ includeBot: false });
+      const lobbyRef = yield* Ref.make(initialLobbyState());
       const hello = new BitWriter();
       hello.writeString("Brawlhalla client to server protocol 1.0");
       const version = new BitWriter();
@@ -33,7 +34,7 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
           payload: version.toUint8Array(),
         }),
       ]);
-      const replies = yield* ingestChunk(new FrameDecoder(), session, 1, bytes, flags);
+      const replies = yield* ingestChunk(new FrameDecoder(), session, 1, bytes, lobbyRef);
       expect(replies.map((reply) => reply.type)).toEqual([PacketType.loginChallenge]);
       const text = yield* fs.readFileString(session.packetsPath);
       const lines = text
@@ -62,7 +63,7 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
       const fs = yield* FileSystem.FileSystem;
       const temp = yield* fs.makeTempDirectory({ prefix: "backend-" });
       const session = yield* createSession(temp);
-      const flags = yield* Ref.make({ includeBot: false });
+      const lobbyRef = yield* Ref.make(initialLobbyState());
       const replies = yield* ingestChunk(
         new FrameDecoder(),
         session,
@@ -72,7 +73,7 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
           seq: 0,
           payload: new Uint8Array(),
         }),
-        flags,
+        lobbyRef,
       );
       expect(replies).toHaveLength(1);
       expect(replies[0]?.type).toBe(PacketType.assignGameServer);

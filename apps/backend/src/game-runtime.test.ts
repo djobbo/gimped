@@ -3,9 +3,14 @@ import { expect, layer } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { createConnection } from "node:net";
 import { GameRuntime } from "./game-runtime.ts";
-import { MatchSpec } from "./match-spec.ts";
+import { MatchSetupSpec, MatchSpec } from "./match-spec.ts";
 
-const spec = new MatchSpec({ userId: 1, token: "gimped", levelId: 1, includeBot: false });
+const spec = new MatchSpec({
+  userId: 1,
+  token: "gimped",
+  levelId: 1,
+  setup: MatchSetupSpec.default,
+});
 
 const connectTcp = (host: string, port: number) =>
   Effect.callback<void, Error>((resume) => {

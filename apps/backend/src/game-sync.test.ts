@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   buildInitialSync,
+  buildLevelReadySync,
   decodeEntitySpawn,
   decodeGameServerReady,
   decodeSessionSync,
@@ -11,7 +12,7 @@ import {
 import { PacketType } from "./packets.ts";
 
 describe("game sync", () => {
-  it("emits the exact required post-10310 sync sequence", () => {
+  it("emits no frames immediately after match setup", () => {
     const frames = buildInitialSync(
       {
         phase: "syncingIntoMatch",
@@ -19,30 +20,61 @@ describe("game sync", () => {
         connected: true,
         tick: 0,
         clientTick: 0,
+        clientSimTick: 0,
         simReady: false,
         entities: [],
+        entityInputs: {},
+        inputQueue: [],
+        udpAckSeq: 0,
+        udpSendSeq: 0,
+        udpSessionId: 1,
+        lastIntroSyncAtMs: 0,
+        lastTickAdvanceAtMs: 0,
+        enteredActiveMatchAtMs: 0,
       },
       { sessionToken: "gimped" },
     );
-    expect(frames.map((frame) => frame.type)).toEqual([
-      PacketType.sessionSync,
-      PacketType.entitySpawn,
-      PacketType.gameServerReady,
-    ]);
+    expect(frames).toEqual([]);
   });
 
-  it("includes a bot entity when includeBot is true", () => {
-    const frames = buildInitialSync(
+  it("emits game-server ready after level ready (not 10311/10312 — they clear fighters)", () => {
+    const frames = buildLevelReadySync(
       {
         phase: "syncingIntoMatch",
-        includeBot: true,
+        includeBot: false,
         connected: true,
         tick: 0,
+        clientTick: 0,
+        clientSimTick: 0,
+        simReady: false,
         entities: [],
+        entityInputs: {},
+        inputQueue: [],
+        udpAckSeq: 0,
+        udpSendSeq: 0,
+        udpSessionId: 1,
+        lastIntroSyncAtMs: 0,
+        lastTickAdvanceAtMs: 0,
+        enteredActiveMatchAtMs: 0,
       },
       { sessionToken: "gimped" },
     );
-    const spawn = decodeEntitySpawn(frames[1]!.payload);
+    expect(frames.map((frame) => frame.type)).toEqual([PacketType.gameServerReady]);
+    expect(decodeGameServerReady(frames[0]!.payload)).toEqual({
+      _tag: "GameServerReady",
+      ready: true,
+      tick: 0,
+    });
+  });
+
+  it("encodeEntitySpawn includes a bot entity when requested", () => {
+    const payload = encodeEntitySpawn({
+      entities: [
+        { entityId: 1, name: "Gimped", userId: 1 },
+        { entityId: 2, name: "Bot", userId: 0 },
+      ],
+    });
+    const spawn = decodeEntitySpawn(payload);
     expect(spawn.entities).toHaveLength(2);
     expect(spawn.entities[1]?.name).toBe("Bot");
   });

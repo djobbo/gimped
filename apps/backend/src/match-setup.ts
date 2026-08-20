@@ -1,6 +1,16 @@
 import { BitReader, BitWriter } from "./bitstream.ts";
-import { BOT_CONTROLLER, writeTimedRuleset } from "./custom-lobby.ts";
+import { BOT_CONTROLLER, writeRuleset } from "./custom-lobby.ts";
+import { DEFAULT_RULESET, rulesetFromArray } from "./lobby-state.ts";
+import { STUB_UDP_CHANNEL } from "./game-udp-datagram.ts";
 import { STUB_DISPLAY_NAME, STUB_USER_ID } from "./login-accepted.ts";
+import type { MatchSetupSpec } from "./match-spec.ts";
+
+/** HeroType.var_1268 index (HeroID in HeroTypes.xml). 0 is invalid; Bodvar is 3. */
+export const STUB_HERO_ID = 3;
+/** Viking default skin (CostumeID in costumeTypes.csv). CostumeType[0] is the template row. */
+export const STUB_COSTUME_ID = 3;
+/** class_139.method_215 header field _loc7_ — hero records read per player. Must be >= ScoringType.TIMED EntitiesPerPlayer (2). */
+export const STUB_HERO_SLOTS = 2;
 
 export type MatchSetup = {
   readonly _tag: "MatchSetup";
@@ -9,8 +19,37 @@ export type MatchSetup = {
   readonly hostUserId: number;
 };
 
+export type MatchSetupEncodeOptions = {
+  readonly hostHeroId: number;
+  readonly hostCostumeId: number;
+  readonly hostHeroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>;
+  readonly ruleset: ReadonlyArray<number>;
+  readonly bots: ReadonlyArray<{
+    readonly controller: number;
+    readonly entityId: number;
+    readonly heroId: number;
+    readonly costumeId: number;
+  }>;
+};
+
 const writeEmptyPackedPairs = (bits: BitWriter): void => {
   bits.writeBool(false);
+};
+
+const writeHeroSlots = (
+  bits: BitWriter,
+  slots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>,
+  fallback: { readonly heroId: number; readonly costumeId: number },
+): void => {
+  for (let i = 0; i < STUB_HERO_SLOTS; i++) {
+    const slot = slots[i] ?? fallback;
+    bits.writePackedU32(slot.heroId);
+    bits.writePackedU32(slot.costumeId);
+    bits.writeBool(false);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+    bits.writePackedU32(0);
+  }
 };
 
 const writePlayer = (
@@ -20,9 +59,16 @@ const writePlayer = (
     readonly entityId: number;
     readonly userId: number;
     readonly local: boolean;
+    readonly isBotRecord: boolean;
     readonly botCostume: boolean;
     readonly controller: number;
+    /** class_287.var_3536 — must differ for hostile hit detection (method_5287). */
+    readonly team: number;
+    readonly heroId: number;
+    readonly costumeId: number;
   },
+  heroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>,
+  fallback: { readonly heroId: number; readonly costumeId: number },
 ): void => {
   bits.writeBool(true);
   bits.writePackedU32(0);
@@ -34,7 +80,7 @@ const writePlayer = (
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writeBool(player.local);
-  bits.writeBool(false);
+  bits.writeBool(player.isBotRecord);
   bits.writeBool(player.botCostume);
   bits.writePackedU32(player.controller);
   for (let i = 0; i < 6; i++) bits.writePackedU32(0);
@@ -45,10 +91,11 @@ const writePlayer = (
   bits.writePackedU24(0);
   bits.writePackedU32(0);
   bits.writePackedU24(0);
-  bits.writePackedU24(0);
+  bits.writePackedU24(player.team);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writeString("");
+  writeHeroSlots(bits, heroSlots, fallback);
 };
 
 const readPlayerUserId = (bits: BitReader, heroSlots: number): number => {
@@ -90,41 +137,96 @@ const readPlayerUserId = (bits: BitReader, heroSlots: number): number => {
   return userId;
 };
 
-export const encodeMatchSetup = (options: { readonly includeBot: boolean }): Uint8Array => {
+export const matchSetupOptionsFromSpec = (setup: MatchSetupSpec): MatchSetupEncodeOptions => ({
+  hostHeroId: setup.hostHeroId,
+  hostCostumeId: setup.hostCostumeId,
+  hostHeroSlots: setup.hostHeroSlots,
+  ruleset: setup.ruleset,
+  bots: setup.bots,
+});
+
+const rulesetFromOptions = rulesetFromArray;
+
+export const encodeMatchSetup = (options: MatchSetupEncodeOptions): Uint8Array => {
+  const ruleset = rulesetFromOptions(options.ruleset);
   const bits = new BitWriter();
   bits.writePackedU32(0);
   bits.writePackedU32(0);
-  bits.writePackedU24(0);
+  bits.writePackedU24(STUB_UDP_CHANNEL);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
-  bits.writePackedU32(0);
+  bits.writePackedU32(STUB_HERO_SLOTS);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writePackedU32(0);
   bits.writeBool(false);
-  writeTimedRuleset(bits);
-  writePlayer(bits, {
-    name: STUB_DISPLAY_NAME,
-    entityId: 1,
-    userId: STUB_USER_ID,
-    local: true,
-    botCostume: false,
-    controller: 0,
-  });
-  if (options.includeBot) {
-    writePlayer(bits, {
-      name: "Bot",
-      entityId: 2,
-      userId: 0,
-      local: false,
-      botCostume: true,
-      controller: BOT_CONTROLLER,
-    });
+  writeRuleset(bits, ruleset);
+  const heroFallback = { heroId: options.hostHeroId, costumeId: options.hostCostumeId };
+  const hostTeam = 1;
+  writePlayer(
+    bits,
+    {
+      name: STUB_DISPLAY_NAME,
+      entityId: 1,
+      userId: STUB_USER_ID,
+      local: true,
+      isBotRecord: false,
+      botCostume: false,
+      controller: 0,
+      team: hostTeam,
+      heroId: options.hostHeroId,
+      costumeId: options.hostCostumeId,
+    },
+    options.hostHeroSlots,
+    heroFallback,
+  );
+  for (const bot of options.bots) {
+    const botFallback = { heroId: bot.heroId, costumeId: bot.costumeId };
+    // Opposing team from host (training spawn uses 1 vs 2).
+    const botTeam = hostTeam + 1;
+    writePlayer(
+      bits,
+      {
+        name: "Bot",
+        entityId: bot.entityId,
+        userId: 0,
+        local: false,
+        isBotRecord: true,
+        botCostume: true,
+        controller: bot.controller,
+        team: botTeam,
+        heroId: bot.heroId,
+        costumeId: bot.costumeId,
+      },
+      [{ heroId: bot.heroId, costumeId: bot.costumeId }],
+      botFallback,
+    );
   }
   bits.writeBool(false);
   return bits.toUint8Array();
 };
+
+export const encodeMatchSetupLegacy = (options: { readonly includeBot: boolean }): Uint8Array =>
+  encodeMatchSetup({
+    hostHeroId: STUB_HERO_ID,
+    hostCostumeId: STUB_COSTUME_ID,
+    hostHeroSlots: [
+      { heroId: STUB_HERO_ID, costumeId: STUB_COSTUME_ID },
+      { heroId: STUB_HERO_ID, costumeId: STUB_COSTUME_ID },
+    ],
+    ruleset: [...DEFAULT_RULESET],
+    bots: options.includeBot
+      ? [
+          {
+            controller: BOT_CONTROLLER,
+            entityId: 2,
+            heroId: STUB_HERO_ID,
+            costumeId: STUB_COSTUME_ID,
+          },
+        ]
+      : [],
+  });
 
 export const decodeMatchSetup = (payload: Uint8Array): MatchSetup => {
   const bits = new BitReader(payload);

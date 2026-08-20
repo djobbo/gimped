@@ -1,16 +1,33 @@
 import { Effect, Ref } from "effect";
 import type { GameChildPhase, EntityState } from "./game-child-model.ts";
 import {
+  TICK_FRAME_MS,
   initialEntities,
   initialGameChildState,
   KO_DAMAGE,
   PLAYER_ENTITY_ID,
+  shouldBeginFight,
+  trackClientSimTick,
+  fightStartTickFrom,
   type GameChildState,
 } from "./game-child-model.ts";
-import { encodeEntityValue, encodeTickPulse, type GameInput } from "./game-input.ts";
+import {
+  advanceTickAndBuildSync,
+  buildFightStartSync,
+  queueMoveInput,
+  syncStateToInputTick,
+  type GameInput,
+  type MoveInput,
+} from "./game-input.ts";
 import { protocolIngest } from "./game-child-protocol.ts";
-import { recordUnknownGamePacket } from "./game-observe.ts";
+import {
+  logGameplayEvent,
+  recordUnknownGamePacket,
+  resetGameplayLogBudget,
+} from "./game-observe.ts";
+import { ingestUdpDatagram, ingestUdpTunnel } from "./game-udp-tunnel.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
+import { MatchSetupSpec } from "./match-spec.ts";
 import type { TcpFrame } from "./framing.ts";
 import { PacketType } from "./packets.ts";
 import { buildMatchOverSync, buildRespawnSync } from "./game-sync.ts";
@@ -21,6 +38,8 @@ export type GameChildRuntimeService = {
   readonly shouldClose: Effect.Effect<boolean>;
   readonly connect: () => Effect.Effect<void>;
   readonly ingest: (frame: TcpFrame) => Effect.Effect<ReadonlyArray<TcpFrame>>;
+  readonly ingestUdp: (payload: Uint8Array) => Effect.Effect<Uint8Array | undefined>;
+  readonly drainPendingTcp: () => Effect.Effect<ReadonlyArray<TcpFrame>>;
   readonly applyInput: (input: GameInput) => Effect.Effect<void>;
   readonly tick: () => Effect.Effect<ReadonlyArray<TcpFrame>>;
   readonly forceState: (state: GameChildState) => Effect.Effect<void>;
@@ -29,13 +48,6 @@ export type GameChildRuntimeService = {
 
 const defaultEntities = (includeBot: boolean, userId: number): ReadonlyArray<EntityState> =>
   initialEntities(userId, includeBot);
-
-const updateEntity = (
-  entities: ReadonlyArray<EntityState>,
-  entityId: number,
-  update: Partial<Pick<EntityState, "x" | "y" | "damage" | "stocks">>,
-): ReadonlyArray<EntityState> =>
-  entities.map((entity) => (entity.entityId === entityId ? { ...entity, ...update } : entity));
 
 type KoTransition = {
   readonly state: GameChildState;
@@ -86,24 +98,61 @@ const applyKoRules = (state: GameChildState): KoTransition => {
   };
 };
 
+const beginFightTickLoop = (state: GameChildState, now: number) => {
+  const tick = fightStartTickFrom(state);
+  return {
+    state: {
+      ...state,
+      simReady: true,
+      tick,
+      lastTickAdvanceAtMs: now,
+    },
+    // 10312 entitySpawn at fight start was REJECTED: client jumps straight to results
+    // (protocol: entitySpawn drives match UI reset; matchOver also uses it).
+    frames: buildFightStartSync(state),
+  };
+};
+
+const logMoveInputs = (prefix: string, inputs: ReadonlyArray<GameInput>) =>
+  Effect.gen(function* () {
+    for (const input of inputs) {
+      if (input._tag !== "Move") continue;
+      if (input.input === 0) continue;
+      yield* logGameplayEvent(
+        `${prefix} entity=${input.entityId} mask=${input.input} tick=${input.tick}`,
+      );
+    }
+  });
+
 export class GameChildRuntime {
   static make = Effect.fn("GameChildRuntime.make")(function* (args: {
     readonly includeBot: boolean;
     readonly userId?: number;
     readonly token?: string;
+    readonly setup?: MatchSetupSpec;
   }) {
-    const stateRef = yield* Ref.make(initialGameChildState(args.includeBot));
+    const userId = args.userId ?? STUB_USER_ID;
+    const stateRef = yield* Ref.make({
+      ...initialGameChildState(args.includeBot),
+      udpSessionId: userId,
+    });
     const closedRef = yield* Ref.make(false);
+    const pendingTcpRef = yield* Ref.make<ReadonlyArray<TcpFrame>>([]);
     const spec = {
-      userId: args.userId ?? 0,
+      userId,
       token: args.token ?? "",
       includeBot: args.includeBot,
+      setup: args.setup ?? MatchSetupSpec.default,
     };
 
     const phase = Ref.get(stateRef).pipe(Effect.map((state) => state.phase));
     const state = Ref.get(stateRef);
     const shouldClose = Ref.get(closedRef);
     const forceState = (state: GameChildState) => Ref.set(stateRef, state);
+
+    const drainPendingTcp = Effect.fn("GameChildRuntime.drainPendingTcp")(function* () {
+      return yield* Ref.getAndSet(pendingTcpRef, []);
+    });
 
     const disconnect = Effect.fn("GameChildRuntime.disconnect")(function* () {
       yield* Ref.set(closedRef, true);
@@ -125,59 +174,103 @@ export class GameChildRuntime {
           case "SimReady":
             return {
               ...state,
-              simReady: true,
               entities:
-                state.entities.length > 0 ? state.entities : defaultEntities(state.includeBot),
+                state.entities.length > 0
+                  ? state.entities
+                  : defaultEntities(state.includeBot, spec.userId),
             };
           case "TickAck":
             return { ...state, clientTick: input.clientTick };
           case "Move":
-            return {
-              ...state,
-              entities:
-                state.entities.length > 0
-                  ? updateEntity(state.entities, input.entityId, { x: input.x, y: input.y })
-                  : defaultEntities(state.includeBot, spec.userId || STUB_USER_ID),
-            };
+            return trackClientSimTick(
+              queueMoveInput(state, {
+                entityId: input.entityId,
+                tick: input.tick,
+                input: input.input,
+              }),
+              input.tick,
+            );
           default:
             return state;
         }
       });
     });
 
+    const emitInputSync = Effect.fn("GameChildRuntime.emitInputSync")(function* (
+      inputs: ReadonlyArray<GameInput>,
+    ) {
+      const moves = inputs.filter((input): input is MoveInput => input._tag === "Move");
+      if (moves.length === 0) return;
+      const state = yield* Ref.get(stateRef);
+      if (!state.simReady) return;
+      const targetTick = Math.max(...moves.map((move) => move.tick));
+      const sync = syncStateToInputTick(state, targetTick);
+      if (sync.frames.length === 0) return;
+      yield* Ref.set(stateRef, sync.state);
+      yield* Ref.update(pendingTcpRef, (pending) => [...pending, ...sync.frames]);
+    });
+
     const tick = Effect.fn("GameChildRuntime.tick")(function* () {
       const state = yield* Ref.get(stateRef);
-      if (state.phase !== "activeMatch" || !state.simReady) {
+      if (state.phase !== "activeMatch") {
         return [];
       }
-      const progressedState = { ...state, tick: state.tick + 1 };
-      const transition = applyKoRules(progressedState);
-      yield* Ref.set(stateRef, transition.state);
-      if (transition.shouldClose) {
-        yield* Ref.set(closedRef, true);
-      }
-      if (transition.state.phase === "matchOver") {
+
+      const transition = applyKoRules(state);
+      if (transition.frames.length > 0 || transition.shouldClose) {
+        yield* Ref.set(stateRef, transition.state);
+        if (transition.shouldClose) {
+          yield* Ref.set(closedRef, true);
+        }
         return transition.frames;
       }
-      const frames: TcpFrame[] = [
-        {
-          type: PacketType.tickPulse,
-          seq: undefined,
-          payload: encodeTickPulse(transition.state.tick),
-        },
-      ];
-      for (const entity of transition.state.entities) {
-        frames.push({
-          type: PacketType.entityValue,
-          seq: undefined,
-          payload: encodeEntityValue(entity.entityId, entity.x),
-        });
+
+      const now = Date.now();
+      if (!state.simReady) {
+        if (!shouldBeginFight(state, now)) {
+          return [];
+        }
+        const sync = beginFightTickLoop(state, now);
+        yield* Ref.set(stateRef, sync.state);
+        yield* logGameplayEvent(
+          `fight start tick=${sync.state.tick} (10404) clientSim=${state.clientSimTick}`,
+        );
+        return sync.frames;
       }
-      return [...transition.frames, ...frames];
+
+      if (now - state.lastTickAdvanceAtMs < TICK_FRAME_MS) {
+        const lag = state.clientSimTick - state.tick;
+        if (lag <= TICK_FRAME_MS) {
+          return [];
+        }
+      }
+
+      const sync = advanceTickAndBuildSync(state);
+      if (sync.frames.length === 0) {
+        return [];
+      }
+      yield* Ref.set(stateRef, { ...sync.state, lastTickAdvanceAtMs: now });
+      return sync.frames;
     });
 
     const ingest = Effect.fn("GameChildRuntime.ingest")(function* (frame: TcpFrame) {
       const state = yield* Ref.get(stateRef);
+      if (state.phase === "activeMatch" && frame.type === PacketType.udpTunnel) {
+        const tunnelResult = ingestUdpTunnel(frame.payload, state);
+        if (tunnelResult !== undefined) {
+          const entities =
+            tunnelResult.state.entities.length > 0
+              ? tunnelResult.state.entities
+              : defaultEntities(state.includeBot, spec.userId);
+          yield* Ref.set(stateRef, { ...tunnelResult.state, entities });
+          yield* logMoveInputs("10316", tunnelResult.inputs);
+          yield* emitInputSync(tunnelResult.inputs);
+          return tunnelResult.frames;
+        }
+      }
+      if (state.phase === "activeMatch" && frame.type === PacketType.tickPulse) {
+        return [];
+      }
       const result = protocolIngest(frame, spec, state);
       if (result.action._tag === "Close") {
         yield* disconnect();
@@ -187,14 +280,31 @@ export class GameChildRuntime {
         yield* Ref.update(stateRef, (current) => ({
           ...current,
           phase: result.nextPhase!,
+          enteredActiveMatchAtMs:
+            result.nextPhase === "activeMatch" ? Date.now() : current.enteredActiveMatchAtMs,
           entities:
             current.entities.length > 0
               ? current.entities
-              : defaultEntities(current.includeBot, spec.userId || STUB_USER_ID),
+              : defaultEntities(current.includeBot, spec.userId),
         }));
+        if (result.nextPhase === "activeMatch") {
+          resetGameplayLogBudget();
+        }
+      }
+      if (result.introSync) {
+        yield* Ref.update(stateRef, (current) => {
+          const next = { ...current, lastIntroSyncAtMs: Date.now() };
+          return result.introClientSimTick !== undefined
+            ? trackClientSimTick(next, result.introClientSimTick)
+            : next;
+        });
+        return [];
       }
       if (result.input !== undefined) {
         yield* applyInput(result.input);
+        if (result.input._tag === "Move") {
+          yield* logMoveInputs("10407", [result.input]);
+        }
       }
       if (result.unknownGameplay !== undefined) {
         yield* recordUnknownGamePacket({
@@ -206,12 +316,32 @@ export class GameChildRuntime {
       return result.action.frames;
     });
 
+    const ingestUdp = Effect.fn("GameChildRuntime.ingestUdp")(function* (payload: Uint8Array) {
+      const state = yield* Ref.get(stateRef);
+      if (state.phase !== "activeMatch") return undefined;
+      const result = ingestUdpDatagram(payload, state);
+      if (result === undefined) {
+        yield* logGameplayEvent(`UDP decode failed ${payload.length}b`);
+        return undefined;
+      }
+      const entities =
+        result.state.entities.length > 0
+          ? result.state.entities
+          : defaultEntities(state.includeBot, spec.userId);
+      yield* Ref.set(stateRef, { ...result.state, entities });
+      yield* logMoveInputs("UDP", result.inputs);
+      yield* emitInputSync(result.inputs);
+      return result.reply;
+    });
+
     return {
       phase,
       state,
       shouldClose,
       connect,
       ingest,
+      ingestUdp,
+      drainPendingTcp,
       applyInput,
       tick,
       forceState,
