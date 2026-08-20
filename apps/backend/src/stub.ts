@@ -13,7 +13,7 @@ import { nameForType, PacketType } from "./packets.ts";
 import { handleFrame } from "./replies.ts";
 import { handleRoomFrame, isRoomPacket } from "./room-replies.ts";
 import { RoomRegistry } from "./room-registry.ts";
-import type { Session } from "./session.ts";
+import { Session } from "./session.ts";
 
 const describeAddress = (address: SocketServer.Address): string =>
   address._tag === "TcpAddress" ? `${address.hostname}:${address.port}` : address.path;
@@ -52,10 +52,10 @@ const matchSpecFromLobby = (lobby: LobbyState): MatchSpec =>
 
 export const ingestChunk = Effect.fn("ingestChunk")(function* (
   decoder: FrameDecoder,
-  session: Session,
   connection: number,
   chunk: Uint8Array,
 ) {
+  const session = yield* Session;
   const frames = decoder.push(chunk);
   const replies: TcpFrame[] = [];
   const registry = yield* RoomRegistry;
@@ -139,10 +139,10 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
 
 export const handleSocket = Effect.fn("handleSocket")(function* (
   socket: Socket.Socket,
-  session: Session,
   connection: number,
   label: string,
 ) {
+  const session = yield* Session;
   const hub = yield* ConnectionHub;
   const registry = yield* RoomRegistry;
   yield* Effect.scoped(
@@ -160,7 +160,7 @@ export const handleSocket = Effect.fn("handleSocket")(function* (
       yield* Effect.log(`${label} conn=${connection} opened`);
       yield* socket.run((chunk) =>
         Effect.gen(function* () {
-          const replies = yield* ingestChunk(decoder, session, connection, chunk);
+          const replies = yield* ingestChunk(decoder, connection, chunk);
           for (const reply of replies) {
             yield* write(encodeFrame(reply));
             yield* Effect.log(
@@ -179,9 +179,9 @@ export const handleSocket = Effect.fn("handleSocket")(function* (
 });
 
 export const runStub = Effect.fn("runStub")(function* (
-  session: Session,
   options: { readonly label: string; readonly startId: number } = { label: "backend", startId: 1 },
 ) {
+  const session = yield* Session;
   const server = yield* SocketServer.SocketServer;
   const nextId = yield* Ref.make(options.startId);
   yield* Effect.log(`${options.label} TCP stub listening on ${describeAddress(server.address)}`);
@@ -192,7 +192,7 @@ export const runStub = Effect.fn("runStub")(function* (
   yield* server.run((socket) =>
     Effect.gen(function* () {
       const connection = yield* Ref.getAndUpdate(nextId, (n) => n + 1);
-      yield* handleSocket(socket, session, connection, options.label);
+      yield* handleSocket(socket, connection, options.label);
     }).pipe(
       Effect.catchCause((cause) => session.note(`${options.label} connection error: ${cause}`)),
     ),

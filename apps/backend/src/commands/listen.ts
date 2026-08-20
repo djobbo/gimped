@@ -7,7 +7,7 @@ import { GameRuntime } from "../game-runtime.ts";
 import { resolveListenHosts } from "../net-host.ts";
 import { ConnectionHub } from "../connection-hub.ts";
 import { RoomRegistry } from "../room-registry.ts";
-import { createSession, packageRoot } from "../session.ts";
+import { packageRoot, Session } from "../session.ts";
 import { runStub } from "../stub.ts";
 
 const launchHelp = (host: string, port: number): string =>
@@ -55,33 +55,35 @@ export const listen = Command.make(
       Effect.gen(function* () {
         const path = yield* Path.Path;
         const outRoot = Option.getOrElse(config.out, () => path.join(packageRoot, "captures"));
-        const session = yield* createSession(outRoot);
-        const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
-        const { bindHost, advertiseHost } = resolveListenHosts(config.host);
+        yield* Effect.gen(function* () {
+          const session = yield* Session;
+          const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
+          const { bindHost, advertiseHost } = resolveListenHosts(config.host);
 
-        yield* Effect.log(launchHelp(advertiseHost, config.port));
-        if (advertiseHost !== bindHost) {
-          yield* Effect.log(
-            `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
+          yield* Effect.log(launchHelp(advertiseHost, config.port));
+          if (advertiseHost !== bindHost) {
+            yield* Effect.log(
+              `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
+            );
+          }
+          yield* watchDiagnostics(session.dir, docs, session.note);
+
+          if (config.tshark) {
+            yield* startTshark(config.port, path.join(session.dir, "capture.pcapng"));
+          }
+
+          yield* runStub({ label: "backend", startId: 1 }).pipe(
+            Effect.provide(NodeSocketServer.layer({ host: bindHost, port: config.port })),
+            Effect.provide(
+              GameRuntime.layerChildProcess({
+                bindHost,
+                advertiseHost,
+              }),
+            ),
+            Effect.provide(RoomRegistry.layerMemory),
+            Effect.provide(ConnectionHub.layerMemory),
           );
-        }
-        yield* watchDiagnostics(session.dir, docs, session.note);
-
-        if (config.tshark) {
-          yield* startTshark(config.port, path.join(session.dir, "capture.pcapng"));
-        }
-
-        yield* runStub(session, { label: "backend", startId: 1 }).pipe(
-          Effect.provide(NodeSocketServer.layer({ host: bindHost, port: config.port })),
-          Effect.provide(
-            GameRuntime.layerChildProcess({
-              bindHost,
-              advertiseHost,
-            }),
-          ),
-          Effect.provide(RoomRegistry.layerMemory),
-          Effect.provide(ConnectionHub.layerMemory),
-        );
+        }).pipe(Effect.provide(Session.layer(outRoot)));
       }),
     );
   }),
