@@ -2,7 +2,7 @@ import { NodeSocketServer } from "@effect/platform-node";
 import { Effect, Option, Path } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { homedir } from "node:os";
-import { startTshark, watchDiagnostics } from "../capture.ts";
+import { Capture } from "../capture.ts";
 import { GameRuntime } from "../game-runtime.ts";
 import { resolveListenHosts } from "../net-host.ts";
 import { ConnectionHub } from "../connection-hub.ts";
@@ -55,10 +55,11 @@ export const listen = Command.make(
       Effect.gen(function* () {
         const path = yield* Path.Path;
         const outRoot = Option.getOrElse(config.out, () => path.join(packageRoot, "captures"));
+        const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
+        const { bindHost, advertiseHost } = resolveListenHosts(config.host);
         yield* Effect.gen(function* () {
           const session = yield* Session;
-          const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
-          const { bindHost, advertiseHost } = resolveListenHosts(config.host);
+          const capture = yield* Capture;
 
           yield* Effect.log(launchHelp(advertiseHost, config.port));
           if (advertiseHost !== bindHost) {
@@ -66,10 +67,10 @@ export const listen = Command.make(
               `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
             );
           }
-          yield* watchDiagnostics(session.dir, docs, session.note);
+          yield* capture.watchDiagnostics(session.dir, docs);
 
           if (config.tshark) {
-            yield* startTshark(config.port, path.join(session.dir, "capture.pcapng"));
+            yield* capture.startTshark(config.port, path.join(session.dir, "capture.pcapng"));
           }
 
           yield* runStub({ label: "backend", startId: 1 }).pipe(
@@ -83,7 +84,7 @@ export const listen = Command.make(
             Effect.provide(RoomRegistry.layerMemory),
             Effect.provide(ConnectionHub.layerMemory),
           );
-        }).pipe(Effect.provide(Session.layer(outRoot)));
+        }).pipe(Effect.provide(Capture.layer), Effect.provide(Session.layer(outRoot)));
       }),
     );
   }),

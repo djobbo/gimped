@@ -1,13 +1,8 @@
-import { Effect, FileSystem, Option, Path, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import { Session } from "./session.ts";
 
 const windowsTshark = "C:\\Program Files\\Wireshark\\tshark.exe";
-
-export const resolveTshark = Effect.fn("resolveTshark")(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  if (yield* fs.exists(windowsTshark)) return windowsTshark;
-  return "tshark";
-});
 
 const loopbackName = (listing: string): string | undefined => {
   const lines = listing
@@ -20,64 +15,98 @@ const loopbackName = (listing: string): string | undefined => {
   return match?.[1];
 };
 
-export const startTshark = Effect.fn("startTshark")(function* (port: number, pcapPath: string) {
-  const bin = yield* resolveTshark();
-  const list = yield* ChildProcess.make(bin, ["-D"]).pipe(
-    Effect.flatMap((handle) => Stream.mkString(Stream.decodeText(handle.stdout))),
-    Effect.catchCause(() => Effect.succeed("")),
-  );
-  if (list.length === 0) {
-    yield* Effect.log("tshark not available; install Wireshark + Npcap for pcap capture");
-    return Option.none();
+export class Capture extends Context.Service<
+  Capture,
+  {
+    readonly startTshark: (port: number, pcapPath: string) => Effect.Effect<Option.Option<string>>;
+    readonly watchDiagnostics: (sessionDir: string, documents: string) => Effect.Effect<void>;
   }
-  const iface = loopbackName(list);
-  if (iface === undefined) {
-    yield* Effect.log("tshark found no capture interfaces");
-    return Option.none();
-  }
-  yield* Effect.log(`tshark capturing tcp port ${port} on interface ${iface} -> ${pcapPath}`);
-  yield* ChildProcess.make(bin, ["-i", iface, "-f", `tcp port ${port}`, "-w", pcapPath]).pipe(
-    Effect.flatMap((handle) => handle.exitCode),
-    Effect.forkScoped,
-  );
-  return Option.some(pcapPath);
-});
+>()("@gimped/backend/Capture") {
+  static readonly layer: Layer.Layer<Capture, never, FileSystem.FileSystem | Path.Path | Session> =
+    Layer.effect(
+      Capture,
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const session = yield* Session;
 
-export const watchDiagnostics = Effect.fn("watchDiagnostics")(function* (
-  sessionDir: string,
-  documents: string,
-  note: (line: string) => Effect.Effect<void>,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  if (!(yield* fs.exists(documents))) {
-    yield* Effect.log(`no Documents directory at ${documents}; skip diagnostic-log watch`);
-    return;
-  }
-  const dest = path.join(sessionDir, "diagnostics");
-  yield* fs.makeDirectory(dest, { recursive: true });
-  yield* Effect.log(`watching ${documents} for Brawlhalla-Diagnostic-Log-*.txt`);
+        const resolveTshark = Effect.fn("Capture.resolveTshark")(function* () {
+          if (yield* fs.exists(windowsTshark)) return windowsTshark;
+          return "tshark";
+        });
 
-  const copyLog = Effect.fn("copyDiagnostic")(function* (filePath: string) {
-    const base = path.basename(filePath);
-    if (!base.startsWith("Brawlhalla-Diagnostic-Log-") || !base.endsWith(".txt")) return;
-    const target = path.join(dest, base);
-    const bytes = yield* fs.readFile(filePath);
-    yield* fs.writeFile(target, bytes);
-    yield* Effect.log(`copied diagnostic log ${base}`);
-    yield* note(`diagnostic ${base}`);
-  });
+        const startTshark = Effect.fn("Capture.startTshark")(function* (
+          port: number,
+          pcapPath: string,
+        ) {
+          const bin = yield* resolveTshark();
+          const list = yield* ChildProcess.make(bin, ["-D"]).pipe(
+            Effect.flatMap((handle) => Stream.mkString(Stream.decodeText(handle.stdout))),
+            Effect.catchCause(() => Effect.succeed("")),
+          );
+          if (list.length === 0) {
+            yield* Effect.log("tshark not available; install Wireshark + Npcap for pcap capture");
+            return Option.none();
+          }
+          const iface = loopbackName(list);
+          if (iface === undefined) {
+            yield* Effect.log("tshark found no capture interfaces");
+            return Option.none();
+          }
+          yield* Effect.log(
+            `tshark capturing tcp port ${port} on interface ${iface} -> ${pcapPath}`,
+          );
+          yield* ChildProcess.make(bin, [
+            "-i",
+            iface,
+            "-f",
+            `tcp port ${port}`,
+            "-w",
+            pcapPath,
+          ]).pipe(
+            Effect.flatMap((handle) => handle.exitCode),
+            Effect.forkScoped,
+          );
+          return Option.some(pcapPath);
+        });
 
-  const existing = yield* fs.readDirectory(documents);
-  for (const name of existing) {
-    yield* copyLog(path.join(documents, name)).pipe(Effect.ignore);
-  }
+        const watchDiagnostics = Effect.fn("Capture.watchDiagnostics")(function* (
+          sessionDir: string,
+          documents: string,
+        ) {
+          if (!(yield* fs.exists(documents))) {
+            yield* Effect.log(`no Documents directory at ${documents}; skip diagnostic-log watch`);
+            return;
+          }
+          const dest = path.join(sessionDir, "diagnostics");
+          yield* fs.makeDirectory(dest, { recursive: true });
+          yield* Effect.log(`watching ${documents} for Brawlhalla-Diagnostic-Log-*.txt`);
 
-  yield* fs.watch(documents).pipe(
-    Stream.runForEach((event) => {
-      if (event._tag === "Remove") return Effect.void;
-      return copyLog(event.path).pipe(Effect.ignore);
-    }),
-    Effect.forkScoped,
-  );
-});
+          const copyLog = Effect.fn("Capture.copyDiagnostic")(function* (filePath: string) {
+            const base = path.basename(filePath);
+            if (!base.startsWith("Brawlhalla-Diagnostic-Log-") || !base.endsWith(".txt")) return;
+            const target = path.join(dest, base);
+            const bytes = yield* fs.readFile(filePath);
+            yield* fs.writeFile(target, bytes);
+            yield* Effect.log(`copied diagnostic log ${base}`);
+            yield* session.note(`diagnostic ${base}`);
+          });
+
+          const existing = yield* fs.readDirectory(documents);
+          for (const name of existing) {
+            yield* copyLog(path.join(documents, name)).pipe(Effect.ignore);
+          }
+
+          yield* fs.watch(documents).pipe(
+            Stream.runForEach((event) => {
+              if (event._tag === "Remove") return Effect.void;
+              return copyLog(event.path).pipe(Effect.ignore);
+            }),
+            Effect.forkScoped,
+          );
+        });
+
+        return Capture.of({ startTshark, watchDiagnostics });
+      }),
+    );
+}
