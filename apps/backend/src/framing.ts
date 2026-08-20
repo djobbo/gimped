@@ -2,11 +2,8 @@ import { ByteReader, ByteWriter } from "@gimped/common";
 
 const SEQ_FLAG = 32768;
 
-export type TcpFrame = {
-  readonly type: number;
-  readonly seq: number | undefined;
-  readonly payload: Uint8Array;
-};
+export type { TcpFrame } from "./messages.ts";
+import type { TcpFrame } from "./messages.ts";
 
 export const encodeFrame = (frame: TcpFrame): Uint8Array => {
   const writer = new ByteWriter();
