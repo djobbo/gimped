@@ -107,34 +107,53 @@ export const BOT_USER_ID = 0;
 export const DEFAULT_STOCKS = 3;
 export const KO_DAMAGE = 999;
 
-export const initialEntities = (
-  playerUserId: number,
-  includeBot: boolean,
-): ReadonlyArray<EntityState> => {
-  const entities: EntityState[] = [
-    {
-      entityId: PLAYER_ENTITY_ID,
-      userId: playerUserId,
-      stocks: DEFAULT_STOCKS,
-      damage: 0,
-      x: 0,
-      y: 0,
-    },
-  ];
-  if (includeBot) {
-    entities.push({
-      entityId: BOT_ENTITY_ID,
-      userId: BOT_USER_ID,
-      stocks: DEFAULT_STOCKS,
-      damage: 0,
-      x: 0,
-      y: 0,
-    });
+const freshEntity = (entityId: number, userId: number): EntityState => ({
+  entityId,
+  userId,
+  stocks: DEFAULT_STOCKS,
+  damage: 0,
+  x: 0,
+  y: 0,
+});
+
+/** Host + guests/bots from match setup (or legacy includeBot → entity 2). */
+export const entitiesFromMatch = (options: {
+  readonly userId: number;
+  readonly includeBot: boolean;
+  readonly guests?: ReadonlyArray<{ readonly entityId: number }>;
+  readonly bots?: ReadonlyArray<{ readonly entityId: number }>;
+}): ReadonlyArray<EntityState> => {
+  const entities: EntityState[] = [freshEntity(PLAYER_ENTITY_ID, options.userId)];
+  const guests = options.guests ?? [];
+  const bots = options.bots ?? [];
+  if (guests.length > 0 || bots.length > 0) {
+    for (const guest of guests) {
+      entities.push(freshEntity(guest.entityId, options.userId));
+    }
+    for (const bot of bots) {
+      entities.push(freshEntity(bot.entityId, BOT_USER_ID));
+    }
+    return entities;
+  }
+  if (options.includeBot) {
+    entities.push(freshEntity(BOT_ENTITY_ID, BOT_USER_ID));
   }
   return entities;
 };
 
-export const initialGameChildState = (includeBot: boolean): GameChildState => ({
+export const initialEntities = (
+  playerUserId: number,
+  includeBot: boolean,
+): ReadonlyArray<EntityState> => entitiesFromMatch({ userId: playerUserId, includeBot });
+
+export const initialGameChildState = (
+  includeBot: boolean,
+  options: {
+    readonly userId?: number;
+    readonly guests?: ReadonlyArray<{ readonly entityId: number }>;
+    readonly bots?: ReadonlyArray<{ readonly entityId: number }>;
+  } = {},
+): GameChildState => ({
   phase: "waitingForConnect",
   includeBot,
   connected: false,
@@ -142,7 +161,12 @@ export const initialGameChildState = (includeBot: boolean): GameChildState => ({
   clientTick: 0,
   clientSimTick: 0,
   simReady: false,
-  entities: initialEntities(1, includeBot),
+  entities: entitiesFromMatch({
+    userId: options.userId ?? 1,
+    includeBot,
+    guests: options.guests,
+    bots: options.bots,
+  }),
   entityInputs: {},
   inputQueue: [],
   udpAckSeq: 0,

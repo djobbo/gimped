@@ -46,6 +46,19 @@ describe("game input", () => {
     expect(decodeGameInput(PacketType.keepalivePing, new Uint8Array())).toBeUndefined();
   });
 
+  it("relayInputSamples includes local guest entity ids from roster", () => {
+    const state = {
+      ...initialGameChildState(false, { guests: [{ entityId: 2 }] }),
+      tick: 6800,
+      clientSimTick: 6800,
+      entityInputs: { 2: { tick: 6800, input: 16 } },
+    };
+    expect(relayInputSamples(state)).toEqual([
+      { entityId: 1, tick: 6800, input: 0 },
+      { entityId: 2, tick: 6800, input: 16 },
+    ]);
+  });
+
   it("relayInputSamples uses exact tick match from queue", () => {
     const state = {
       ...initialGameChildState(true),

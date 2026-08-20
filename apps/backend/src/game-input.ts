@@ -129,7 +129,13 @@ export const encodeUdpTunnelAck = (ackSeq: number): Uint8Array => {
 export const relayInputSamples = (
   state: GameChildState,
 ): ReadonlyArray<{ readonly entityId: number; readonly tick: number; readonly input: number }> => {
-  const entityIds = state.includeBot ? [PLAYER_ENTITY_ID, BOT_ENTITY_ID] : [PLAYER_ENTITY_ID];
+  // Broadcast every fighter from match setup; omitting guests causes client rollback flashes.
+  const entityIds =
+    state.entities.length > 0
+      ? state.entities.map((entity) => entity.entityId)
+      : state.includeBot
+        ? [PLAYER_ENTITY_ID, BOT_ENTITY_ID]
+        : [PLAYER_ENTITY_ID];
   return entityIds.map((entityId) => {
     const exact = state.inputQueue.find(
       (sample) => sample.entityId === entityId && sample.tick === state.tick,

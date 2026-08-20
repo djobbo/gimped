@@ -2,7 +2,7 @@ import { Effect, Ref } from "effect";
 import type { GameChildPhase, EntityState } from "./game-child-model.ts";
 import {
   TICK_FRAME_MS,
-  initialEntities,
+  entitiesFromMatch,
   initialGameChildState,
   KO_DAMAGE,
   PLAYER_ENTITY_ID,
@@ -46,8 +46,17 @@ export type GameChildRuntimeService = {
   readonly disconnect: () => Effect.Effect<void>;
 };
 
-const defaultEntities = (includeBot: boolean, userId: number): ReadonlyArray<EntityState> =>
-  initialEntities(userId, includeBot);
+const defaultEntities = (
+  includeBot: boolean,
+  userId: number,
+  setup?: MatchSetupSpec,
+): ReadonlyArray<EntityState> =>
+  entitiesFromMatch({
+    userId,
+    includeBot,
+    guests: setup?.guests,
+    bots: setup?.bots,
+  });
 
 type KoTransition = {
   readonly state: GameChildState;
@@ -132,8 +141,13 @@ export class GameChildRuntime {
     readonly setup?: MatchSetupSpec;
   }) {
     const userId = args.userId ?? STUB_USER_ID;
+    const setup = args.setup ?? MatchSetupSpec.default;
     const stateRef = yield* Ref.make({
-      ...initialGameChildState(args.includeBot),
+      ...initialGameChildState(args.includeBot, {
+        userId,
+        guests: setup.guests,
+        bots: setup.bots,
+      }),
       udpSessionId: userId,
     });
     const closedRef = yield* Ref.make(false);
@@ -142,7 +156,7 @@ export class GameChildRuntime {
       userId,
       token: args.token ?? "",
       includeBot: args.includeBot,
-      setup: args.setup ?? MatchSetupSpec.default,
+      setup,
     };
 
     const phase = Ref.get(stateRef).pipe(Effect.map((state) => state.phase));
@@ -177,7 +191,7 @@ export class GameChildRuntime {
               entities:
                 state.entities.length > 0
                   ? state.entities
-                  : defaultEntities(state.includeBot, spec.userId),
+                  : defaultEntities(state.includeBot, spec.userId, spec.setup),
             };
           case "TickAck":
             return { ...state, clientTick: input.clientTick };
@@ -261,7 +275,7 @@ export class GameChildRuntime {
           const entities =
             tunnelResult.state.entities.length > 0
               ? tunnelResult.state.entities
-              : defaultEntities(state.includeBot, spec.userId);
+              : defaultEntities(state.includeBot, spec.userId, spec.setup);
           yield* Ref.set(stateRef, { ...tunnelResult.state, entities });
           yield* logMoveInputs("10316", tunnelResult.inputs);
           yield* emitInputSync(tunnelResult.inputs);
@@ -285,7 +299,7 @@ export class GameChildRuntime {
           entities:
             current.entities.length > 0
               ? current.entities
-              : defaultEntities(current.includeBot, spec.userId),
+              : defaultEntities(current.includeBot, spec.userId, spec.setup),
         }));
         if (result.nextPhase === "activeMatch") {
           resetGameplayLogBudget();
@@ -327,7 +341,7 @@ export class GameChildRuntime {
       const entities =
         result.state.entities.length > 0
           ? result.state.entities
-          : defaultEntities(state.includeBot, spec.userId);
+          : defaultEntities(state.includeBot, spec.userId, spec.setup);
       yield* Ref.set(stateRef, { ...result.state, entities });
       yield* logMoveInputs("UDP", result.inputs);
       yield* emitInputSync(result.inputs);
