@@ -1,14 +1,10 @@
 import { BitWriter } from "./bitstream.ts";
-import type { TcpFrame } from "./framing.ts";
+import type { HandleFrameResult, TcpFrame } from "./messages.ts";
 import { encodeLoginAccepted } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
 
 /** Non-empty salt for LinkUpdater.method_6530 → class_139.var_14332. */
 export const LOGIN_CHALLENGE = "gimped";
-
-export type HandleFrameResult = {
-  readonly replies: ReadonlyArray<TcpFrame>;
-};
 
 /** Login / keepalive only. Lobby create/join/settings live in room-replies + RoomRegistry. */
 export const handleFrame = (frame: TcpFrame): HandleFrameResult => {

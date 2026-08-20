@@ -1,31 +1,18 @@
 import { decodeGameConnect } from "./game-connect.ts";
 import { decodeIntroEntitySync } from "./game-intro-sync.ts";
-import { decodeGameInput, type GameInput } from "./game-input.ts";
-import type { GameChildPhase, GameChildState } from "./game-child-model.ts";
+import { decodeGameInput } from "./game-input.ts";
+import type { GameChildState } from "./game-child-model.ts";
 import { buildInitialSync, buildLevelReadySync, decodePostConnectAck } from "./game-sync.ts";
-import type { TcpFrame } from "./framing.ts";
+import type { GameProtocolAction, ProtocolIngestResult, TcpFrame } from "./messages.ts";
 import { encodeMatchSetup, matchSetupOptionsFromSpec } from "./match-setup.ts";
 import { PacketType } from "./packets.ts";
 import type { MatchSetupSpec } from "./match-spec.ts";
-
-export type GameProtocolAction =
-  | { readonly _tag: "Reply"; readonly frames: ReadonlyArray<TcpFrame> }
-  | { readonly _tag: "Close" };
 
 export type GameProtocolSpec = {
   readonly userId: number;
   readonly token: string;
   readonly includeBot: boolean;
   readonly setup: MatchSetupSpec;
-};
-
-export type ProtocolIngestResult = {
-  readonly action: GameProtocolAction;
-  readonly nextPhase?: GameChildPhase;
-  readonly input?: GameInput;
-  readonly introSync?: boolean;
-  readonly introClientSimTick?: number;
-  readonly unknownGameplay?: { readonly type: number; readonly payload: Uint8Array };
 };
 
 export const protocolActionFor = (frame: TcpFrame, spec: GameProtocolSpec): GameProtocolAction =>

@@ -7,6 +7,33 @@ export const TcpFrame = Schema.Struct({
 });
 export type TcpFrame = typeof TcpFrame.Type;
 
+export const HandleFrameResult = Schema.Struct({
+  replies: Schema.Array(TcpFrame),
+});
+export type HandleFrameResult = typeof HandleFrameResult.Type;
+
+export const GameProtocolReply = Schema.TaggedStruct("Reply", {
+  frames: Schema.Array(TcpFrame),
+});
+export const GameProtocolClose = Schema.TaggedStruct("Close", {});
+export const GameProtocolAction = Schema.Union([GameProtocolReply, GameProtocolClose]);
+export type GameProtocolAction = typeof GameProtocolAction.Type;
+
+export const ProtocolIngestResult = Schema.Struct({
+  action: GameProtocolAction,
+  nextPhase: Schema.optionalKey(Schema.Literals(["syncingIntoMatch", "activeMatch"])),
+  input: Schema.optionalKey(Schema.Unknown),
+  introSync: Schema.optionalKey(Schema.Boolean),
+  introClientSimTick: Schema.optionalKey(Schema.Number),
+  unknownGameplay: Schema.optionalKey(
+    Schema.Struct({
+      type: Schema.Number,
+      payload: Schema.instanceOf(Uint8Array),
+    }),
+  ),
+});
+export type ProtocolIngestResult = typeof ProtocolIngestResult.Type;
+
 export const ProtocolHello = Schema.TaggedStruct("ProtocolHello", {
   text: Schema.String,
 });
