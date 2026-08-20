@@ -12,6 +12,8 @@ export const PacketType = {
   createCustomRoom: 33,
   /** var_4048 — host changed lobby ruleset (LinkUpdater.method_875) */
   updateSettings: 37,
+  /** var_10500 / var_10526 — join custom room by numeric id (LinkUpdater.method_7414) */
+  joinCustomRoom: 38,
   /** var_3774 — add bot (bool true) or local-keyboard claim (bool false) */
   addBot: 44,
   /** var_5607 — legend / loadout pick (LinkUpdater.method_6666) */
@@ -102,6 +104,7 @@ export const nameForType = (type: number): string => {
   if (type === PacketType.protocolHello) return "protocolHello";
   if (type === PacketType.createCustomRoom) return "createCustomRoom";
   if (type === PacketType.updateSettings) return "updateSettings";
+  if (type === PacketType.joinCustomRoom) return "joinCustomRoom";
   if (type === PacketType.addBot) return "addBot";
   if (type === PacketType.legendPick) return "legendPick";
   if (type === PacketType.localJoin) return "localJoin";

@@ -1,15 +1,18 @@
-import { Effect, Ref } from "effect";
+import { Effect, Option, Ref } from "effect";
 import * as Socket from "effect/unstable/socket/Socket";
 import * as SocketServer from "effect/unstable/socket/SocketServer";
 import { encodeAssignGameServer, STUB_GAME_TOKEN, STUB_LEVEL_ID } from "./assign-game-server.ts";
+import { ConnectionHub } from "./connection-hub.ts";
 import { decodePayload } from "./decode.ts";
 import { encodeFrame, FrameDecoder, type TcpFrame } from "./framing.ts";
 import { GameRuntime } from "./game-runtime.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
-import { initialLobbyState, type LobbyState } from "./lobby-state.ts";
 import { MatchSetupSpec, MatchSpec } from "./match-spec.ts";
+import type { LobbyState } from "./lobby-state.ts";
 import { nameForType, PacketType } from "./packets.ts";
 import { handleFrame } from "./replies.ts";
+import { handleRoomFrame, isRoomPacket } from "./room-replies.ts";
+import { RoomRegistry } from "./room-registry.ts";
 import type { Session } from "./session.ts";
 
 const describeAddress = (address: SocketServer.Address): string =>
@@ -52,10 +55,10 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
   session: Session,
   connection: number,
   chunk: Uint8Array,
-  lobbyRef: Ref.Ref<LobbyState>,
 ) {
   const frames = decoder.push(chunk);
   const replies: TcpFrame[] = [];
+  const registry = yield* RoomRegistry;
   for (const frame of frames) {
     const captured = yield* session.record(connection, frame);
     const decoded = decodePayload(frame.type, frame.payload);
@@ -87,10 +90,12 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
       `conn=${connection} type=${frame.type} ${nameForType(frame.type)} seq=${frame.seq ?? "-"} ${summary}`,
     );
     yield* session.note(`packet type=${captured.type} name=${captured.name}`);
-    const lobby = yield* Ref.get(lobbyRef);
+
     if (frame.type === PacketType.startMatch) {
+      const room = yield* registry.roomForConnection(connection);
+      if (Option.isNone(room)) continue;
       const runtime = yield* GameRuntime;
-      const allocated = yield* runtime.allocate(matchSpecFromLobby(lobby)).pipe(
+      const allocated = yield* runtime.allocate(matchSpecFromLobby(room.value.lobby)).pipe(
         Effect.catchTag("GameListenTimeout", (error) =>
           Effect.gen(function* () {
             yield* Effect.log(`game allocate failed: ${error.message}`);
@@ -119,8 +124,14 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
       }
       continue;
     }
-    const handled = handleFrame(frame, lobby);
-    yield* Ref.set(lobbyRef, handled.lobby);
+
+    if (isRoomPacket(frame.type)) {
+      const handled = yield* handleRoomFrame(frame, connection);
+      replies.push(...handled.replies);
+      continue;
+    }
+
+    const handled = handleFrame(frame);
     replies.push(...handled.replies);
   }
   return replies;
@@ -131,17 +142,25 @@ export const handleSocket = Effect.fn("handleSocket")(function* (
   session: Session,
   connection: number,
   label: string,
-  lobbyRef: Ref.Ref<LobbyState>,
 ) {
+  const hub = yield* ConnectionHub;
+  const registry = yield* RoomRegistry;
   yield* Effect.scoped(
     Effect.gen(function* () {
       const decoder = new FrameDecoder();
       const write = yield* socket.writer;
+      yield* hub.register(connection, write);
+      yield* Effect.addFinalizer(() =>
+        Effect.gen(function* () {
+          yield* hub.unregister(connection);
+          yield* registry.leave(connection);
+        }),
+      );
       yield* session.note(`${label} connection ${connection} opened`);
       yield* Effect.log(`${label} conn=${connection} opened`);
       yield* socket.run((chunk) =>
         Effect.gen(function* () {
-          const replies = yield* ingestChunk(decoder, session, connection, chunk, lobbyRef);
+          const replies = yield* ingestChunk(decoder, session, connection, chunk);
           for (const reply of replies) {
             yield* write(encodeFrame(reply));
             yield* Effect.log(
@@ -173,8 +192,7 @@ export const runStub = Effect.fn("runStub")(function* (
   yield* server.run((socket) =>
     Effect.gen(function* () {
       const connection = yield* Ref.getAndUpdate(nextId, (n) => n + 1);
-      const lobbyRef = yield* Ref.make(initialLobbyState());
-      yield* handleSocket(socket, session, connection, options.label, lobbyRef);
+      yield* handleSocket(socket, session, connection, options.label);
     }).pipe(
       Effect.catchCause((cause) => session.note(`${options.label} connection error: ${cause}`)),
     ),

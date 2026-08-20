@@ -5,6 +5,8 @@ import { homedir } from "node:os";
 import { startTshark, watchDiagnostics } from "../capture.ts";
 import { GameRuntime } from "../game-runtime.ts";
 import { resolveListenHosts } from "../net-host.ts";
+import { ConnectionHub } from "../connection-hub.ts";
+import { RoomRegistry } from "../room-registry.ts";
 import { createSession, packageRoot } from "../session.ts";
 import { runStub } from "../stub.ts";
 
@@ -77,6 +79,8 @@ export const listen = Command.make(
               advertiseHost,
             }),
           ),
+          Effect.provide(RoomRegistry.layerMemory),
+          Effect.provide(ConnectionHub.layerMemory),
         );
       }),
     );

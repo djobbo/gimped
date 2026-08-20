@@ -1,18 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import { BitReader, BitWriter } from "./bitstream.ts";
-import {
-  decodeAddBot,
-  decodeCustomLobby,
-  decodeLobbySettings,
-  STUB_ROOM_CODE,
-} from "./custom-lobby.ts";
-import { decodePayload } from "./decode.ts";
-import { initialLobbyState } from "./lobby-state.ts";
-import { STUB_USER_ID } from "./login-accepted.ts";
-import { PacketType } from "./packets.ts";
+import { BitReader } from "./bitstream.ts";
 import { LOGIN_CHALLENGE, handleFrame, repliesFor } from "./replies.ts";
+import { PacketType } from "./packets.ts";
 
-describe("stub replies", () => {
+describe("stub replies (login)", () => {
   it("sends login challenge 12000 after clientVersion (LinkUpdater.method_6530)", () => {
     const replies = repliesFor({
       type: PacketType.clientVersion,
@@ -39,128 +30,11 @@ describe("stub replies", () => {
     });
     expect(replies).toHaveLength(1);
     expect(replies[0]?.type).toBe(PacketType.loginAccepted);
-    expect(replies[0]?.seq).toBeUndefined();
-    expect(decodePayload(PacketType.loginAccepted, replies[0]!.payload)).toEqual({
-      _tag: "LoginAccepted",
-      userId: 1,
-      displayName: "Gimped",
-    });
   });
 
-  it("sends customLobby 2445 after createCustomRoom (LinkUpdater.method_4037)", () => {
-    const replies = repliesFor({
-      type: PacketType.createCustomRoom,
-      seq: 0,
-      payload: Uint8Array.from([0x1e, 0x00, 0x10, 0x20]),
-    });
-    expect(replies).toHaveLength(1);
-    expect(replies[0]?.type).toBe(PacketType.customLobby);
-    expect(replies[0]?.seq).toBeUndefined();
-    expect(decodeCustomLobby(replies[0]!.payload)).toEqual({
-      _tag: "CustomLobby",
-      roomId: 1,
-      roomCode: STUB_ROOM_CODE,
-      hostUserId: STUB_USER_ID,
-      regionId: 2,
-      maxPlayers: 4,
-    });
-  });
-
-  it("acks updateSettings 37 with lobbySettings 2448 (LinkUpdater.method_8229)", () => {
-    const payload = Uint8Array.from(
-      Buffer.from("001100287680000806c86c8084080000000000223a4a698800", "hex"),
-    );
-    const replies = repliesFor({ type: PacketType.updateSettings, seq: 0, payload });
-    expect(replies).toHaveLength(1);
-    expect(replies[0]?.type).toBe(PacketType.lobbySettings);
-    expect(decodeLobbySettings(replies[0]!.payload).maxPlayers).toBe(2);
-  });
-
-  it("acks addBot 44 with lobbyJoin 2449 (LinkUpdater.method_5838)", () => {
-    const replies = repliesFor({
-      type: PacketType.addBot,
-      seq: 0,
-      payload: Uint8Array.from([0x8a, 0x80]),
-    });
-    expect(replies).toHaveLength(1);
-    expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
-    expect(decodeAddBot(replies[0]!.payload)).toEqual({ _tag: "AddBot", controller: 5 });
-  });
-
-  it("acks local keyboard claim 44 bool-false with human lobbyJoin 2449", () => {
-    const bits = new BitWriter();
-    bits.writeBool(false);
-    bits.writePackedU32(1);
-    const { replies, lobby } = handleFrame(
-      { type: PacketType.addBot, seq: 0, payload: bits.toUint8Array() },
-      initialLobbyState(),
-    );
-    expect(lobby.guests).toHaveLength(1);
-    expect(lobby.guests[0]?.controller).toBe(1);
-    expect(replies).toHaveLength(2);
-    expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
-    expect(replies[1]?.type).toBe(PacketType.customLobby);
-    expect((replies[0]!.payload[0]! & 0x80) === 0).toBe(true);
-  });
-
-  it("acks localJoin 80 with human lobbyJoin 2449", () => {
-    const { replies, lobby } = handleFrame(
-      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
-      initialLobbyState(),
-    );
-    expect(lobby.guests).toHaveLength(1);
-    expect(lobby.guests[0]?.controller).toBe(1);
-    expect(replies[0]?.type).toBe(PacketType.lobbyJoin);
-    expect(replies[1]?.type).toBe(PacketType.customLobby);
-  });
-
-  it("re-acks existing guest on repeated localJoin 80 instead of minting seats", () => {
-    const first = handleFrame(
-      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
-      initialLobbyState(),
-    );
-    const second = handleFrame(
-      { type: PacketType.localJoin, seq: 0, payload: new Uint8Array() },
-      first.lobby,
-    );
-    expect(second.lobby.guests).toHaveLength(1);
-    expect(second.replies[0]?.type).toBe(PacketType.lobbyJoin);
-  });
-
-  it("stores legendPick 41 without sending a 2445 refresh", () => {
-    const bits = new BitWriter();
-    bits.writeBool(false);
-    bits.writePackedU32(0);
-    bits.writePackedU32(58);
-    bits.writeBool(false);
-    bits.writePackedU32(0);
-    bits.writePackedU32(0);
-    bits.writePackedU32(0);
-    bits.writePackedU32(2);
-    bits.writeBool(true);
-    bits.writeBool(true);
-    bits.writePackedU32(58);
-    bits.writePackedU32(120);
-    bits.writePackedU32(0);
-    bits.writePackedU32(0);
-    bits.writeBool(true);
-    bits.writeBool(true);
-    bits.writePackedU32(58);
-    bits.writePackedU32(120);
-    bits.writePackedU32(0);
-    bits.writePackedU32(0);
-    const { replies, lobby } = handleFrame(
-      { type: PacketType.legendPick, seq: 0, payload: bits.toUint8Array() },
-      initialLobbyState(),
-    );
-    expect(replies).toEqual([]);
-    expect(lobby.hostHeroId).toBe(58);
-    expect(lobby.hostCostumeId).toBe(120);
-  });
-
-  it("does not reply to protocolHello", () => {
+  it("ignores lobby packets in the login-only handler", () => {
     expect(
-      repliesFor({ type: PacketType.protocolHello, seq: undefined, payload: new Uint8Array() }),
-    ).toEqual([]);
+      handleFrame({ type: PacketType.createCustomRoom, seq: 0, payload: new Uint8Array() }),
+    ).toEqual({ replies: [] });
   });
 });

@@ -1,22 +1,28 @@
 import { NodeServices } from "@effect/platform-node";
 import { expect, layer } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Ref, Schema } from "effect";
+import { Effect, FileSystem, Layer, Schema } from "effect";
 import { decodeAssignGameServer } from "./assign-game-server.ts";
 import { BitWriter } from "./bitstream.ts";
+import { ConnectionHub } from "./connection-hub.ts";
 import { encodeFrame, FrameDecoder } from "./framing.ts";
 import { GameRuntime } from "./game-runtime.ts";
 import { PacketType } from "./packets.ts";
+import { RoomRegistry } from "./room-registry.ts";
 import { CapturedPacketLine, createSession } from "./session.ts";
-import { initialLobbyState } from "./lobby-state.ts";
 import { ingestChunk } from "./stub.ts";
 
-layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backend stub", (it) => {
+const stubLayer = NodeServices.layer.pipe(
+  Layer.provideMerge(GameRuntime.layerFake),
+  Layer.provideMerge(RoomRegistry.layerMemory),
+  Layer.provideMerge(ConnectionHub.layerMemory),
+);
+
+layer(stubLayer)("backend stub", (it) => {
   it.effect("ingests concatenated handshake frames into the session log", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const temp = yield* fs.makeTempDirectory({ prefix: "backend-" });
       const session = yield* createSession(temp);
-      const lobbyRef = yield* Ref.make(initialLobbyState());
       const hello = new BitWriter();
       hello.writeString("Brawlhalla client to server protocol 1.0");
       const version = new BitWriter();
@@ -34,7 +40,7 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
           payload: version.toUint8Array(),
         }),
       ]);
-      const replies = yield* ingestChunk(new FrameDecoder(), session, 1, bytes, lobbyRef);
+      const replies = yield* ingestChunk(new FrameDecoder(), session, 1, bytes);
       expect(replies.map((reply) => reply.type)).toEqual([PacketType.loginChallenge]);
       const text = yield* fs.readFileString(session.packetsPath);
       const lines = text
@@ -58,12 +64,13 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
     }),
   );
 
-  it.effect("allocates a game server on startMatch 55", () =>
+  it.effect("allocates a game server on startMatch 55 when in a room", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const temp = yield* fs.makeTempDirectory({ prefix: "backend-" });
       const session = yield* createSession(temp);
-      const lobbyRef = yield* Ref.make(initialLobbyState());
+      const registry = yield* RoomRegistry;
+      yield* registry.create(1);
       const replies = yield* ingestChunk(
         new FrameDecoder(),
         session,
@@ -73,7 +80,6 @@ layer(NodeServices.layer.pipe(Layer.provideMerge(GameRuntime.layerFake)))("backe
           seq: 0,
           payload: new Uint8Array(),
         }),
-        lobbyRef,
       );
       expect(replies).toHaveLength(1);
       expect(replies[0]?.type).toBe(PacketType.assignGameServer);

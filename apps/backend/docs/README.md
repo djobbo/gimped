@@ -32,6 +32,8 @@ Remote Steam launch options:
 -h 100.x.y.z -p 23001 -diagnosticlog
 ```
 
+**Multi-lobby:** Create Custom assigns a unique numeric room id (shown as `#N`). Another client Join Room with that number attaches to the same shared lobby (settings/players). Host disconnect dissolves the room.
+
 Sessions write under `apps/backend/captures/<timestamp>/` (gitignored). Packet payloads may include auth tickets — do not commit them.
 
 ## First capture (do this now)

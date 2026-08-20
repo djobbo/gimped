@@ -11,6 +11,8 @@ import type { TcpFrame } from "./framing.ts";
 import { PacketType } from "./packets.ts";
 
 export const STUB_ROOM_CODE = "GIM1";
+/** Numeric game id shown as `#N` / entered in Join Room (2445 first packed field). */
+export const STUB_ROOM_ID = 1;
 /** Re-exported lobby defaults live in lobby-state.ts. */
 export { BOT_CONTROLLER, STUB_MAX_PLAYERS, STUB_REGION_ID } from "./lobby-state.ts";
 
@@ -267,12 +269,13 @@ export const decodeLobbySettings = (payload: Uint8Array): LobbySettings => {
 export const encodeCustomLobby = (
   state: LobbyState = initialLobbyState(),
   options: {
+    readonly roomId?: number;
     readonly includeHeroUpdate?: boolean;
     readonly includeHeroSlots?: boolean;
   } = {},
 ): Uint8Array => {
   const bits = new BitWriter();
-  bits.writePackedU32(1);
+  bits.writePackedU32(options.roomId ?? STUB_ROOM_ID);
   bits.writePackedU32(0);
   writeSettings(bits, state);
   // After settings: bool, hostUserId, then bool → client var_486 = true?1:2
@@ -478,6 +481,22 @@ export const decodeAddBotRequest = (payload: Uint8Array): AddBotRequest => {
   return { add: bits.readBool(), controller: bits.readPackedU32() };
 };
 
+/** LinkUpdater.method_7414 — packed room id + two bools. */
+export type JoinCustomRoom = {
+  readonly roomId: number;
+  readonly fromInvite: boolean;
+  readonly spectateOrFlag: boolean;
+};
+
+export const decodeJoinCustomRoom = (payload: Uint8Array): JoinCustomRoom => {
+  const bits = new BitReader(payload);
+  return {
+    roomId: bits.readPackedU32(),
+    fromInvite: bits.readBool(),
+    spectateOrFlag: bits.readBool(),
+  };
+};
+
 export const lobbySettingsFrame = (state: LobbyState): TcpFrame => ({
   type: PacketType.lobbySettings,
   seq: undefined,
@@ -486,7 +505,11 @@ export const lobbySettingsFrame = (state: LobbyState): TcpFrame => ({
 
 export const customLobbyFrame = (
   state: LobbyState,
-  options?: { readonly includeHeroUpdate?: boolean; readonly includeHeroSlots?: boolean },
+  options?: {
+    readonly roomId?: number;
+    readonly includeHeroUpdate?: boolean;
+    readonly includeHeroSlots?: boolean;
+  },
 ): TcpFrame => ({
   type: PacketType.customLobby,
   seq: undefined,
