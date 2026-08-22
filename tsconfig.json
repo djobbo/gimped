@@ -33,6 +33,9 @@
     },
     {
       "path": "./apps/client"
+    },
+    {
+      "path": "./apps/backend"
     }
   ]
 }

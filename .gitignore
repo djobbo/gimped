@@ -11,3 +11,4 @@ brawlhalla-src/
 .vite-hooks/_
 .env
 .env.local
+apps/backend/captures/
