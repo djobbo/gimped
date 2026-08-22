@@ -25,24 +25,24 @@
 
 ## File structure
 
-| File | Role |
-| --- | --- |
-| `apps/backend/src/packets.ts` | Add `gameConnect` **10405**, `matchSetup` **10310** |
-| `apps/backend/src/match-spec.ts` | `MatchSpec`, `GameListenReady`, JSON line Schema |
-| `apps/backend/src/game-connect.ts` | **10405** packed user id + token |
-| `apps/backend/src/assign-game-server.ts` | `encodeAssignGameServer(assigned)` (no hardcoded ports) |
-| `apps/backend/src/custom-lobby.ts` | Export `writeTimedRuleset` for **10310** |
-| `apps/backend/src/match-setup.ts` | **10310** / `method_215` encode + decode |
-| `apps/backend/src/game-replies.ts` | Game-socket actions (no `repliesFor`) |
-| `apps/backend/src/udp-bind.ts` | Ephemeral UDP bind (`node:dgram` + `Effect.addFinalizer`; Effect has no UDP module) |
-| `apps/backend/src/game-runtime.ts` | `GameRuntime` service, fake layer, child-process layer |
-| `apps/backend/src/commands/game-listen.ts` | `game listen` CLI |
-| `apps/backend/src/cli.ts` | Subcommands `listen` + `game` |
-| `apps/backend/src/replies.ts` | Remove packet **55** |
-| `apps/backend/src/stub.ts` | Lobby `Ref`, **55** → `allocate` |
-| `apps/backend/src/commands/listen.ts` | Drop 23011 server; provide `GameRuntime` |
-| `apps/backend/src/decode.ts` | Decode **10405** / **10310** for captures |
-| `apps/backend/docs/next-step.md` | Manual Play check |
+| File                                       | Role                                                                                |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `apps/backend/src/packets.ts`              | Add `gameConnect` **10405**, `matchSetup` **10310**                                 |
+| `apps/backend/src/match-spec.ts`           | `MatchSpec`, `GameListenReady`, JSON line Schema                                    |
+| `apps/backend/src/game-connect.ts`         | **10405** packed user id + token                                                    |
+| `apps/backend/src/assign-game-server.ts`   | `encodeAssignGameServer(assigned)` (no hardcoded ports)                             |
+| `apps/backend/src/custom-lobby.ts`         | Export `writeTimedRuleset` for **10310**                                            |
+| `apps/backend/src/match-setup.ts`          | **10310** / `method_215` encode + decode                                            |
+| `apps/backend/src/game-replies.ts`         | Game-socket actions (no `repliesFor`)                                               |
+| `apps/backend/src/udp-bind.ts`             | Ephemeral UDP bind (`node:dgram` + `Effect.addFinalizer`; Effect has no UDP module) |
+| `apps/backend/src/game-runtime.ts`         | `GameRuntime` service, fake layer, child-process layer                              |
+| `apps/backend/src/commands/game-listen.ts` | `game listen` CLI                                                                   |
+| `apps/backend/src/cli.ts`                  | Subcommands `listen` + `game`                                                       |
+| `apps/backend/src/replies.ts`              | Remove packet **55**                                                                |
+| `apps/backend/src/stub.ts`                 | Lobby `Ref`, **55** → `allocate`                                                    |
+| `apps/backend/src/commands/listen.ts`      | Drop 23011 server; provide `GameRuntime`                                            |
+| `apps/backend/src/decode.ts`               | Decode **10405** / **10310** for captures                                           |
+| `apps/backend/docs/next-step.md`           | Manual Play check                                                                   |
 
 Colocate `*.test.ts` next to each module.
 
@@ -75,10 +75,7 @@ Replace `apps/backend/src/assign-game-server.test.ts` with:
 
 ```ts
 import { describe, expect, it } from "@effect/vitest";
-import {
-  decodeAssignGameServer,
-  encodeAssignGameServer,
-} from "./assign-game-server.ts";
+import { decodeAssignGameServer, encodeAssignGameServer } from "./assign-game-server.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
 
 describe("assign game server", () => {
@@ -148,9 +145,7 @@ and matching `nameForType` aliases `"gameConnect"` / `"matchSetup"`.
 Change `encodeAssignGameServer` to take the allocation (keep `STUB_*` constants for defaults used by tests/docs, but do not read ports from them inside encode):
 
 ```ts
-export const encodeAssignGameServer = (
-  assigned: Omit<AssignGameServer, "_tag">,
-): Uint8Array => {
+export const encodeAssignGameServer = (assigned: Omit<AssignGameServer, "_tag">): Uint8Array => {
   const bits = new BitWriter();
   bits.writePackedU32(assigned.userId);
   bits.writePackedU32(assigned.levelId);
@@ -338,13 +333,12 @@ git commit -m "feat: encode custom-room match setup 10310"
 
 ```ts
 export type GameAction =
-  | { readonly _tag: "Reply"; readonly frames: ReadonlyArray<TcpFrame> }
-  | { readonly _tag: "Close" };
+  { readonly _tag: "Reply"; readonly frames: ReadonlyArray<TcpFrame> } | { readonly _tag: "Close" };
 
 export const gameActionFor: (
   frame: TcpFrame,
   spec: { readonly userId: number; readonly token: string; readonly includeBot: boolean },
-) => GameAction
+) => GameAction;
 ```
 
 - [ ] **Step 1: Write the failing tests**
@@ -627,39 +621,40 @@ export const root = Command.make("backend").pipe(
 Handler outline:
 
 ```ts
-yield* Effect.scoped(
-  Effect.gen(function* () {
-    const udp = yield* bindUdp("127.0.0.1");
-    const server = yield* NodeSocketServer.make({ host: "127.0.0.1", port: 0 });
-    if (server.address._tag !== "TcpAddress") {
-      return yield* Effect.die("game listen expected TCP address");
-    }
-    const ready = new GameListenReady({
-      host: "127.0.0.1",
-      tcpPort: server.address.port,
-      udpPort: udp.port,
-    });
-    yield* Console.log(Schema.encodeUnknownSync(GameListenReadyLine)(ready));
-    const spec = { userId: config.userId, token: config.token, includeBot: config.bot };
-    yield* server.run((socket) =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const decoder = new FrameDecoder();
-          const write = yield* socket.writer;
-          yield* socket.run((chunk) =>
-            Effect.gen(function* () {
-              for (const frame of decoder.push(chunk)) {
-                const action = gameActionFor(frame, spec);
-                if (action._tag === "Close") return yield* Effect.interrupt;
-                for (const reply of action.frames) yield* write(encodeFrame(reply));
-              }
-            }),
-          );
-        }),
-      ),
-    );
-  }),
-);
+yield *
+  Effect.scoped(
+    Effect.gen(function* () {
+      const udp = yield* bindUdp("127.0.0.1");
+      const server = yield* NodeSocketServer.make({ host: "127.0.0.1", port: 0 });
+      if (server.address._tag !== "TcpAddress") {
+        return yield* Effect.die("game listen expected TCP address");
+      }
+      const ready = new GameListenReady({
+        host: "127.0.0.1",
+        tcpPort: server.address.port,
+        udpPort: udp.port,
+      });
+      yield* Console.log(Schema.encodeUnknownSync(GameListenReadyLine)(ready));
+      const spec = { userId: config.userId, token: config.token, includeBot: config.bot };
+      yield* server.run((socket) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const decoder = new FrameDecoder();
+            const write = yield* socket.writer;
+            yield* socket.run((chunk) =>
+              Effect.gen(function* () {
+                for (const frame of decoder.push(chunk)) {
+                  const action = gameActionFor(frame, spec);
+                  if (action._tag === "Close") return yield* Effect.interrupt;
+                  for (const reply of action.frames) yield* write(encodeFrame(reply));
+                }
+              }),
+            );
+          }),
+        ),
+      );
+    }),
+  );
 ```
 
 Keep the UDP socket alive for the whole scoped block (do not close after printing ready).
@@ -692,9 +687,12 @@ git commit -m "feat: add game listen child that binds TCP and UDP"
 - Produces:
 
 ```ts
-export class GameListenTimeout extends Schema.TaggedError<GameListenTimeout>()("GameListenTimeout", {
-  message: Schema.String,
-}) {}
+export class GameListenTimeout extends Schema.TaggedError<GameListenTimeout>()(
+  "GameListenTimeout",
+  {
+    message: Schema.String,
+  },
+) {}
 
 export type Allocation = {
   readonly id: string;
@@ -712,7 +710,11 @@ export class GameRuntime extends Context.Service<
   }
 >()("@gimped/backend/GameRuntime") {
   static readonly layerFake: Layer.Layer<GameRuntime>;
-  static readonly layerChildProcess: Layer.Layer<GameRuntime, never, ChildProcessSpawner | Path.Path>;
+  static readonly layerChildProcess: Layer.Layer<
+    GameRuntime,
+    never,
+    ChildProcessSpawner | Path.Path
+  >;
 }
 ```
 

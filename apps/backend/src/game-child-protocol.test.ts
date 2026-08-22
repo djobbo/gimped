@@ -7,7 +7,13 @@ import { PacketType } from "./packets.ts";
 
 import { MatchSetupSpec } from "./match-spec.ts";
 
-const spec = { userId: 1, token: "gimped", includeBot: false, setup: MatchSetupSpec.default };
+const spec = {
+  userId: 1,
+  token: "gimped",
+  levelId: 1,
+  includeBot: false,
+  setup: MatchSetupSpec.default,
+};
 const syncingState = {
   phase: "syncingIntoMatch" as const,
   includeBot: false,
@@ -25,6 +31,7 @@ const syncingState = {
   lastIntroSyncAtMs: 0,
   lastTickAdvanceAtMs: 0,
   enteredActiveMatchAtMs: 0,
+  disconnectedUserIds: [],
 };
 
 describe("game child protocol", () => {
@@ -37,6 +44,7 @@ describe("game child protocol", () => {
       },
       spec,
       syncingState,
+      1,
     );
     expect(result.action._tag).toBe("Reply");
     if (result.action._tag !== "Reply") return;
@@ -49,6 +57,7 @@ describe("game child protocol", () => {
       { type: PacketType.levelReady, seq: undefined, payload: new Uint8Array() },
       spec,
       syncingState,
+      1,
     );
     expect(result.nextPhase).toBe("activeMatch");
     expect(result.action._tag).toBe("Reply");
@@ -61,6 +70,7 @@ describe("game child protocol", () => {
       { type: PacketType.postConnectAck, seq: undefined, payload: new Uint8Array() },
       spec,
       syncingState,
+      1,
     );
     expect(result.nextPhase).toBe("activeMatch");
     expect(result.action._tag).toBe("Reply");
@@ -78,6 +88,7 @@ describe("game child protocol", () => {
         },
         spec,
         syncingState,
+        1,
       ).action,
     ).toEqual({ _tag: "Close" });
   });
@@ -112,14 +123,18 @@ describe("game child protocol", () => {
     expect(result.unknownGameplay).toBeUndefined();
   });
 
-  it("routes 10401 simReady to gameplay input during activeMatch", () => {
+  it("answers 10401 during activeMatch with 10312 scoreboard/EndMatch", () => {
     const result = protocolIngest(
       { type: PacketType.simReady, seq: undefined, payload: new Uint8Array() },
       spec,
       { ...syncingState, phase: "activeMatch" },
+      spec.userId,
     );
-    expect(result.input).toEqual({ _tag: "SimReady" });
-    expect(result.action).toEqual({ _tag: "Reply", frames: [] });
+    expect(result.shouldClose).toBe(true);
+    expect(result.quitUserId).toBe(spec.userId);
+    expect(result.action._tag).toBe("Reply");
+    if (result.action._tag !== "Reply") return;
+    expect(result.action.frames.map((frame) => frame.type)).toEqual([PacketType.entitySpawn]);
   });
 
   it("acks 10403 postConnectAck during activeMatch without unknown logging", () => {

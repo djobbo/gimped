@@ -120,13 +120,13 @@ TCP connect failure on the client is `Error_FAILED_TRANSFER` (`method_3131`). Se
 
 ## Error handling
 
-| Case | Behavior |
-| --- | --- |
-| Spawn or ready timeout | No **2466**. Log. Client stays in the Play/transfer path. |
-| Child crash after **2466** | `release` on exit. Client sees transfer fail or drop. No respawn. |
-| **10405** id/token mismatch | Close game TCP. No **10310**. |
-| Backend exits | Scoped layer kills the child. |
-| Second Play while allocated | Wait on `allocate` until the previous child is released. |
+| Case                        | Behavior                                                          |
+| --------------------------- | ----------------------------------------------------------------- |
+| Spawn or ready timeout      | No **2466**. Log. Client stays in the Play/transfer path.         |
+| Child crash after **2466**  | `release` on exit. Client sees transfer fail or drop. No respawn. |
+| **10405** id/token mismatch | Close game TCP. No **10310**.                                     |
+| Backend exits               | Scoped layer kills the child.                                     |
+| Second Play while allocated | Wait on `allocate` until the previous child is released.          |
 
 No new “match failed” lobby packet in v1.
 

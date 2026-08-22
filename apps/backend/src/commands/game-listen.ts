@@ -1,9 +1,11 @@
 import { NodeSocketServer } from "@effect/platform-node";
-import { Effect, Option, Ref, Schema } from "effect";
+import { NetSocket } from "@effect/platform-node/NodeSocket";
+import { Deferred, Effect, Ref, Schema } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { runGameChildLoop } from "../game-child-loop.ts";
-import { GameChildRuntime, type GameChildRuntimeService } from "../game-child-runtime.ts";
+import { GameChildRuntime } from "../game-child-runtime.ts";
 import { encodeFrame, FrameDecoder } from "../framing.ts";
+import type { TcpFrame } from "../messages.ts";
 import { observeGameFrame, shouldLogGameFrame } from "../game-observe.ts";
 import {
   GameListenReady,
@@ -23,6 +25,18 @@ const logFrame = Effect.fn("logFrame")(function* (
   if (!shouldLogGameFrame(frame.type, phase)) return;
   const observed = observeGameFrame(frame);
   yield* Effect.log(`game ${dir} type=${frame.type} ${observed.summary}`);
+});
+
+const writeFrames = Effect.fn("writeFrames")(function* (
+  write: (bytes: Uint8Array) => Effect.Effect<void>,
+  frames: ReadonlyArray<TcpFrame>,
+  phase: GameChildPhase,
+) {
+  for (const frame of frames) {
+    yield* logFrame("outbound", frame, phase);
+    const bytes = encodeFrame(frame);
+    yield* write(bytes);
+  }
 });
 
 export const gameListen = Command.make(
@@ -50,23 +64,27 @@ export const gameListen = Command.make(
     yield* Effect.scoped(
       Effect.gen(function* () {
         const udp = yield* bindUdp(config.bindHost);
-        const runtimeRef = yield* Ref.make<Option.Option<GameChildRuntimeService>>(Option.none());
+        const runtime = yield* GameChildRuntime.make({
+          includeBot,
+          userId: config.userId,
+          token: config.token,
+          levelId: config.levelId,
+          setup,
+        });
+        const shutdownDeferred = yield* Deferred.make<void, never>();
+        const nextConnectionId = yield* Ref.make(1);
         const tcpWriteRef = yield* Ref.make<
-          Option.Option<(bytes: Uint8Array) => Effect.Effect<void>>
-        >(Option.none());
+          ReadonlyMap<number, (bytes: Uint8Array) => Effect.Effect<void>>
+        >(new Map());
+
         yield* runUdpListener(udp.socket, (payload, remote) =>
           Effect.gen(function* () {
-            const runtime = yield* Ref.get(runtimeRef);
-            if (Option.isNone(runtime)) return;
-            const reply = yield* runtime.value.ingestUdp(payload);
-            const pending = yield* runtime.value.drainPendingTcp();
-            const phase = yield* runtime.value.phase;
-            for (const frame of pending) {
-              yield* logFrame("outbound", frame, phase);
-              const write = yield* Ref.get(tcpWriteRef);
-              if (Option.isSome(write)) {
-                yield* write.value(encodeFrame(frame));
-              }
+            const reply = yield* runtime.ingestUdp(payload);
+            const writers = yield* Ref.get(tcpWriteRef);
+            const phase = yield* runtime.phase;
+            for (const [connectionId, write] of writers) {
+              const pending = yield* runtime.drainPendingTcp(connectionId);
+              yield* writeFrames(write, pending, phase);
             }
             if (reply === undefined) return;
             yield* Effect.callback<void>((resume) => {
@@ -74,6 +92,9 @@ export const gameListen = Command.make(
             });
           }),
         ).pipe(Effect.forkScoped);
+
+        yield* runGameChildLoop(runtime, tcpWriteRef).pipe(Effect.forkScoped);
+
         const server = yield* NodeSocketServer.make({ host: config.bindHost, port: 0 });
         if (server.address._tag !== "TcpAddress") {
           return yield* Effect.die("game listen expected TCP address");
@@ -87,37 +108,50 @@ export const gameListen = Command.make(
           .run((socket) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const runtime = yield* GameChildRuntime.make({
-                  includeBot,
-                  userId: config.userId,
-                  token: config.token,
-                  setup,
-                });
-                yield* Ref.set(runtimeRef, Option.some(runtime));
-                yield* Effect.addFinalizer(() => Ref.set(runtimeRef, Option.none()));
+                const connectionId = yield* Ref.getAndUpdate(nextConnectionId, (n) => n + 1);
+                yield* runtime.registerConnection(connectionId, config.userId);
+                yield* runtime.connect();
                 const decoder = new FrameDecoder();
                 const write = yield* socket.writer;
-                yield* Ref.set(tcpWriteRef, Option.some(write));
-                yield* Effect.addFinalizer(() => Ref.set(tcpWriteRef, Option.none()));
-                yield* runtime.connect();
-                yield* runGameChildLoop(runtime, write).pipe(Effect.forkScoped);
+                const netSocket = yield* NetSocket;
+                yield* Effect.sync(() => {
+                  netSocket.setNoDelay(true);
+                });
+                yield* Ref.update(tcpWriteRef, (writers) => {
+                  const next = new Map(writers);
+                  next.set(connectionId, write);
+                  return next;
+                });
+                yield* Effect.addFinalizer(() =>
+                  Effect.gen(function* () {
+                    yield* Ref.update(tcpWriteRef, (writers) => {
+                      const next = new Map(writers);
+                      next.delete(connectionId);
+                      return next;
+                    });
+                    yield* runtime.unregisterConnection(connectionId);
+                  }),
+                );
                 yield* socket
                   .run((chunk) =>
                     Effect.gen(function* () {
                       const phase = yield* runtime.phase;
                       for (const frame of decoder.push(chunk)) {
                         yield* logFrame("inbound", frame, phase);
-                        const replies = yield* runtime.ingest(frame);
-                        if (yield* runtime.shouldClose) return yield* Effect.interrupt;
+                        const replies = yield* runtime.ingest(frame, connectionId);
                         const replyPhase = yield* runtime.phase;
-                        for (const reply of replies) {
-                          yield* logFrame("outbound", reply, replyPhase);
-                          yield* write(encodeFrame(reply));
+                        yield* writeFrames(write, replies, replyPhase);
+                        const pending = yield* runtime.drainPendingTcp(connectionId);
+                        yield* writeFrames(write, pending, replyPhase);
+                        if (yield* runtime.shouldCloseConnection(connectionId)) {
+                          yield* Ref.update(tcpWriteRef, (writers) => {
+                            const next = new Map(writers);
+                            next.delete(connectionId);
+                            return next;
+                          });
                         }
-                        const pending = yield* runtime.drainPendingTcp();
-                        for (const frame of pending) {
-                          yield* logFrame("outbound", frame, replyPhase);
-                          yield* write(encodeFrame(frame));
+                        if (yield* runtime.shouldShutdown) {
+                          yield* Deferred.complete(shutdownDeferred, Effect.void);
                         }
                       }
                     }),
@@ -125,8 +159,8 @@ export const gameListen = Command.make(
                   .pipe(
                     Effect.catchCause((cause) =>
                       Effect.gen(function* () {
-                        yield* Effect.log(`game connection closed: ${cause}`);
-                        yield* runtime.disconnect();
+                        yield* Effect.log(`game connection ${connectionId} closed: ${cause}`);
+                        yield* runtime.unregisterConnection(connectionId);
                       }),
                     ),
                   );
@@ -137,7 +171,7 @@ export const gameListen = Command.make(
         yield* Effect.sync(() => {
           process.stdout.write(`${Schema.encodeUnknownSync(GameListenReadyLine)(ready)}\n`);
         });
-        yield* Effect.never;
+        yield* Deferred.await(shutdownDeferred);
       }),
     );
   }),

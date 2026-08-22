@@ -2,7 +2,7 @@ import { BitReader, BitWriter } from "./bitstream.ts";
 import type { GameChildState } from "./game-child-model.ts";
 import type { TcpFrame } from "./framing.ts";
 import { encodeEntityRespawn, encodeEntityState } from "./game-input.ts";
-import { STUB_DISPLAY_NAME, STUB_USER_ID } from "./login-accepted.ts";
+import { STUB_DISPLAY_NAME } from "./login-accepted.ts";
 import { PacketType } from "./packets.ts";
 
 export type SessionSync = {
@@ -135,51 +135,59 @@ export const decodePostConnectAck = (_payload: Uint8Array): PostConnectAck => ({
   _tag: "PostConnectAck",
 });
 
-const encodeDropOffline = (reason: number): Uint8Array => {
+/**
+ * Client quit/forfeit (10401) and stock-out. 12002 (method_7929) closes lobby TCP and
+ * does not EndMatch; method_5282 also refuses the menu while var_3592 still has the
+ * in-match bit and game TCP is up. 10312 (method_288) shows the scoreboard and calls
+ * method_855 (EndMatch).
+ */
+export const buildQuitSync = (state: GameChildState): ReadonlyArray<TcpFrame> => {
+  const entities =
+    state.entities.length > 0
+      ? state.entities
+      : [{ entityId: 1, userId: 1, stocks: 0, damage: 0, x: 0, y: 0 }];
+  return [
+    frame(
+      PacketType.entitySpawn,
+      encodeEntitySpawn({
+        entities: entities.map((entity, index) => ({
+          entityId: entity.entityId,
+          name: entity.userId === 0 ? "Bot" : STUB_DISPLAY_NAME,
+          userId: entity.userId,
+          field5: 1,
+          field7: index + 1,
+          field8: false,
+        })),
+      }),
+    ),
+  ];
+};
+
+/** LinkUpdater.method_1337 — player left; remaining clients show disconnect UI. */
+export const encodePlayerDisconnect = (notice: {
+  readonly userId: number;
+  readonly reason: number;
+}): Uint8Array => {
   const bits = new BitWriter();
-  bits.writePackedU32(reason);
+  bits.writePackedU32(notice.userId);
+  bits.writePackedU32(notice.reason);
   return bits.toUint8Array();
 };
 
-const defaultSpawnEntities = (state: GameChildState): ReadonlyArray<EntitySpawnRecord> => {
-  if (state.entities.length > 0) {
-    return state.entities.map((entity) => ({
-      entityId: entity.entityId,
-      field2: 0,
-      name: STUB_DISPLAY_NAME,
-      field4: "",
-      field5: entity.stocks,
-      userId: entity.userId,
-      field7: 0,
-      field8: false,
-    }));
-  }
-  const entities: EntitySpawnRecord[] = [
-    {
-      entityId: 1,
-      field2: 0,
-      name: STUB_DISPLAY_NAME,
-      field4: "",
-      field5: 3,
-      userId: STUB_USER_ID,
-      field7: 0,
-      field8: false,
-    },
-  ];
-  if (state.includeBot) {
-    entities.push({
-      entityId: 2,
-      field2: 0,
-      name: "Bot",
-      field4: "",
-      field5: 3,
-      userId: 0,
-      field7: 0,
-      field8: false,
-    });
-  }
-  return entities;
+export const buildPlayerDisconnectSync = (userId: number): ReadonlyArray<TcpFrame> => [
+  frame(PacketType.playerDisconnect, encodePlayerDisconnect({ userId, reason: 0 })),
+];
+
+/** LinkUpdater.method_4515 — player returned after disconnect. */
+export const encodePlayerReconnect = (userId: number): Uint8Array => {
+  const bits = new BitWriter();
+  bits.writePackedU32(userId);
+  return bits.toUint8Array();
 };
+
+export const buildPlayerReconnectSync = (userId: number): ReadonlyArray<TcpFrame> => [
+  frame(PacketType.playerReconnect, encodePlayerReconnect(userId)),
+];
 
 /** Post-10310 child→client sync (10310 is sent separately on gameConnect). */
 export const buildInitialSync = (
@@ -221,7 +229,5 @@ export const buildRespawnSync = (
   ];
 };
 
-export const buildMatchOverSync = (state: GameChildState): ReadonlyArray<TcpFrame> => [
-  frame(PacketType.entitySpawn, encodeEntitySpawn({ entities: defaultSpawnEntities(state) })),
-  frame(PacketType.dropOffline, encodeDropOffline(0)),
-];
+export const buildMatchOverSync = (state: GameChildState): ReadonlyArray<TcpFrame> =>
+  buildQuitSync(state);

@@ -20,6 +20,8 @@ export type MatchSetup = {
 };
 
 export type MatchSetupEncodeOptions = {
+  /** LevelType index from 2466 assignGameServer (class_139.method_214 _loc3_). */
+  readonly levelId: number;
   readonly hostHeroId: number;
   readonly hostCostumeId: number;
   readonly hostHeroSlots: ReadonlyArray<{ readonly heroId: number; readonly costumeId: number }>;
@@ -144,7 +146,11 @@ const readPlayerUserId = (bits: BitReader, heroSlots: number): number => {
   return userId;
 };
 
-export const matchSetupOptionsFromSpec = (setup: MatchSetupSpec): MatchSetupEncodeOptions => ({
+export const matchSetupOptionsFromSpec = (
+  setup: MatchSetupSpec,
+  levelId: number,
+): MatchSetupEncodeOptions => ({
+  levelId,
   hostHeroId: setup.hostHeroId,
   hostCostumeId: setup.hostCostumeId,
   hostHeroSlots: setup.hostHeroSlots,
@@ -238,8 +244,12 @@ export const encodeMatchSetup = (options: MatchSetupEncodeOptions): Uint8Array =
   return bits.toUint8Array();
 };
 
-export const encodeMatchSetupLegacy = (options: { readonly includeBot: boolean }): Uint8Array =>
+export const encodeMatchSetupLegacy = (options: {
+  readonly includeBot: boolean;
+  readonly levelId?: number;
+}): Uint8Array =>
   encodeMatchSetup({
+    levelId: options.levelId ?? 1,
     hostHeroId: STUB_HERO_ID,
     hostCostumeId: STUB_COSTUME_ID,
     hostHeroSlots: [

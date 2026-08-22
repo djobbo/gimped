@@ -27,9 +27,11 @@ describe("packet type table", () => {
     expect(nameForType(PacketType.startMatch)).toBe("startMatch");
     expect(nameForType(PacketType.assignGameServer)).toBe("assignGameServer");
     expect(nameForType(PacketType.matchSetup)).toBe("matchSetup");
-    expect(nameForType(PacketType.gameConnect)).toBe("gameConnect");
+    expect(nameForType(PacketType.gameConnect)).toBe("gameserverLoginRejoin");
     expect(nameForType(PacketType.loginAccepted)).toBe("loginAccepted");
-    expect(nameForType(31)).toBe("var_656");
+    expect(nameForType(PacketType.tickPulse)).toBe("tickPulse");
+    expect(nameForType(PacketType.transferFailed)).toBe("transferFailed");
+    expect(nameForType(31)).toBe("toExplore_var_656");
     expect(nameForType(99999)).toBe("type_99999");
   });
 });

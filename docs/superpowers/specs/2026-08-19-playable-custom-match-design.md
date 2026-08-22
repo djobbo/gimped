@@ -190,14 +190,14 @@ The goal is not to decode the entire game protocol first. The goal is to add onl
 
 ## Error handling
 
-| Case | Behavior |
-| --- | --- |
-| Handshake failure | Close game TCP; fail the match instance. |
-| Unknown packet before active match | Log and ignore when safe; close only if the client cannot continue. |
-| Unknown packet during active match | Prefer logging first so live sessions can distinguish required vs noise packets. |
-| Runtime inconsistency / invalid phase transition | End the match and tear down the child cleanly. |
-| Backend exit | Scoped child shutdown. |
-| Client disconnect | End match and release child. |
+| Case                                             | Behavior                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Handshake failure                                | Close game TCP; fail the match instance.                                         |
+| Unknown packet before active match               | Log and ignore when safe; close only if the client cannot continue.              |
+| Unknown packet during active match               | Prefer logging first so live sessions can distinguish required vs noise packets. |
+| Runtime inconsistency / invalid phase transition | End the match and tear down the child cleanly.                                   |
+| Backend exit                                     | Scoped child shutdown.                                                           |
+| Client disconnect                                | End match and release child.                                                     |
 
 Avoid clever in-place recovery in v1. Clean teardown is more valuable than fragile recovery.
 

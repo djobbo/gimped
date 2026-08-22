@@ -27,11 +27,18 @@ describe("game child runtime", () => {
         seq: undefined,
         payload: new Uint8Array(),
       });
-      yield* runtime.ingest({
-        type: PacketType.simReady,
-        seq: undefined,
-        payload: new Uint8Array(),
-      });
+      yield* runtime.ingest(
+        {
+          type: PacketType.tickAck,
+          seq: undefined,
+          payload: (() => {
+            const bits = new BitWriter();
+            bits.writePackedU32(6000);
+            return bits.toUint8Array();
+          })(),
+        },
+        0,
+      );
       expect(yield* runtime.tick()).toEqual([]);
     }),
   );
@@ -147,7 +154,7 @@ describe("game child runtime", () => {
         packets: [{ type: PacketType.moveInput, payload: writer.toUint8Array() }],
       });
       yield* runtime.ingestUdp(datagramPayload);
-      const pending = yield* runtime.drainPendingTcp();
+      const pending = yield* runtime.drainPendingTcp(0);
       expect(pending).toEqual([]);
       expect(yield* runtime.state).toMatchObject({
         simReady: false,
@@ -430,7 +437,7 @@ describe("game child runtime", () => {
       expect(reply).toBeDefined();
       const decoded = decodeUdpDatagram(reply!);
       expect(decoded?.packets.map((packet) => packet.type)).toEqual([10]);
-      const pending = yield* runtime.drainPendingTcp();
+      const pending = yield* runtime.drainPendingTcp(0);
       expect(pending.map((frame) => frame.type)).toEqual([
         PacketType.tickPulse,
         PacketType.inputBroadcast,

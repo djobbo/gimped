@@ -17,12 +17,12 @@ Align with monorepo patterns in `@gimped/swz` / `@gimped/replay` and `AGENTS.md`
 
 ## Constraints (locked)
 
-| Decision | Choice |
-| --- | --- |
+| Decision             | Choice                                                                                                                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Message schema scope | **B** — wire + IPC + internal protocol ADTs (`TcpFrame`, `DecodedPayload`, `HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult`). Not every domain record (`LobbyState`, live entity maps). |
-| Pure codecs | **A** — stay sync; use `Schema.Class` / tagged classes via `new`; `Effect.fn` only at service / IO boundaries |
-| Performance | No Schema `decode*` / `encode*` and no `Effect.gen` inside `protocolIngest`, game `tick`, UDP ingest, `encodeFrame`, or `FrameDecoder.push` |
-| Behavior | Identical packets, ports, tokens, reply order, lobby/match semantics, capture layout |
+| Pure codecs          | **A** — stay sync; use `Schema.Class` / tagged classes via `new`; `Effect.fn` only at service / IO boundaries                                                                                            |
+| Performance          | No Schema `decode*` / `encode*` and no `Effect.gen` inside `protocolIngest`, game `tick`, UDP ingest, `encodeFrame`, or `FrameDecoder.push`                                                              |
+| Behavior             | Identical packets, ports, tokens, reply order, lobby/match semantics, capture layout                                                                                                                     |
 
 ## Approach
 
@@ -30,13 +30,13 @@ Align with monorepo patterns in `@gimped/swz` / `@gimped/replay` and `AGENTS.md`
 
 ## Module map
 
-| Layer | Modules | Shape |
-| --- | --- | --- |
-| Wire codecs (sync) | `framing`, `bitstream`, packet encode/decode (`login-accepted`, `custom-lobby`, `assign-game-server`, `game-*`, …) | Pure sync; construct Schema message types with `new`; sync `RangeError` in bit readers may remain (caught by existing decode `try/catch`) |
-| Message schemas | Prefer `messages.ts` and/or colocated Schema classes next to codecs | `TcpFrame`, `DecodedPayload` union, reply/protocol ADTs |
-| Domain (plain TS) | `lobby-state`, room member structs, live game child entity maps | Not Schema-encoded per tick |
-| Services | Existing: `ConnectionHub`, `RoomRegistry`, `GameRuntime`. New: `Session`, `Capture`. Do **not** add a `BackendReplies` service — keep `handleFrame` as a sync function | `Context.Service` + `layer*` + `Effect.fn` methods; ids `"@gimped/backend/<Module>"` |
-| Orchestration | `stub`, `room-replies`, `commands/*`, `game-child-runtime`, `game-child-loop` | `Effect.fn` / `Effect.gen`; yield services; call sync codecs inside |
+| Layer              | Modules                                                                                                                                                                | Shape                                                                                                                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Wire codecs (sync) | `framing`, `bitstream`, packet encode/decode (`login-accepted`, `custom-lobby`, `assign-game-server`, `game-*`, …)                                                     | Pure sync; construct Schema message types with `new`; sync `RangeError` in bit readers may remain (caught by existing decode `try/catch`) |
+| Message schemas    | Prefer `messages.ts` and/or colocated Schema classes next to codecs                                                                                                    | `TcpFrame`, `DecodedPayload` union, reply/protocol ADTs                                                                                   |
+| Domain (plain TS)  | `lobby-state`, room member structs, live game child entity maps                                                                                                        | Not Schema-encoded per tick                                                                                                               |
+| Services           | Existing: `ConnectionHub`, `RoomRegistry`, `GameRuntime`. New: `Session`, `Capture`. Do **not** add a `BackendReplies` service — keep `handleFrame` as a sync function | `Context.Service` + `layer*` + `Effect.fn` methods; ids `"@gimped/backend/<Module>"`                                                      |
+| Orchestration      | `stub`, `room-replies`, `commands/*`, `game-child-runtime`, `game-child-loop`                                                                                          | `Effect.fn` / `Effect.gen`; yield services; call sync codecs inside                                                                       |
 
 ### Hot path (must stay sync)
 
@@ -64,13 +64,13 @@ Capture logging may build `DecodedPayload` with `new` for `packets.jsonl`; that 
 
 Centralize new tagged errors (e.g. `errors.ts`) beside existing room/runtime errors:
 
-| Error | Role |
-| --- | --- |
-| Keep | `RoomNotFound`, `RoomFull`, `AlreadyInRoom`, `GameListenTimeout` |
-| Add | `UdpBindError` — replace bare `Error` from `bindUdp` |
-| Add | `MatchSpecParseError` — child argv / ready-line Schema failures |
+| Error                  | Role                                                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Keep                   | `RoomNotFound`, `RoomFull`, `AlreadyInRoom`, `GameListenTimeout`                                                                   |
+| Add                    | `UdpBindError` — replace bare `Error` from `bindUdp`                                                                               |
+| Add                    | `MatchSpecParseError` — child argv / ready-line Schema failures                                                                    |
 | Skip for this refactor | Dedicated `DecodeError` / `BitstreamError` — keep swallow-to-`Unknown` / `Close`; do not introduce new failure channels for codecs |
-| Sync throws | `RangeError` inside bit readers — remain; caught by existing `try/catch` on decode/protocol paths |
+| Sync throws            | `RangeError` inside bit readers — remain; caught by existing `try/catch` on decode/protocol paths                                  |
 
 ## Service interfaces
 

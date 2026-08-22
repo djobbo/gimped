@@ -6,7 +6,13 @@ import { PacketType } from "./packets.ts";
 
 import { MatchSetupSpec } from "./match-spec.ts";
 
-const spec = { userId: 1, token: "gimped", includeBot: false, setup: MatchSetupSpec.default };
+const spec = {
+  userId: 1,
+  token: "gimped",
+  levelId: 1,
+  includeBot: false,
+  setup: MatchSetupSpec.default,
+};
 
 describe("game replies", () => {
   it("answers valid 10405 with 10310 and sync sequence", () => {

@@ -1,4 +1,5 @@
 import { ByteReader, ByteWriter } from "@gimped/common";
+import { Match } from "effect";
 import { BitReader } from "./bitstream.ts";
 import type { GameChildState } from "./game-child-model.ts";
 import { trackClientSimTick } from "./game-child-model.ts";
@@ -104,20 +105,20 @@ const applyInnerPackets = (
   };
 
   for (const input of inputs) {
-    if (input._tag === "Move") {
-      nextState = trackClientSimTick(
-        queueMoveInput(nextState, {
-          entityId: input.entityId,
-          tick: input.tick,
-          input: input.input,
-        }),
-        input.tick,
-      );
-    } else if (input._tag === "TickAck") {
-      nextState = { ...nextState, clientTick: input.clientTick };
-    } else if (input._tag === "SimReady") {
-      nextState = { ...nextState, simReady: true };
-    }
+    nextState = Match.valueTags(input, {
+      Move: (move) =>
+        trackClientSimTick(
+          queueMoveInput(nextState, {
+            entityId: move.entityId,
+            tick: move.tick,
+            input: move.input,
+          }),
+          move.tick,
+        ),
+      TickAck: (ack) => ({ ...nextState, clientTick: ack.clientTick }),
+      SimReady: () => ({ ...nextState, simReady: true }),
+      UnknownInput: () => nextState,
+    });
   }
 
   return { state: nextState, inputs } satisfies {

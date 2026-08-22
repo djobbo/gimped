@@ -58,11 +58,12 @@ This machine currently has no `tshark` on PATH and no Wireshark install under `C
 
 ## Layout
 
-| Path               | Role                                       |
-| ------------------ | ------------------------------------------ |
-| `src/framing.ts`   | `class_85` TCP frames                      |
-| `src/bitstream.ts` | `class_30` / `class_279` bit packing       |
-| `src/packets.ts`   | `LinkUpdater` type IDs from `class_725.as` |
-| `src/stub.ts`      | accept / decode / log                      |
-| `docs/protocol.md` | protocol notes from the dumps              |
-| `docs/findings.md` | living capture log                         |
+| Path                  | Role                                      |
+| --------------------- | ----------------------------------------- |
+| `src/framing.ts`      | `class_85` TCP frames                     |
+| `src/bitstream.ts`    | `class_30` / `class_279` bit packing      |
+| `src/packets.ts`      | `LinkUpdater` type IDs + named aliases    |
+| `docs/linkupdater.md` | LinkUpdater deobfuscation + gameplay gaps |
+| `src/stub.ts`         | accept / decode / log                     |
+| `docs/protocol.md`    | protocol notes from the dumps             |
+| `docs/findings.md`    | living capture log                        |

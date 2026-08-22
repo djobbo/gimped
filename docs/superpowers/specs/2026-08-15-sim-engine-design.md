@@ -25,26 +25,26 @@ The engine shape is the full match loop (clock, collision, fighters, combat, sto
 
 ## Context (from `brawlhalla-src/dump`)
 
-| Role | Dump |
-| --- | --- |
-| Game / match | `class_139` (`[Game.hx]`) |
-| Entity interface | `class_122` (includes `OnHit`) |
-| Entity | `class_123` |
-| Fighter physics | `class_717` |
-| Collision lines | `class_71` |
-| Collision manager | `class_72` |
-| Collision from Flash graphics | `class_73` (`[CollisionObject.hx]`) — **SWF path; out of scope** |
-| LevelDesc / collision type names | `class_244` |
-| Map load | `class_240` |
-| Moving platforms | `MovingPlatform.as` |
-| Volumes | `Volume.as` |
-| Hurtboxes | `class_206` (`[HurtboxType.hx]`) |
-| Powers | `PowerType.as` |
-| Heroes | `HeroType.as` |
-| Scoring | `ScoringType.as` (`STOCK`) |
-| Replay write / 14-bit inputs | `class_314` (`method_4003(14, …)`, times in ms, 16ms frames) |
-| Replay read | `class_313.method_2634` |
-| Well512 | `@gimped/swz` `Well512` (same algorithm the game uses) |
+| Role                             | Dump                                                             |
+| -------------------------------- | ---------------------------------------------------------------- |
+| Game / match                     | `class_139` (`[Game.hx]`)                                        |
+| Entity interface                 | `class_122` (includes `OnHit`)                                   |
+| Entity                           | `class_123`                                                      |
+| Fighter physics                  | `class_717`                                                      |
+| Collision lines                  | `class_71`                                                       |
+| Collision manager                | `class_72`                                                       |
+| Collision from Flash graphics    | `class_73` (`[CollisionObject.hx]`) — **SWF path; out of scope** |
+| LevelDesc / collision type names | `class_244`                                                      |
+| Map load                         | `class_240`                                                      |
+| Moving platforms                 | `MovingPlatform.as`                                              |
+| Volumes                          | `Volume.as`                                                      |
+| Hurtboxes                        | `class_206` (`[HurtboxType.hx]`)                                 |
+| Powers                           | `PowerType.as`                                                   |
+| Heroes                           | `HeroType.as`                                                    |
+| Scoring                          | `ScoringType.as` (`STOCK`)                                       |
+| Replay write / 14-bit inputs     | `class_314` (`method_4003(14, …)`, times in ms, 16ms frames)     |
+| Replay read                      | `class_313.method_2634`                                          |
+| Well512                          | `@gimped/swz` `Well512` (same algorithm the game uses)           |
 
 Replay files do **not** contain physics state. `@gimped/replay` already decompiles setup, timed inputs, and results. Playback was out of scope there; this package is that playback, as simulation.
 
@@ -83,24 +83,24 @@ Callers who want weapons later replace `Items` and extend `Combat` / `Fighter`. 
 
 ### Services
 
-| Service | Responsibility | Default dependencies |
-| --- | --- | --- |
-| `Match` | Mutable match: fighters, collision geometry, clock, scores, snapshot | — |
-| `Clock` | Tick index; advance 16ms per step at `gameSpeed` 100. Other `gameSpeed` values follow the dump. | `Match` |
-| `Rng` | Well512 `initState` / `next`. Default layer uses `@gimped/swz` `Well512`. | — |
-| `Collision` | Line/volume queries (hard, soft, ice, …). Geometry comes from `Match` / `LevelCollision`. | `Match` |
-| `World` | Blastzones, respawns, moving platforms, volumes, stage step | `Match`, `Collision` |
-| `Fighter` | Unarmed kinematics: walk, jump, dodge, gravity, ground/wall | `Match`, `Collision`, `Input` |
-| `Input` | Apply replay rows with `time <= now`; hold 14-bit masks | `Match` |
-| `Combat` | Unarmed powers, hurt/hitboxes, damage, stun, impulse (`OnHit`) | `Match`, `Fighter`, `Rng`, `Tables` |
-| `Stock` | Lives, blastzone KO, respawn, KO score, match end | `Match`, `World` |
-| `Items` | **Stub:** no weapons, no gadgets, no spawns | `Match` |
-| `Renderer` | **Stub:** `present(snapshot)` succeeds and does nothing | — |
-| `Tables` | Injected hero / hurtbox / unarmed power / level / scoring tables | — |
-| `LevelCollision` | Injected stage lines, volumes, spawns, blastzones | — |
-| `GameData` | Optional: SWZ + LevelDesc **XML** → `Tables` + `LevelCollision` | `FileSystem`, `Path`, `@gimped/swz` |
-| `ReplayLoader` | Path or bytes → `Replay` via `@gimped/replay` | `FileSystem`, `@gimped/replay` Envelope/Codec |
-| `Simulation` | `create`, `step`, `runToEnd`, `runReplay` → `{ duration, scores }` | physics services below |
+| Service          | Responsibility                                                                                  | Default dependencies                          |
+| ---------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `Match`          | Mutable match: fighters, collision geometry, clock, scores, snapshot                            | —                                             |
+| `Clock`          | Tick index; advance 16ms per step at `gameSpeed` 100. Other `gameSpeed` values follow the dump. | `Match`                                       |
+| `Rng`            | Well512 `initState` / `next`. Default layer uses `@gimped/swz` `Well512`.                       | —                                             |
+| `Collision`      | Line/volume queries (hard, soft, ice, …). Geometry comes from `Match` / `LevelCollision`.       | `Match`                                       |
+| `World`          | Blastzones, respawns, moving platforms, volumes, stage step                                     | `Match`, `Collision`                          |
+| `Fighter`        | Unarmed kinematics: walk, jump, dodge, gravity, ground/wall                                     | `Match`, `Collision`, `Input`                 |
+| `Input`          | Apply replay rows with `time <= now`; hold 14-bit masks                                         | `Match`                                       |
+| `Combat`         | Unarmed powers, hurt/hitboxes, damage, stun, impulse (`OnHit`)                                  | `Match`, `Fighter`, `Rng`, `Tables`           |
+| `Stock`          | Lives, blastzone KO, respawn, KO score, match end                                               | `Match`, `World`                              |
+| `Items`          | **Stub:** no weapons, no gadgets, no spawns                                                     | `Match`                                       |
+| `Renderer`       | **Stub:** `present(snapshot)` succeeds and does nothing                                         | —                                             |
+| `Tables`         | Injected hero / hurtbox / unarmed power / level / scoring tables                                | —                                             |
+| `LevelCollision` | Injected stage lines, volumes, spawns, blastzones                                               | —                                             |
+| `GameData`       | Optional: SWZ + LevelDesc **XML** → `Tables` + `LevelCollision`                                 | `FileSystem`, `Path`, `@gimped/swz`           |
+| `ReplayLoader`   | Path or bytes → `Replay` via `@gimped/replay`                                                   | `FileSystem`, `@gimped/replay` Envelope/Codec |
+| `Simulation`     | `create`, `step`, `runToEnd`, `runReplay` → `{ duration, scores }`                              | physics services below                        |
 
 `Simulation.Default` provides: `Match`, `Clock`, `Rng`, `Collision`, `World`, `Fighter`, `Input`, `Combat`, `Stock`, `Items` stub, `Renderer` stub. It does **not** require `FileSystem`. Tests `Layer.succeed` synthetic `Tables` and `LevelCollision` (a box stage).
 
@@ -111,11 +111,11 @@ Chunk 5/7 `events` and `otherEvents` are **ignored** in this slice.
 ### Public API (shape)
 
 ```ts
-Simulation.create(setup)      // Replay-like setup + injected tables/collision
-Simulation.step()             // one frame
-Simulation.runToEnd()         // step until Stock ends the match
-Simulation.runReplay(replay)  // create + runToEnd → { duration, scores }
-Simulation.snapshot()         // renderer/tests
+Simulation.create(setup); // Replay-like setup + injected tables/collision
+Simulation.step(); // one frame
+Simulation.runToEnd(); // step until Stock ends the match
+Simulation.runReplay(replay); // create + runToEnd → { duration, scores }
+Simulation.snapshot(); // renderer/tests
 ```
 
 `runReplay` does **not** fail when results differ from the file. It returns simulated `{ duration, scores }`. Tests assert equality. `results.endValue` is filled when the dump mapping is known; it is not the pass/fail bar.
@@ -155,12 +155,12 @@ Collision geometry is **XML only**. If a map’s lines exist only as Flash graph
 
 Replay/SWZ/IO tags stay in those packages. Sim adds:
 
-| Tag | When |
-| --- | --- |
+| Tag                | When                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `UnsupportedMatch` | Not STOCK; player count not 2 or 4; not valid 1v1/2v2 teams; `heroSlotCount !== 1`; weapon/gadget spawns not off |
-| `MissingTables` | Required table row missing (hero, hurtbox, unarmed power, level, scoring) |
-| `MissingCollision` | No XML collision for `level.id` |
-| `SimulationFault` | Tick invariant broken (NaN, input `entityId` with no fighter) |
+| `MissingTables`    | Required table row missing (hero, hurtbox, unarmed power, level, scoring)                                        |
+| `MissingCollision` | No XML collision for `level.id`                                                                                  |
+| `SimulationFault`  | Tick invariant broken (NaN, input `entityId` with no fighter)                                                    |
 
 `IoError` / `MalformedJson` / `InvalidReplay` / `ChecksumMismatch` / SWZ errors propagate unchanged from loaders.
 

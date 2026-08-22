@@ -55,6 +55,7 @@ describe("legend pick loadout", () => {
           guests: [],
           bots: [],
         }),
+        1,
       ),
     );
     const bits = new BitReader(payload);

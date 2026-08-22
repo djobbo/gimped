@@ -44,6 +44,8 @@ export type GameChildState = {
   readonly lastTickAdvanceAtMs: number;
   /** Wall clock ms when phase became activeMatch. */
   readonly enteredActiveMatchAtMs: number;
+  /** Humans who left mid-match but may reconnect (multi-player). */
+  readonly disconnectedUserIds: ReadonlyArray<number>;
 };
 
 /** Intro sync goes quiet ~500ms before the fight starts. */
@@ -175,4 +177,5 @@ export const initialGameChildState = (
   lastIntroSyncAtMs: 0,
   lastTickAdvanceAtMs: 0,
   enteredActiveMatchAtMs: 0,
+  disconnectedUserIds: [],
 });

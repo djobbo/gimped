@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   buildInitialSync,
   buildLevelReadySync,
+  buildQuitSync,
   decodeEntitySpawn,
   decodeGameServerReady,
   decodeSessionSync,
@@ -115,6 +116,44 @@ describe("game sync", () => {
       _tag: "GameServerReady",
       ready: true,
       tick: 42,
+    });
+  });
+
+  it("quit sync is 10312 scoreboard/EndMatch, not 12002", () => {
+    const frames = buildQuitSync({
+      phase: "activeMatch",
+      includeBot: false,
+      connected: true,
+      tick: 16,
+      clientTick: 16,
+      clientSimTick: 16,
+      simReady: true,
+      entities: [{ entityId: 1, userId: 1, stocks: 3, damage: 0, x: 0, y: 0 }],
+      entityInputs: {},
+      inputQueue: [],
+      udpAckSeq: 0,
+      udpSendSeq: 0,
+      udpSessionId: 1,
+      lastIntroSyncAtMs: 0,
+      lastTickAdvanceAtMs: 0,
+      enteredActiveMatchAtMs: 0,
+      disconnectedUserIds: [],
+    });
+    expect(frames.map((frame) => frame.type)).toEqual([PacketType.entitySpawn]);
+    expect(decodeEntitySpawn(frames[0]!.payload)).toEqual({
+      _tag: "EntitySpawn",
+      entities: [
+        {
+          entityId: 1,
+          field2: 0,
+          name: "Gimped",
+          field4: "",
+          field5: 1,
+          userId: 1,
+          field7: 1,
+          field8: false,
+        },
+      ],
     });
   });
 });

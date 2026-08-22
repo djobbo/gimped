@@ -1,9 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const dump = path.resolve(
-  "C:/Users/mrxbl/Desktop/gimped/brawlhalla-src/dump/scripts/class_725.as",
-);
+const dump = path.resolve("C:/Users/mrxbl/Desktop/gimped/brawlhalla-src/dump/scripts/class_725.as");
 const src = fs.readFileSync(dump, "utf8");
 let id = 15;
 const byId = new Map();
@@ -25,7 +23,7 @@ const out = `/** Generated from class_725.as LinkUpdater.var_7032 assignments. *
 export const dumpNameByType = {
 ${entries},
 } as const;
-`
+`;
 
 const dest = path.resolve("apps/backend/src/dump-names.ts");
 fs.mkdirSync(path.dirname(dest), { recursive: true });

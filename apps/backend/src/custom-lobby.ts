@@ -527,3 +527,21 @@ export const lobbyGuestJoinFrame = (guest: LobbyState["guests"][number]): TcpFra
   seq: undefined,
   payload: encodeLocalGuestJoin(guest),
 });
+
+/** LinkUpdater.method_7553 — packed userId + bool (false = self actually left). */
+export const spectateLeaveSelfFrame = (userId = STUB_USER_ID): TcpFrame => {
+  const bits = new BitWriter();
+  bits.writePackedU32(userId);
+  bits.writeBool(false);
+  return { type: PacketType.recvSpectateLeave, seq: undefined, payload: bits.toUint8Array() };
+};
+
+/** LinkUpdater.method_5357 — bool bot, else packed userId + packed controller + silent. */
+export const recvLeaveFrame = (userId: number, controller: number): TcpFrame => {
+  const bits = new BitWriter();
+  bits.writeBool(false);
+  bits.writePackedU32(userId);
+  bits.writePackedU32(controller);
+  bits.writeBool(true);
+  return { type: PacketType.recvLeave, seq: undefined, payload: bits.toUint8Array() };
+};

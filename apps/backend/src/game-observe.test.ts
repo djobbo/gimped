@@ -10,7 +10,7 @@ describe("game observe", () => {
       payload: new Uint8Array([0x04, 0x00, 0x19, 0x9d, 0xa5, 0xb5, 0xc1, 0x95, 0x90]),
     });
     expect(observed.known).toBe(true);
-    expect(observed.summary).toContain("gameConnect");
+    expect(observed.summary).toContain("gameserverLoginRejoin");
   });
 
   it("marks unmapped ids as unknown", () => {

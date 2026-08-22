@@ -117,4 +117,68 @@ describe("room registry replies", () => {
       }
     }).pipe(Effect.provide(freshRoomLayer())),
   );
+
+  it.effect("85 after create is exit-scoreboard and replies 2402 plus 2445", () =>
+    Effect.gen(function* () {
+      yield* handleRoomFrame(
+        { type: PacketType.createCustomRoom, seq: 0, payload: new Uint8Array() },
+        1,
+      );
+      const result = yield* handleRoomFrame(
+        { type: PacketType.exitScoreboard, seq: 0, payload: new Uint8Array() },
+        1,
+      );
+      expect(result.replies.map((frame) => frame.type)).toEqual([
+        PacketType.exitScoreboardResponse,
+        PacketType.customLobby,
+      ]);
+      expect(result.replies[0]?.payload.length).toBe(0);
+    }).pipe(Effect.provide(freshRoomLayer())),
+  );
+
+  it.effect("81 after create replies 2412 and removes the empty room", () =>
+    Effect.gen(function* () {
+      yield* handleRoomFrame(
+        { type: PacketType.createCustomRoom, seq: 0, payload: new Uint8Array() },
+        1,
+      );
+      const result = yield* handleRoomFrame(
+        { type: PacketType.leaveLobby, seq: 0, payload: new Uint8Array() },
+        1,
+      );
+      expect(result.replies.map((frame) => frame.type)).toEqual([PacketType.recvSpectateLeave]);
+      const registry = yield* RoomRegistry;
+      expect(Option.isNone(yield* registry.roomForConnection(1))).toBe(true);
+    }).pipe(Effect.provide(freshRoomLayer())),
+  );
+
+  it.effect("81 from a joiner keeps the host room", () =>
+    Effect.gen(function* () {
+      yield* handleRoomFrame(
+        { type: PacketType.createCustomRoom, seq: 0, payload: new Uint8Array() },
+        1,
+      );
+      const bits = new BitWriter();
+      bits.writePackedU32(1);
+      bits.writeBool(false);
+      bits.writeBool(true);
+      yield* handleRoomFrame(
+        { type: PacketType.joinCustomRoom, seq: 0, payload: bits.toUint8Array() },
+        2,
+      );
+      const left = yield* handleRoomFrame(
+        { type: PacketType.leaveLobby, seq: 0, payload: new Uint8Array() },
+        2,
+      );
+      expect(left.replies.map((frame) => frame.type)).toEqual([PacketType.recvSpectateLeave]);
+      const registry = yield* RoomRegistry;
+      expect(Option.isNone(yield* registry.roomForConnection(2))).toBe(true);
+      const hostRoom = yield* registry.roomForConnection(1);
+      expect(Option.isSome(hostRoom)).toBe(true);
+      if (Option.isSome(hostRoom)) {
+        expect(hostRoom.value.members).toHaveLength(1);
+        expect(hostRoom.value.lobby.guests).toHaveLength(0);
+      }
+    }).pipe(Effect.provide(freshRoomLayer())),
+  );
 });

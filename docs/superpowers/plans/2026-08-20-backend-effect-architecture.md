@@ -24,35 +24,37 @@
 
 ## File map
 
-| File | Responsibility |
-| --- | --- |
-| `apps/backend/src/messages.ts` | Schema defs: `TcpFrame`, `DecodedPayload` union, `HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult` |
-| `apps/backend/src/errors.ts` | `UdpBindError`, `MatchSpecParseError` (+ re-export room/runtime errors later if desired; OK to leave room errors in place) |
-| `apps/backend/src/framing.ts` | Re-export `TcpFrame` type from messages; keep sync encode/decode |
-| `apps/backend/src/decode.ts` | Use `DecodedPayload` schema type; return same shapes |
-| Codec modules (`login-accepted.ts`, `custom-lobby.ts`, …) | Align exported `_tag` types with `DecodedPayload` members (type-only / literal returns) |
-| `apps/backend/src/replies.ts` | `HandleFrameResult` schema type; sync `handleFrame` |
-| `apps/backend/src/game-child-protocol.ts` | Schema-typed action/result; keep sync `protocolIngest` |
-| `apps/backend/src/session.ts` | `Session` as `Context.Service` + `layer(outDir)` |
-| `apps/backend/src/capture.ts` | `Capture` as `Context.Service` + `layer`; yield `Session` in `watchDiagnostics` |
-| `apps/backend/src/udp-bind.ts` | Fail with `UdpBindError` |
-| `apps/backend/src/match-spec.ts` | `decodeSetupArg` / ready-line helpers map Schema failures → `MatchSpecParseError` at Effect call sites |
-| `apps/backend/src/stub.ts` | Yield `Session` instead of taking session arg |
-| `apps/backend/src/commands/listen.ts` | Provide `Session.layer` + `Capture.layer` |
-| `apps/backend/src/commands/game-listen.ts` | Typed parse errors for setup argv |
-| Tests | Update imports/layer provides only; preserve assertions |
+| File                                                      | Responsibility                                                                                                             |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `apps/backend/src/messages.ts`                            | Schema defs: `TcpFrame`, `DecodedPayload` union, `HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult`         |
+| `apps/backend/src/errors.ts`                              | `UdpBindError`, `MatchSpecParseError` (+ re-export room/runtime errors later if desired; OK to leave room errors in place) |
+| `apps/backend/src/framing.ts`                             | Re-export `TcpFrame` type from messages; keep sync encode/decode                                                           |
+| `apps/backend/src/decode.ts`                              | Use `DecodedPayload` schema type; return same shapes                                                                       |
+| Codec modules (`login-accepted.ts`, `custom-lobby.ts`, …) | Align exported `_tag` types with `DecodedPayload` members (type-only / literal returns)                                    |
+| `apps/backend/src/replies.ts`                             | `HandleFrameResult` schema type; sync `handleFrame`                                                                        |
+| `apps/backend/src/game-child-protocol.ts`                 | Schema-typed action/result; keep sync `protocolIngest`                                                                     |
+| `apps/backend/src/session.ts`                             | `Session` as `Context.Service` + `layer(outDir)`                                                                           |
+| `apps/backend/src/capture.ts`                             | `Capture` as `Context.Service` + `layer`; yield `Session` in `watchDiagnostics`                                            |
+| `apps/backend/src/udp-bind.ts`                            | Fail with `UdpBindError`                                                                                                   |
+| `apps/backend/src/match-spec.ts`                          | `decodeSetupArg` / ready-line helpers map Schema failures → `MatchSpecParseError` at Effect call sites                     |
+| `apps/backend/src/stub.ts`                                | Yield `Session` instead of taking session arg                                                                              |
+| `apps/backend/src/commands/listen.ts`                     | Provide `Session.layer` + `Capture.layer`                                                                                  |
+| `apps/backend/src/commands/game-listen.ts`                | Typed parse errors for setup argv                                                                                          |
+| Tests                                                     | Update imports/layer provides only; preserve assertions                                                                    |
 
 ---
 
 ### Task 1: Message schemas (`TcpFrame` + `DecodedPayload`)
 
 **Files:**
+
 - Create: `apps/backend/src/messages.ts`
 - Modify: `apps/backend/src/framing.ts`
 - Modify: `apps/backend/src/decode.ts`
 - Test: `apps/backend/src/framing.test.ts`, `apps/backend/src/decode.test.ts` (existing — must keep passing)
 
 **Interfaces:**
+
 - Consumes: none
 - Produces:
   - `TcpFrame` schema + `type TcpFrame = typeof TcpFrame.Type`
@@ -309,12 +311,14 @@ git commit -m "refactor(backend): schema-type TcpFrame and DecodedPayload"
 ### Task 2: Protocol ADT schemas (`HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult`)
 
 **Files:**
+
 - Modify: `apps/backend/src/messages.ts`
 - Modify: `apps/backend/src/replies.ts`
 - Modify: `apps/backend/src/game-child-protocol.ts`
 - Test: `apps/backend/src/replies.test.ts`, `apps/backend/src/game-child-protocol.test.ts`, `apps/backend/src/game-replies.test.ts`
 
 **Interfaces:**
+
 - Consumes: `TcpFrame` from Task 1
 - Produces:
   - `HandleFrameResult` schema + type
@@ -394,6 +398,7 @@ git commit -m "refactor(backend): schema-type reply and game protocol ADTs"
 ### Task 3: Typed errors (`UdpBindError`, `MatchSpecParseError`)
 
 **Files:**
+
 - Create: `apps/backend/src/errors.ts`
 - Modify: `apps/backend/src/udp-bind.ts`
 - Modify: `apps/backend/src/match-spec.ts`
@@ -401,6 +406,7 @@ git commit -m "refactor(backend): schema-type reply and game protocol ADTs"
 - Test: add `apps/backend/src/errors.test.ts`; touch `apps/backend/src/match-spec.test.ts` if needed
 
 **Interfaces:**
+
 - Consumes: none
 - Produces:
   - `class UdpBindError extends Schema.TaggedError<UdpBindError>()("UdpBindError", { host: Schema.String, message: Schema.String })`
@@ -456,19 +462,20 @@ export class MatchSpecParseError extends Schema.TaggedError<MatchSpecParseError>
 In `udp-bind.ts`, change the bind callback failure from bare `Error` to:
 
 ```ts
-yield* Effect.callback<void, UdpBindError>((resume) => {
-  socket.once("error", (error) =>
-    resume(
-      Effect.fail(
-        new UdpBindError({
-          host,
-          message: error instanceof Error ? error.message : String(error),
-        }),
+yield *
+  Effect.callback<void, UdpBindError>((resume) => {
+    socket.once("error", (error) =>
+      resume(
+        Effect.fail(
+          new UdpBindError({
+            host,
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        ),
       ),
-    ),
-  );
-  socket.bind(0, host, () => resume(Effect.void));
-});
+    );
+    socket.bind(0, host, () => resume(Effect.void));
+  });
 ```
 
 Keep `runUdpListener` behavior identical.
@@ -480,16 +487,14 @@ In `match-spec.ts` add (keep existing sync helpers for Flag defaults / parent sp
 ```ts
 export const decodeSetupArgEffect = (text: string) =>
   Schema.decodeUnknownEffect(MatchSetupArgLine)(text).pipe(
-    Effect.mapError(
-      (error) => new MatchSpecParseError({ reason: String(error) }),
-    ),
+    Effect.mapError((error) => new MatchSpecParseError({ reason: String(error) })),
   );
 ```
 
 In `game-listen.ts`, replace `const setup = decodeSetupArg(config.setup)` with:
 
 ```ts
-const setup = yield* decodeSetupArgEffect(config.setup);
+const setup = yield * decodeSetupArgEffect(config.setup);
 ```
 
 Do **not** change how the parent encodes `--setup` (`encodeSetupArg` stays sync).
@@ -514,6 +519,7 @@ git commit -m "refactor(backend): add UdpBindError and MatchSpecParseError"
 ### Task 4: `Session` Context.Service
 
 **Files:**
+
 - Modify: `apps/backend/src/session.ts`
 - Modify: `apps/backend/src/session.test.ts`
 - Modify: `apps/backend/src/stub.ts`
@@ -521,6 +527,7 @@ git commit -m "refactor(backend): add UdpBindError and MatchSpecParseError"
 - Modify: `apps/backend/src/commands/listen.ts` (partial — provide layer; Capture in Task 5)
 
 **Interfaces:**
+
 - Consumes: `FileSystem`, `Path`, `TcpFrame`
 - Produces:
 
@@ -528,14 +535,14 @@ git commit -m "refactor(backend): add UdpBindError and MatchSpecParseError"
 export class Session extends Context.Service<
   Session,
   {
-    readonly dir: string
-    readonly packetsPath: string
-    readonly record: (connection: number, frame: TcpFrame) => Effect.Effect<CapturedPacket>
-    readonly note: (line: string) => Effect.Effect<void>
+    readonly dir: string;
+    readonly packetsPath: string;
+    readonly record: (connection: number, frame: TcpFrame) => Effect.Effect<CapturedPacket>;
+    readonly note: (line: string) => Effect.Effect<void>;
   }
 >()("@gimped/backend/Session") {
   static layer = (outDir: string): Layer.Layer<Session, never, FileSystem.FileSystem | Path.Path> =>
-    Layer.effect(Session, /* former createSession body, return Session.of({...}) */)
+    Layer.effect(Session /* former createSession body, return Session.of({...}) */);
 }
 ```
 
@@ -546,13 +553,15 @@ export class Session extends Context.Service<
 
 ```ts
 layer(NodeServices.layer)("capture session", (it) => {
-  it.effect("appends decoded packets as JSON lines", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const temp = yield* fs.makeTempDirectory({ prefix: "session-" });
-      const session = yield* Session;
-      // ... same assertions using session.record / session.packetsPath
-    }).pipe(Effect.provide(Session.layer(temp))), // NOTE: temp must be created first — nest provides:
+  it.effect(
+    "appends decoded packets as JSON lines",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const temp = yield* fs.makeTempDirectory({ prefix: "session-" });
+        const session = yield* Session;
+        // ... same assertions using session.record / session.packetsPath
+      }).pipe(Effect.provide(Session.layer(temp))), // NOTE: temp must be created first — nest provides:
   );
 });
 ```
@@ -567,7 +576,7 @@ Effect.gen(function* () {
     const session = yield* Session;
     // record + assert
   }).pipe(Effect.provide(Session.layer(temp)));
-})
+});
 ```
 
 - [ ] **Step 2: Run session test — expect FAIL**
@@ -625,11 +634,13 @@ git commit -m "refactor(backend): Session Context.Service layer"
 ### Task 5: `Capture` Context.Service + listen composition
 
 **Files:**
+
 - Modify: `apps/backend/src/capture.ts`
 - Modify: `apps/backend/src/commands/listen.ts`
 - Test: existing listen/stub tests; add thin `capture` unit if easy
 
 **Interfaces:**
+
 - Consumes: `Session`, `FileSystem`, `Path`, `ChildProcess` spawner as today
 - Produces:
 
@@ -637,25 +648,26 @@ git commit -m "refactor(backend): Session Context.Service layer"
 export class Capture extends Context.Service<
   Capture,
   {
-    readonly startTshark: (
-      port: number,
-      pcapPath: string,
-    ) => Effect.Effect<Option.Option<string>>
-    readonly watchDiagnostics: (
-      sessionDir: string,
-      documents: string,
-    ) => Effect.Effect<void>
+    readonly startTshark: (port: number, pcapPath: string) => Effect.Effect<Option.Option<string>>;
+    readonly watchDiagnostics: (sessionDir: string, documents: string) => Effect.Effect<void>;
   }
 >()("@gimped/backend/Capture") {
-  static readonly layer: Layer.Layer<Capture, never, /* FS Path Session ChildProcess deps */> =
-    Layer.effect(Capture, Effect.gen(function* () {
-      const startTshark = Effect.fn("Capture.startTshark")(function* (port, pcapPath) { /* move body */ });
-      const watchDiagnostics = Effect.fn("Capture.watchDiagnostics")(function* (sessionDir, documents) {
-        const session = yield* Session;
-        // former body using session.note instead of note callback
-      });
-      return Capture.of({ startTshark, watchDiagnostics });
-    }))
+  static readonly layer: Layer.Layer<Capture, never /* FS Path Session ChildProcess deps */> =
+    Layer.effect(
+      Capture,
+      Effect.gen(function* () {
+        const startTshark = Effect.fn("Capture.startTshark")(function* (port, pcapPath) {
+          /* move body */
+        });
+        const watchDiagnostics = Effect.fn("Capture.watchDiagnostics")(
+          function* (sessionDir, documents) {
+            const session = yield* Session;
+            // former body using session.note instead of note callback
+          },
+        );
+        return Capture.of({ startTshark, watchDiagnostics });
+      }),
+    );
 }
 ```
 
@@ -668,36 +680,34 @@ export class Capture extends Context.Service<
 Today `watchDiagnostics` already `Effect.forkScoped`s the `fs.watch` stream internally and returns after setup — call it the same way (do **not** wrap the whole method in another fork):
 
 ```ts
-yield* Effect.scoped(
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const outRoot = Option.getOrElse(config.out, () => path.join(packageRoot, "captures"));
-    const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
-    const { bindHost, advertiseHost } = resolveListenHosts(config.host);
-    const session = yield* Session;
-    const capture = yield* Capture;
+yield *
+  Effect.scoped(
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const outRoot = Option.getOrElse(config.out, () => path.join(packageRoot, "captures"));
+      const docs = Option.getOrElse(config.documents, () => path.join(homedir(), "Documents"));
+      const { bindHost, advertiseHost } = resolveListenHosts(config.host);
+      const session = yield* Session;
+      const capture = yield* Capture;
 
-    yield* Effect.log(launchHelp(advertiseHost, config.port));
-    if (advertiseHost !== bindHost) {
-      yield* Effect.log(
-        `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
+      yield* Effect.log(launchHelp(advertiseHost, config.port));
+      if (advertiseHost !== bindHost) {
+        yield* Effect.log(
+          `Remote host: bind=${bindHost} advertise=${advertiseHost} (game 2466 uses advertise)`,
+        );
+      }
+      yield* capture.watchDiagnostics(session.dir, docs);
+      if (config.tshark) {
+        yield* capture.startTshark(config.port, path.join(session.dir, "capture.pcapng"));
+      }
+      yield* runStub({ label: "backend", startId: 1 }).pipe(
+        Effect.provide(NodeSocketServer.layer({ host: bindHost, port: config.port })),
+        Effect.provide(GameRuntime.layerChildProcess({ bindHost, advertiseHost })),
+        Effect.provide(RoomRegistry.layerMemory),
+        Effect.provide(ConnectionHub.layerMemory),
       );
-    }
-    yield* capture.watchDiagnostics(session.dir, docs);
-    if (config.tshark) {
-      yield* capture.startTshark(config.port, path.join(session.dir, "capture.pcapng"));
-    }
-    yield* runStub({ label: "backend", startId: 1 }).pipe(
-      Effect.provide(NodeSocketServer.layer({ host: bindHost, port: config.port })),
-      Effect.provide(GameRuntime.layerChildProcess({ bindHost, advertiseHost })),
-      Effect.provide(RoomRegistry.layerMemory),
-      Effect.provide(ConnectionHub.layerMemory),
-    );
-  }).pipe(
-    Effect.provide(Capture.layer),
-    Effect.provide(Session.layer(outRoot)),
-  ),
-);
+    }).pipe(Effect.provide(Capture.layer), Effect.provide(Session.layer(outRoot))),
+  );
 ```
 
 Provide order: `Session.layer(outRoot)` must be available to `Capture.layer` (Capture’s `watchDiagnostics` yields `Session`). If Layer dependency requires it, use `Capture.layer.pipe(Layer.provide(Session.layer(outRoot)))` merged appropriately — preserve runtime behavior.
@@ -722,11 +732,13 @@ git commit -m "refactor(backend): Capture service and listen layer composition"
 ### Task 6: Sweep `Effect.fn` / final verification
 
 **Files:**
+
 - Modify: any remaining orchestration helpers that are Effectful vanilla functions (`net-host.ts` is pure sync — leave sync; `describeAddress` / `matchSpecFromLobby` stay sync per spec)
 - Ensure `connection-hub.ts` / `room-registry.ts` / `game-runtime.ts` already compliant (no drive-by rewrites)
 - Run full check
 
 **Interfaces:**
+
 - Consumes: all prior tasks
 - Produces: green `vp check --fix` + `vp test`
 
@@ -760,19 +772,19 @@ git commit -m "chore(backend): finish Effect architecture sweep"
 
 ## Spec coverage checklist
 
-| Spec requirement | Task |
-| --- | --- |
-| Schema-typed `TcpFrame`, `DecodedPayload` | Task 1 |
-| Schema-typed `HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult` | Task 2 |
-| Keep IPC `MatchSpec` / `GameListenReady`; typed parse errors | Task 3 |
-| `UdpBindError` | Task 3 |
-| Skip `DecodeError` / `BackendReplies` | (explicit non-goals) |
-| `Session` service + layer | Task 4 |
-| `Capture` service; yield `Session` for notes | Task 5 |
-| listen composition | Task 5 |
-| Hot path sync / no Schema on tick | Tasks 1–2, verified Task 6 |
-| `Effect.fn` at services/commands | Tasks 3–5 |
-| No functionality change; tests pass | All + Task 6 |
+| Spec requirement                                                               | Task                       |
+| ------------------------------------------------------------------------------ | -------------------------- |
+| Schema-typed `TcpFrame`, `DecodedPayload`                                      | Task 1                     |
+| Schema-typed `HandleFrameResult`, `GameProtocolAction`, `ProtocolIngestResult` | Task 2                     |
+| Keep IPC `MatchSpec` / `GameListenReady`; typed parse errors                   | Task 3                     |
+| `UdpBindError`                                                                 | Task 3                     |
+| Skip `DecodeError` / `BackendReplies`                                          | (explicit non-goals)       |
+| `Session` service + layer                                                      | Task 4                     |
+| `Capture` service; yield `Session` for notes                                   | Task 5                     |
+| listen composition                                                             | Task 5                     |
+| Hot path sync / no Schema on tick                                              | Tasks 1–2, verified Task 6 |
+| `Effect.fn` at services/commands                                               | Tasks 3–5                  |
+| No functionality change; tests pass                                            | All + Task 6               |
 
 ## Plan self-review notes
 

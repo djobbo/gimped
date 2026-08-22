@@ -11,6 +11,7 @@ export const gameActionFor = (
   spec: {
     readonly userId: number;
     readonly token: string;
+    readonly levelId: number;
     readonly includeBot: boolean;
     readonly setup: MatchSetupSpec;
   },

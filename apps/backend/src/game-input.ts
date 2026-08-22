@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { BitReader, BitWriter } from "./bitstream.ts";
 import type { GameChildState } from "./game-child-model.ts";
 import {
@@ -47,12 +48,13 @@ export const decodeMove = (payload: Uint8Array) => {
   };
 };
 
-export const decodeGameInput = (type: number, payload: Uint8Array): GameInput | undefined => {
-  if (type === PacketType.simReady) return decodeSimReady(payload);
-  if (type === PacketType.tickAck) return decodeTickAck(payload);
-  if (type === PacketType.moveInput) return decodeMove(payload);
-  return undefined;
-};
+export const decodeGameInput = (type: number, payload: Uint8Array): GameInput | undefined =>
+  Match.value(type).pipe(
+    Match.when(PacketType.simReady, () => decodeSimReady(payload)),
+    Match.when(PacketType.tickAck, () => decodeTickAck(payload)),
+    Match.when(PacketType.moveInput, () => decodeMove(payload)),
+    Match.orElse(() => undefined),
+  );
 
 /** LinkUpdater.method_6892 — child→client tick pulse during active match. */
 export const encodeTickPulse = (tick: number): Uint8Array => {

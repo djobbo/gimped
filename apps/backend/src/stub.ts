@@ -1,4 +1,4 @@
-import { Effect, Option, Ref } from "effect";
+import { Effect, Match, Option, Ref } from "effect";
 import * as Socket from "effect/unstable/socket/Socket";
 import * as SocketServer from "effect/unstable/socket/SocketServer";
 import { encodeAssignGameServer, STUB_GAME_TOKEN, STUB_LEVEL_ID } from "./assign-game-server.ts";
@@ -9,6 +9,7 @@ import { GameRuntime } from "./game-runtime.ts";
 import { STUB_USER_ID } from "./login-accepted.ts";
 import { MatchSetupSpec, MatchSpec } from "./match-spec.ts";
 import type { LobbyState } from "./lobby-state.ts";
+import type { DecodedPayload } from "./messages.ts";
 import { nameForType, PacketType } from "./packets.ts";
 import { handleFrame } from "./replies.ts";
 import { handleRoomFrame, isRoomPacket } from "./room-replies.ts";
@@ -16,7 +17,30 @@ import { RoomRegistry } from "./room-registry.ts";
 import { Session } from "./session.ts";
 
 const describeAddress = (address: SocketServer.Address): string =>
-  address._tag === "TcpAddress" ? `${address.hostname}:${address.port}` : address.path;
+  Match.valueTags(address, {
+    TcpAddress: (tcp) => `${tcp.hostname}:${tcp.port}`,
+    UnixAddress: (unix) => unix.path,
+  });
+
+const summarizeDecoded = (decoded: DecodedPayload, payloadBytes: number): string =>
+  Match.value(decoded).pipe(
+    Match.tags({
+      ProtocolHello: (packet) => packet.text,
+      ClientVersion: (packet) => `stamp=${packet.versionStamp} platform=${packet.platformId}`,
+      LoginRequest: (packet) => `ticket=${packet.ticketBytes} bytes`,
+      LoginAccepted: (packet) => `user=${packet.userId} name=${packet.displayName}`,
+      CreateCustomRoom: (packet) =>
+        `playlist=${packet.playlistId} customType=${packet.customGameType}`,
+      CustomLobby: (packet) =>
+        `room=${packet.roomCode} host=${packet.hostUserId} max=${packet.maxPlayers} region=${packet.regionId}`,
+      LobbySettings: (packet) => `max=${packet.maxPlayers} region=${packet.regionId}`,
+      LegendPick: (packet) => `hero=${packet.heroId} bot=${packet.isBot}`,
+      AddBot: (packet) => `controller=${packet.controller}`,
+      StartMatch: () => "play",
+      AssignGameServer: (packet) => `${packet.host}:${packet.tcpPort}/${packet.udpPort}`,
+    }),
+    Match.orElse(() => `${payloadBytes} bytes`),
+  );
 
 const matchSpecFromLobby = (lobby: LobbyState): MatchSpec =>
   new MatchSpec({
@@ -62,30 +86,7 @@ export const ingestChunk = Effect.fn("ingestChunk")(function* (
   for (const frame of frames) {
     const captured = yield* session.record(connection, frame);
     const decoded = decodePayload(frame.type, frame.payload);
-    const summary =
-      decoded._tag === "ProtocolHello"
-        ? decoded.text
-        : decoded._tag === "ClientVersion"
-          ? `stamp=${decoded.versionStamp} platform=${decoded.platformId}`
-          : decoded._tag === "LoginRequest"
-            ? `ticket=${decoded.ticketBytes} bytes`
-            : decoded._tag === "LoginAccepted"
-              ? `user=${decoded.userId} name=${decoded.displayName}`
-              : decoded._tag === "CreateCustomRoom"
-                ? `playlist=${decoded.playlistId} customType=${decoded.customGameType}`
-                : decoded._tag === "CustomLobby"
-                  ? `room=${decoded.roomCode} host=${decoded.hostUserId} max=${decoded.maxPlayers} region=${decoded.regionId}`
-                  : decoded._tag === "LobbySettings"
-                    ? `max=${decoded.maxPlayers} region=${decoded.regionId}`
-                    : decoded._tag === "LegendPick"
-                      ? `hero=${decoded.heroId} bot=${decoded.isBot}`
-                      : decoded._tag === "AddBot"
-                        ? `controller=${decoded.controller}`
-                        : decoded._tag === "StartMatch"
-                          ? "play"
-                          : decoded._tag === "AssignGameServer"
-                            ? `${decoded.host}:${decoded.tcpPort}/${decoded.udpPort}`
-                            : `${frame.payload.length} bytes`;
+    const summary = summarizeDecoded(decoded, frame.payload.length);
     yield* Effect.log(
       `conn=${connection} type=${frame.type} ${nameForType(frame.type)} seq=${frame.seq ?? "-"} ${summary}`,
     );

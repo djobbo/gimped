@@ -24,23 +24,23 @@
 
 ## File Structure
 
-| File | Role |
-| --- | --- |
-| `apps/backend/src/commands/game-listen.ts` | Child bootstrap only; create runtime + protocol loop |
-| `apps/backend/src/game-replies.ts` | Transitional handshake helper to be slimmed or removed |
-| `apps/backend/src/game-runtime.ts` | Backend-side child allocator (`allocate` / `release`) |
-| `apps/backend/src/game-child-runtime.ts` | New authoritative match runtime service for one child process |
-| `apps/backend/src/game-child-model.ts` | New pure-ish match state model and phase helpers |
-| `apps/backend/src/game-child-protocol.ts` | New child-side frame dispatch / reply encoding |
-| `apps/backend/src/game-child-loop.ts` | New fixed tick loop and outbound state emission |
-| `apps/backend/src/game-input.ts` | New decoders/types for gameplay-relevant inbound packets |
-| `apps/backend/src/game-sync.ts` | New initial sync packet builders beyond `10310` |
-| `apps/backend/src/decode.ts` | Add decode helpers for newly mapped game packets |
-| `apps/backend/src/packets.ts` | Add names for newly identified packet ids |
-| `apps/backend/src/stub.ts` | Expand `MatchSpec` inputs only if proven necessary |
-| `apps/backend/src/match-spec.ts` | Extend `MatchSpec` only when child startup truly needs more data |
+| File                                           | Role                                                             |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| `apps/backend/src/commands/game-listen.ts`     | Child bootstrap only; create runtime + protocol loop             |
+| `apps/backend/src/game-replies.ts`             | Transitional handshake helper to be slimmed or removed           |
+| `apps/backend/src/game-runtime.ts`             | Backend-side child allocator (`allocate` / `release`)            |
+| `apps/backend/src/game-child-runtime.ts`       | New authoritative match runtime service for one child process    |
+| `apps/backend/src/game-child-model.ts`         | New pure-ish match state model and phase helpers                 |
+| `apps/backend/src/game-child-protocol.ts`      | New child-side frame dispatch / reply encoding                   |
+| `apps/backend/src/game-child-loop.ts`          | New fixed tick loop and outbound state emission                  |
+| `apps/backend/src/game-input.ts`               | New decoders/types for gameplay-relevant inbound packets         |
+| `apps/backend/src/game-sync.ts`                | New initial sync packet builders beyond `10310`                  |
+| `apps/backend/src/decode.ts`                   | Add decode helpers for newly mapped game packets                 |
+| `apps/backend/src/packets.ts`                  | Add names for newly identified packet ids                        |
+| `apps/backend/src/stub.ts`                     | Expand `MatchSpec` inputs only if proven necessary               |
+| `apps/backend/src/match-spec.ts`               | Extend `MatchSpec` only when child startup truly needs more data |
 | `apps/backend/docs/playable-match-protocol.md` | Checked-in packet/state inventory from the first live trace task |
-| `apps/backend/docs/next-step.md` | Manual validation instructions for each milestone |
+| `apps/backend/docs/next-step.md`               | Manual validation instructions for each milestone                |
 
 Colocate `*.test.ts` next to each source module.
 
@@ -114,7 +114,9 @@ import { decodePayload } from "./decode.ts";
 import type { TcpFrame } from "./framing.ts";
 import { nameForType } from "./packets.ts";
 
-export const observeGameFrame = (frame: TcpFrame): {
+export const observeGameFrame = (
+  frame: TcpFrame,
+): {
   readonly summary: string;
   readonly known: boolean;
 } => {
@@ -205,7 +207,8 @@ describe("game child runtime", () => {
       expect(yield* runtime.phase).toBe("waitingForConnect");
       yield* runtime.connect();
       expect(yield* runtime.phase).toBe("syncingIntoMatch");
-    }));
+    }),
+  );
 });
 ```
 
@@ -372,12 +375,13 @@ Implement `decodeGameInput()` only for the first inbound packet types needed to 
 In `game-child-loop.ts`, fork a fixed-rate loop that calls `runtime.tick()` and writes any returned frames. Keep the first cadence simple and explicit, for example:
 
 ```ts
-yield* Effect.forever(
-  runtime.tick().pipe(
-    Effect.flatMap((frames) => Effect.forEach(frames, (frame) => write(encodeFrame(frame)))),
-    Effect.zipRight(Effect.sleep("16 millis")),
-  ),
-);
+yield *
+  Effect.forever(
+    runtime.tick().pipe(
+      Effect.flatMap((frames) => Effect.forEach(frames, (frame) => write(encodeFrame(frame)))),
+      Effect.zipRight(Effect.sleep("16 millis")),
+    ),
+  );
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -438,7 +442,8 @@ it.effect("drops to matchOver when the final stock is lost", () =>
     });
     yield* runtime.tick();
     expect(yield* runtime.phase).toBe("matchOver");
-  }));
+  }),
+);
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -478,4 +483,3 @@ git commit -m "feat: add custom-match KO and match end flow"
 - **Spec coverage:** this plan covers discovery of the remaining protocol, child-side runtime decomposition, entry into active match, gameplay input handling, fixed tick simulation, and match end. Queues and rollback remain explicitly out of scope.
 - **Placeholder scan:** the only variable content is the exact post-`10310` and gameplay packet ids, which are made an explicit deliverable of Task 1 rather than left implicit.
 - **Type consistency:** later tasks consume `GameChildRuntime`, `GameChildState`, `GameInput`, and `buildInitialSync()` exactly as defined earlier in the plan.
-

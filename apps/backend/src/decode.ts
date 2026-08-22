@@ -1,3 +1,4 @@
+import { Match } from "effect";
 import { BitReader } from "./bitstream.ts";
 import { decodeAssignGameServer } from "./assign-game-server.ts";
 import {
@@ -38,127 +39,109 @@ const decodeLoginRequest = (payload: Uint8Array) => {
 
 export const decodePayload = (type: number, payload: Uint8Array): DecodedPayload => {
   try {
-    const bits = new BitReader(payload);
-    if (type === PacketType.protocolHello) {
-      return { _tag: "ProtocolHello", text: bits.readString() };
-    }
-    if (type === PacketType.clientVersion) {
-      return {
-        _tag: "ClientVersion",
-        versionStamp: bits.readPackedU32(),
-        platformId: bits.readPackedU32(),
-      };
-    }
-    if (type === PacketType.loginRequest || type === PacketType.loginRequestAlt) {
-      return decodeLoginRequest(payload);
-    }
-    if (type === PacketType.loginAccepted) {
-      return decodeLoginAccepted(payload);
-    }
-    if (type === PacketType.createCustomRoom) {
-      return {
-        _tag: "CreateCustomRoom",
-        flags: bits.readPackedU32(),
-        playlistId: bits.readPackedU32(),
-        customGameType: bits.readPackedU32(),
-      };
-    }
-    if (type === PacketType.customLobby) {
-      return decodeCustomLobby(payload);
-    }
-    if (type === PacketType.lobbySettings) {
-      return decodeLobbySettings(payload);
-    }
-    if (type === PacketType.legendPick) {
-      const pick = decodeLegendPick(payload);
-      return {
-        _tag: "LegendPick",
-        isBot: pick.isBot,
-        slotId: pick.slotId,
-        heroId: pick.heroId,
-        ready: pick.ready,
-      };
-    }
-    if (type === PacketType.addBot) {
-      const request = decodeAddBotRequest(payload);
-      return { _tag: "AddBot", controller: request.controller };
-    }
-    if (type === PacketType.lobbyJoin) {
-      return decodeAddBot(payload);
-    }
-    if (type === PacketType.startMatch) {
-      return { _tag: "StartMatch" };
-    }
-    if (type === PacketType.assignGameServer) {
-      return decodeAssignGameServer(payload);
-    }
-    if (type === PacketType.gameConnect) {
-      return decodeGameConnect(payload);
-    }
-    if (type === PacketType.matchSetup) {
-      return decodeMatchSetup(payload);
-    }
-    if (type === PacketType.sessionSync) {
-      return decodeSessionSync(payload);
-    }
-    if (type === PacketType.entitySpawn) {
-      return decodeEntitySpawn(payload);
-    }
-    if (type === PacketType.gameServerReady) {
-      return decodeGameServerReady(payload);
-    }
-    if (type === PacketType.postConnectAck || type === PacketType.levelReady) {
-      return decodePostConnectAck(payload);
-    }
-    if (type === PacketType.simReady) {
-      return decodeSimReady(payload);
-    }
-    if (type === PacketType.tickAck) {
-      return decodeTickAck(payload);
-    }
-    if (type === PacketType.moveInput) {
-      const move = decodeMove(payload);
-      return {
-        _tag: "MoveInput",
-        entityId: move.entityId,
-        tick: move.tick,
-        input: move.input,
-      };
-    }
-    if (
-      type === PacketType.introPlayerSync ||
-      type === PacketType.introEntitySync ||
-      type === PacketType.introAuxSync
-    ) {
-      return { _tag: "IntroSync", size: payload.length };
-    }
-    if (type === PacketType.tickPulse) {
-      if (payload.length === 0) {
-        return { _tag: "TickPulseEcho" };
-      }
-      const tickBits = new BitReader(payload);
-      return { _tag: "TickPulse", tick: tickBits.readPackedU32() };
-    }
-    if (type === PacketType.inputBroadcast) {
-      return { _tag: "InputBroadcast", size: payload.length };
-    }
-    if (type === PacketType.udpTunnel) {
-      return { _tag: "UdpTunnel", size: payload.length };
-    }
-    if (type === PacketType.entityState) {
-      const bits = new BitReader(payload);
-      return {
-        _tag: "EntityState",
-        entityId: bits.readPackedU32(),
-        tick: bits.readPackedU32(),
-        code: bits.readPackedU32(),
-      };
-    }
-    if (type === PacketType.entityRespawn) {
-      return { _tag: "EntityRespawn", size: payload.length };
-    }
+    return Match.value(type).pipe(
+      Match.when(PacketType.protocolHello, () => {
+        const bits = new BitReader(payload);
+        return { _tag: "ProtocolHello" as const, text: bits.readString() };
+      }),
+      Match.when(PacketType.clientVersion, () => {
+        const bits = new BitReader(payload);
+        return {
+          _tag: "ClientVersion" as const,
+          versionStamp: bits.readPackedU32(),
+          platformId: bits.readPackedU32(),
+        };
+      }),
+      Match.whenOr(PacketType.loginRequest, PacketType.loginRequestAlt, () =>
+        decodeLoginRequest(payload),
+      ),
+      Match.when(PacketType.loginAccepted, () => decodeLoginAccepted(payload)),
+      Match.when(PacketType.createCustomRoom, () => {
+        const bits = new BitReader(payload);
+        return {
+          _tag: "CreateCustomRoom" as const,
+          flags: bits.readPackedU32(),
+          playlistId: bits.readPackedU32(),
+          customGameType: bits.readPackedU32(),
+        };
+      }),
+      Match.when(PacketType.customLobby, () => decodeCustomLobby(payload)),
+      Match.when(PacketType.lobbySettings, () => decodeLobbySettings(payload)),
+      Match.when(PacketType.legendPick, () => {
+        const pick = decodeLegendPick(payload);
+        return {
+          _tag: "LegendPick" as const,
+          isBot: pick.isBot,
+          slotId: pick.slotId,
+          heroId: pick.heroId,
+          ready: pick.ready,
+        };
+      }),
+      Match.when(PacketType.addBot, () => {
+        const request = decodeAddBotRequest(payload);
+        return { _tag: "AddBot" as const, controller: request.controller };
+      }),
+      Match.when(PacketType.lobbyJoin, () => decodeAddBot(payload)),
+      Match.when(PacketType.startMatch, () => ({ _tag: "StartMatch" as const })),
+      Match.when(PacketType.assignGameServer, () => decodeAssignGameServer(payload)),
+      Match.when(PacketType.gameConnect, () => decodeGameConnect(payload)),
+      Match.when(PacketType.matchSetup, () => decodeMatchSetup(payload)),
+      Match.when(PacketType.sessionSync, () => decodeSessionSync(payload)),
+      Match.when(PacketType.entitySpawn, () => decodeEntitySpawn(payload)),
+      Match.when(PacketType.gameServerReady, () => decodeGameServerReady(payload)),
+      Match.whenOr(PacketType.postConnectAck, PacketType.levelReady, () =>
+        decodePostConnectAck(payload),
+      ),
+      Match.when(PacketType.simReady, () => decodeSimReady(payload)),
+      Match.when(PacketType.tickAck, () => decodeTickAck(payload)),
+      Match.when(PacketType.moveInput, () => {
+        const move = decodeMove(payload);
+        return {
+          _tag: "MoveInput" as const,
+          entityId: move.entityId,
+          tick: move.tick,
+          input: move.input,
+        };
+      }),
+      Match.whenOr(
+        PacketType.introPlayerSync,
+        PacketType.introEntitySync,
+        PacketType.introAuxSync,
+        () => ({ _tag: "IntroSync" as const, size: payload.length }),
+      ),
+      Match.when(PacketType.tickPulse, () =>
+        Match.value(payload.length).pipe(
+          Match.when(0, () => ({ _tag: "TickPulseEcho" as const })),
+          Match.orElse(() => {
+            const tickBits = new BitReader(payload);
+            return { _tag: "TickPulse" as const, tick: tickBits.readPackedU32() };
+          }),
+        ),
+      ),
+      Match.when(PacketType.inputBroadcast, () => ({
+        _tag: "InputBroadcast" as const,
+        size: payload.length,
+      })),
+      Match.when(PacketType.udpTunnel, () => ({
+        _tag: "UdpTunnel" as const,
+        size: payload.length,
+      })),
+      Match.when(PacketType.entityState, () => {
+        const bits = new BitReader(payload);
+        return {
+          _tag: "EntityState" as const,
+          entityId: bits.readPackedU32(),
+          tick: bits.readPackedU32(),
+          code: bits.readPackedU32(),
+        };
+      }),
+      Match.when(PacketType.entityRespawn, () => ({
+        _tag: "EntityRespawn" as const,
+        size: payload.length,
+      })),
+      Match.orElse(() => ({ _tag: "Unknown" as const })),
+    );
   } catch {
     return { _tag: "Unknown" };
   }
-  return { _tag: "Unknown" };
 };

@@ -32,6 +32,10 @@ export const ProtocolIngestResult = Schema.Struct({
       payload: Schema.instanceOf(Uint8Array),
     }),
   ),
+  shouldClose: Schema.optionalKey(Schema.Boolean),
+  shouldShutdown: Schema.optionalKey(Schema.Boolean),
+  quitUserId: Schema.optionalKey(Schema.Number),
+  reconnectUserId: Schema.optionalKey(Schema.Number),
 });
 export type ProtocolIngestResult = Omit<typeof ProtocolIngestResult.Type, "input"> & {
   readonly input?: GameInput;
